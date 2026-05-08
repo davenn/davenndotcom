@@ -200,6 +200,30 @@
 
         .app-card:hover .app-arrow { color: var(--text-primary); transform: translate(2px, -2px); }
 
+        .app-card--soon {
+            cursor: default;
+            opacity: 0.72;
+        }
+
+        .app-card--soon:hover {
+            border-color: var(--card-border);
+            transform: none;
+            box-shadow: none;
+        }
+
+        .app-badge-soon {
+            position: absolute;
+            top: 18px; right: 18px;
+            font-family: var(--font-mono);
+            font-size: 9px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            background: #111110;
+            color: rgba(255,255,255,0.7);
+            padding: 3px 8px;
+            border-radius: 4px;
+        }
+
         /* ── FOOTER ── */
         footer {
             border-top: 1px solid var(--card-border);
@@ -263,13 +287,13 @@
             <p class="app-desc">Millisecond-accurate multi-athlete split timer. Lap athletes individually or all at once, save sessions to a board.</p>
             <span class="app-tag">Athletics</span>
         </a>
-        <a class="app-card fade-in" href="toolbox.html">
-            <span class="app-arrow">↗</span>
+        <div class="app-card fade-in app-card--soon">
+            <span class="app-badge-soon">Coming Soon</span>
             <div class="app-icon">🔧</div>
             <div class="app-name">Toolshare</div>
             <p class="app-desc">Tool library for sharing with friends. See what friends own, request to borrow, approve loans, and track what's out.</p>
             <span class="app-tag">Community</span>
-        </a>
+        </div>
     </div>
 
 
