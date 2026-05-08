@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Toolbox — davenn.com</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@400;500&family=Syne:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #f7f5f0;
+  --surface:   #ffffff;
+  --surface2:  #f0ede6;
+  --border:    #e2ddd5;
+  --border2:   #ccc7be;
+  --text:      #1a1916;
+  --text2:     #6b6860;
+  --text3:     #b0aa9f;
+  --accent:    #1a1916;
+  --accent-bg: #1a1916;
+  --accent-fg: #ffffff;
+  --rust:      #c4522a;
+  --rust-bg:   #fdf0eb;
+  --rust-border: #f0c4b0;
+  --green:     #2a6644;
+  --green-bg:  #ebf5f0;
+  --green-border: #a8d4be;
+  --nav-h:     56px;
+  --tab-h:     48px;
+  --font-serif: 'Instrument Serif', serif;
+  --font-sans:  'Syne', sans-serif;
+  --font-mono:  'DM Mono', monospace;
+  --radius:     8px;
+  --shadow:     0 1px 3px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04);
+}
+
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-sans); }
+
+/* ══ SCROLLBAR ══ */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* ══ NAV ══ */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; height: var(--nav-h);
+  background: var(--accent-bg); border-bottom: 1px solid rgba(255,255,255,0.06);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 1.5rem; z-index: 300;
+}
+.nav-logo { font-family: var(--font-mono); font-size: 13px; color: rgba(255,255,255,0.4); text-decoration: none; }
+.nav-logo strong { color: #fff; }
+.nav-right { display: flex; align-items: center; gap: 1rem; }
+.nav-user { font-family: var(--font-mono); font-size: 12px; color: rgba(255,255,255,0.5); }
+.nav-user strong { color: rgba(255,255,255,0.85); }
+.nav-back { font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.4); text-decoration: none; letter-spacing: 0.05em; text-transform: uppercase; transition: color 0.15s; }
+.nav-back:hover { color: rgba(255,255,255,0.85); }
+.btn-logout { font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.35); background: none; border: none; cursor: pointer; letter-spacing: 0.04em; text-transform: uppercase; transition: color 0.15s; }
+.btn-logout:hover { color: rgba(255,255,255,0.75); }
+
+/* ══ TABS ══ */
+.tab-bar {
+  position: fixed; top: var(--nav-h); left: 0; right: 0; height: var(--tab-h);
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; z-index: 290;
+}
+.tab-btn {
+  flex: 1; height: 100%; font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: 0.07em; text-transform: uppercase; color: var(--text3);
+  background: none; border: none; cursor: pointer; position: relative;
+  border-bottom: 2px solid transparent; transition: color 0.15s;
+}
+.tab-btn.active { color: var(--text); border-bottom-color: var(--text); }
+.tab-badge {
+  display: none; position: absolute; top: 10px; right: calc(50% - 28px);
+  background: var(--rust); color: #fff; font-size: 9px; font-weight: 700;
+  min-width: 16px; height: 16px; border-radius: 8px; padding: 0 4px;
+  line-height: 16px; text-align: center;
+}
+.tab-badge.show { display: block; }
+
+/* ══ PANELS ══ */
+.panel { display: none; padding-top: calc(var(--nav-h) + var(--tab-h)); min-height: 100vh; padding-bottom: 60px; }
+.panel.active { display: block; }
+.panel-inner { max-width: 860px; margin: 0 auto; padding: 1.5rem; }
+
+/* ══ AUTH SCREEN ══ */
+#auth-screen {
+  position: fixed; inset: 0; background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 500; padding: 1rem;
+}
+.auth-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 2rem; width: 100%; max-width: 400px;
+  box-shadow: var(--shadow);
+}
+.auth-title { font-family: var(--font-serif); font-size: 2rem; margin-bottom: 4px; }
+.auth-sub { font-family: var(--font-mono); font-size: 12px; color: var(--text2); margin-bottom: 1.5rem; }
+.auth-tabs { display: flex; gap: 0; margin-bottom: 1.5rem; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.auth-tab { flex: 1; padding: 8px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; background: none; border: none; cursor: pointer; color: var(--text2); transition: background 0.15s, color 0.15s; }
+.auth-tab.active { background: var(--accent-bg); color: #fff; }
+.auth-form { display: none; }
+.auth-form.active { display: block; }
+
+/* ══ FORM ELEMENTS ══ */
+.field { margin-bottom: 14px; }
+.field label { display: block; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text2); margin-bottom: 5px; }
+.field input, .field select, .field textarea {
+  width: 100%; padding: 10px 12px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius); font-family: var(--font-mono); font-size: 13px;
+  color: var(--text); outline: none; transition: border-color 0.15s;
+}
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
+.field textarea { resize: vertical; min-height: 80px; }
+.field input::placeholder, .field textarea::placeholder { color: var(--text3); }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* ══ BUTTONS ══ */
+.btn-primary {
+  width: 100%; padding: 12px; font-family: var(--font-sans); font-size: 14px; font-weight: 700;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  background: var(--accent-bg); color: var(--accent-fg);
+  border: none; border-radius: var(--radius); cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.btn-primary:hover { opacity: 0.88; }
+.btn-primary:active { transform: scale(0.98); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-secondary {
+  padding: 9px 16px; font-family: var(--font-sans); font-size: 13px; font-weight: 600;
+  letter-spacing: 0.03em; text-transform: uppercase;
+  background: var(--surface); color: var(--text);
+  border: 1px solid var(--border2); border-radius: var(--radius); cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn-secondary:hover { background: var(--surface2); }
+
+.btn-danger {
+  padding: 8px 14px; font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  background: none; color: var(--rust); border: 1px solid var(--rust-border);
+  border-radius: var(--radius); cursor: pointer; transition: background 0.15s;
+}
+.btn-danger:hover { background: var(--rust-bg); }
+
+.btn-ghost {
+  padding: 8px 12px; font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  background: none; color: var(--text2); border: 1px solid var(--border);
+  border-radius: var(--radius); cursor: pointer; transition: background 0.15s, color 0.15s;
+}
+.btn-ghost:hover { background: var(--surface2); color: var(--text); }
+
+/* ══ PAGE HEADER ══ */
+.page-header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 1.5rem; gap: 12px; }
+.page-title { font-family: var(--font-serif); font-size: 2rem; line-height: 1; }
+.page-sub { font-family: var(--font-mono); font-size: 11px; color: var(--text2); margin-top: 4px; }
+
+/* ══ SECTION HEADER ══ */
+.section-hdr { display: flex; align-items: center; gap: 10px; margin-bottom: 1rem; }
+.section-hdr-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); white-space: nowrap; }
+.section-hdr-line { flex: 1; height: 1px; background: var(--border); }
+
+/* ══ TOOL GRID ══ */
+.tool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+
+.tool-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden;
+  transition: box-shadow 0.15s, transform 0.15s;
+  display: flex; flex-direction: column;
+}
+.tool-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+
+.tool-photo {
+  width: 100%; aspect-ratio: 4/3; object-fit: cover;
+  background: var(--surface2);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.tool-photo img { width: 100%; height: 100%; object-fit: cover; }
+.tool-photo-placeholder { font-size: 2.5rem; color: var(--text3); }
+
+.tool-body { padding: 14px; flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.tool-name { font-family: var(--font-sans); font-size: 16px; font-weight: 700; color: var(--text); }
+.tool-meta { display: flex; gap: 6px; flex-wrap: wrap; }
+.tool-tag {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase;
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text2); padding: 2px 7px; border-radius: 4px;
+}
+.tool-notes { font-family: var(--font-mono); font-size: 11px; color: var(--text2); line-height: 1.5; margin-top: 2px; }
+
+.tool-status-bar {
+  padding: 8px 14px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.status-pill {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 20px;
+}
+.status-pill.available { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+.status-pill.borrowed  { background: var(--rust-bg);  color: var(--rust);  border: 1px solid var(--rust-border); }
+.status-pill.mine      { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+
+.tool-actions { display: flex; gap: 6px; }
+.btn-icon {
+  width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface2); color: var(--text2); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 13px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.btn-icon:hover { background: var(--accent-bg); color: #fff; border-color: var(--accent-bg); }
+.btn-icon.danger:hover { background: var(--rust-bg); color: var(--rust); border-color: var(--rust-border); }
+
+/* ══ OWNER SECTION ══ */
+.owner-group { margin-bottom: 2rem; }
+.owner-label { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.owner-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--accent-bg); color: #fff;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.owner-name { font-family: var(--font-sans); font-size: 14px; font-weight: 700; }
+.owner-count { font-family: var(--font-mono); font-size: 11px; color: var(--text3); }
+
+/* ══ BORROWED TAG ══ */
+.borrowed-owner {
+  font-family: var(--font-mono); font-size: 10px; color: var(--rust); letter-spacing: 0.04em;
+}
+
+/* ══ REQUEST CARDS ══ */
+.request-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px; margin-bottom: 12px;
+  display: grid; grid-template-columns: 48px 1fr auto; gap: 12px; align-items: start;
+}
+.request-photo {
+  width: 48px; height: 48px; border-radius: 6px; overflow: hidden;
+  background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0;
+}
+.request-photo img { width: 100%; height: 100%; object-fit: cover; }
+.request-tool-name { font-family: var(--font-sans); font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+.request-meta { font-family: var(--font-mono); font-size: 11px; color: var(--text2); margin-bottom: 6px; }
+.request-message { font-family: var(--font-mono); font-size: 11px; color: var(--text2); background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; margin-bottom: 8px; }
+.request-actions { display: flex; gap: 6px; }
+.btn-approve { padding: 7px 14px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); border-radius: 6px; cursor: pointer; transition: background 0.15s; }
+.btn-approve:hover { background: #d4ece0; }
+.btn-decline { padding: 7px 14px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; background: var(--rust-bg); color: var(--rust); border: 1px solid var(--rust-border); border-radius: 6px; cursor: pointer; transition: background 0.15s; }
+.btn-decline:hover { background: #fbe4da; }
+.request-status-badge { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 8px; border-radius: 4px; white-space: nowrap; }
+.request-status-badge.pending  { background: #fef9e7; color: #b07c10; border: 1px solid #f7d97a; }
+.request-status-badge.approved { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+.request-status-badge.declined { background: var(--surface2); color: var(--text3); border: 1px solid var(--border); }
+.request-status-badge.returned { background: var(--surface2); color: var(--text3); border: 1px solid var(--border); }
+
+/* ══ MODAL ══ */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.45); backdrop-filter: blur(2px);
+  z-index: 800; display: none; align-items: center; justify-content: center; padding: 1rem;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1.5rem; width: 100%; max-width: 460px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto;
+}
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
+.modal-title { font-family: var(--font-serif); font-size: 1.6rem; }
+.modal-close { background: none; border: none; font-size: 20px; color: var(--text3); cursor: pointer; line-height: 1; padding: 4px; transition: color 0.15s; }
+.modal-close:hover { color: var(--text); }
+
+/* photo preview */
+.photo-preview { width: 100%; aspect-ratio: 4/3; border-radius: var(--radius); overflow: hidden; background: var(--surface2); border: 1px solid var(--border); margin-bottom: 8px; display: flex; align-items: center; justify-content: center; font-size: 2rem; color: var(--text3); cursor: pointer; position: relative; }
+.photo-preview img { width: 100%; height: 100%; object-fit: cover; }
+.photo-preview-hint { position: absolute; bottom: 8px; left: 0; right: 0; text-align: center; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text3); }
+.photo-input { display: none; }
+
+/* ══ EMPTY STATES ══ */
+.empty { text-align: center; padding: 3rem 1rem; }
+.empty-icon { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.4; }
+.empty-text { font-family: var(--font-mono); font-size: 12px; color: var(--text3); letter-spacing: 0.04em; }
+
+/* ══ SEARCH / FILTER ══ */
+.filter-bar { display: flex; gap: 10px; margin-bottom: 1.2rem; flex-wrap: wrap; }
+.filter-bar input {
+  flex: 1; min-width: 180px; padding: 9px 12px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); font-family: var(--font-mono); font-size: 13px;
+  color: var(--text); outline: none; transition: border-color 0.15s;
+}
+.filter-bar input:focus { border-color: var(--accent); }
+.filter-bar select {
+  padding: 9px 12px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); font-family: var(--font-mono); font-size: 12px;
+  color: var(--text); outline: none; cursor: pointer;
+}
+
+/* ══ RETURN BANNER ══ */
+.return-banner {
+  background: var(--rust-bg); border: 1px solid var(--rust-border);
+  border-radius: var(--radius); padding: 10px 14px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-bottom: 10px;
+}
+.return-banner-text { font-family: var(--font-mono); font-size: 12px; color: var(--rust); }
+.btn-return { padding: 6px 12px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; background: var(--rust); color: #fff; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap; }
+
+/* ══ AUTH ERROR ══ */
+.auth-error { font-family: var(--font-mono); font-size: 12px; color: var(--rust); background: var(--rust-bg); border: 1px solid var(--rust-border); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; display: none; }
+.auth-error.show { display: block; }
+
+/* ══ TOAST ══ */
+.toast {
+  position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+  background: var(--accent-bg); color: #fff; font-family: var(--font-mono); font-size: 12px;
+  padding: 9px 20px; border-radius: 20px;
+  opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 999;
+  white-space: nowrap; box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+
+/* ══ LOADING SPINNER ══ */
+.spinner { text-align: center; padding: 2rem; font-family: var(--font-mono); font-size: 12px; color: var(--text3); letter-spacing: 0.05em; }
+
+@media (max-width: 520px) {
+  .field-row { grid-template-columns: 1fr; }
+  .tool-grid { grid-template-columns: 1fr; }
+  .request-card { grid-template-columns: 40px 1fr; }
+  .request-card > *:last-child { grid-column: span 2; }
+}
+
+/* ══ INVITE CARD ══ */
+.invite-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px;
+}
+.invite-card-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-bottom: 10px; }
+.invite-card-body { display: flex; gap: 8px; margin-bottom: 8px; }
+.invite-card-body input {
+  flex: 1; padding: 9px 12px; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius); font-family: var(--font-mono); font-size: 12px; color: var(--text2); outline: none;
+}
+.btn-copy {
+  padding: 9px 16px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+  background: var(--accent-bg); color: #fff; border: none; border-radius: var(--radius); cursor: pointer;
+  transition: opacity 0.15s; white-space: nowrap;
+}
+.btn-copy:hover { opacity: 0.8; }
+.btn-copy.copied { background: var(--green); }
+.btn-qr {
+  padding: 9px 14px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+  background: var(--surface2); color: var(--text2); border: 1px solid var(--border2);
+  border-radius: var(--radius); cursor: pointer; transition: background 0.15s, color 0.15s; white-space: nowrap;
+}
+.btn-qr:hover { background: var(--surface); color: var(--text); }
+.invite-card-hint { font-family: var(--font-mono); font-size: 11px; color: var(--text3); line-height: 1.5; }
+
+/* QR modal */
+.qr-wrap { text-align: center; padding: 1rem 0 0.5rem; }
+.qr-wrap canvas, .qr-wrap img { border-radius: 8px; border: 6px solid #fff; box-shadow: var(--shadow); }
+.qr-download { display: inline-block; margin-top: 14px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text2); text-decoration: none; padding: 7px 14px; border: 1px solid var(--border2); border-radius: var(--radius); transition: background 0.15s; }
+.qr-download:hover { background: var(--surface2); }
+
+/* ══ FRIEND ROW ══ */
+.friend-row {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
+}
+.friend-avatar {
+  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+  background: var(--accent-bg); color: #fff;
+  font-family: var(--font-mono); font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+}
+.friend-info { flex: 1; min-width: 0; }
+.friend-name { font-family: var(--font-sans); font-size: 15px; font-weight: 700; }
+.friend-meta { font-family: var(--font-mono); font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+/* ══ INVITE BANNER (shown at top of app when arriving via invite link) ══ */
+.invite-banner {
+  display: none; position: fixed; top: var(--nav-h); left: 0; right: 0; z-index: 280;
+  background: #1a1916; color: #fff; padding: 10px 1.5rem;
+  font-family: var(--font-mono); font-size: 12px;
+  display: none; align-items: center; justify-content: space-between; gap: 12px;
+}
+.invite-banner.show { display: flex; }
+.invite-banner-text { flex: 1; }
+.invite-banner-text strong { color: #e8ff47; }
+.btn-accept-invite { padding: 6px 14px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; background: #e8ff47; color: #000; border: none; border-radius: 4px; cursor: pointer; font-weight: 700; white-space: nowrap; }
+.btn-dismiss-invite { background: none; border: none; color: rgba(255,255,255,0.4); cursor: pointer; font-size: 18px; line-height: 1; padding: 2px; }
+</style>
+</head>
+<body>
+
+<!-- ══ AUTH SCREEN ══ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-title">Toolbox</div>
+    <div class="auth-sub">Share tools with friends · davenn.com</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuthTab('login')">Sign in</button>
+      <button class="auth-tab" onclick="switchAuthTab('register')">Register</button>
+    </div>
+
+    <div id="auth-error" class="auth-error"></div>
+
+    <!-- Login -->
+    <div id="form-login" class="auth-form active">
+      <div class="field"><label>Username</label><input type="text" id="login-user" placeholder="your_username" autocomplete="username"></div>
+      <div class="field"><label>Password</label><input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password"></div>
+      <button class="btn-primary" id="btn-login" onclick="doLogin()">Sign in</button>
+    </div>
+
+    <!-- Register -->
+    <div id="form-register" class="auth-form">
+      <div class="field-row">
+        <div class="field"><label>Username</label><input type="text" id="reg-user" placeholder="username" autocomplete="username"></div>
+        <div class="field"><label>Display name</label><input type="text" id="reg-name" placeholder="Full name"></div>
+      </div>
+      <div class="field"><label>Email</label><input type="email" id="reg-email" placeholder="you@example.com" autocomplete="email"></div>
+      <div class="field"><label>Password</label><input type="password" id="reg-pass" placeholder="••••••••" autocomplete="new-password"></div>
+      <button class="btn-primary" id="btn-register" onclick="doRegister()">Create account</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP SHELL ══ -->
+<nav id="app-nav" style="display:none;">
+  <a class="nav-logo" href="index.html"><strong>davenn</strong>.com</a>
+  <div class="nav-right">
+    <span class="nav-user" id="nav-user-label"></span>
+    <button class="btn-logout" onclick="doLogout()">Sign out</button>
+    <a class="nav-back" href="index.html">← Home</a>
+  </div>
+</nav>
+
+<!-- Invite banner — shown when arriving with ?invite=code -->
+<div class="invite-banner" id="invite-banner">
+  <span class="invite-banner-text" id="invite-banner-text"></span>
+  <button class="btn-accept-invite" id="btn-accept-invite" onclick="acceptInviteBanner()">Connect</button>
+  <button class="btn-dismiss-invite" onclick="dismissInviteBanner()">×</button>
+</div>
+
+<div class="tab-bar" id="app-tabs" style="display:none;">
+  <button class="tab-btn active" onclick="showTab('library')">My Library</button>
+  <button class="tab-btn" onclick="showTab('community')">Community</button>
+  <button class="tab-btn" onclick="showTab('requests')">
+    Requests
+    <span class="tab-badge" id="req-badge"></span>
+  </button>
+  <button class="tab-btn" onclick="showTab('friends')">Friends</button>
+</div>
+
+<!-- ══ LIBRARY TAB ══ -->
+<div id="panel-library" class="panel active" style="display:none;">
+  <div class="panel-inner">
+    <div class="page-header">
+      <div>
+        <div class="page-title">My Library</div>
+        <div class="page-sub" id="library-sub"></div>
+      </div>
+      <button class="btn-secondary" onclick="openAddTool()">+ Add tool</button>
+    </div>
+
+    <!-- Borrowed from others -->
+    <div id="borrowed-section" style="display:none;">
+      <div class="section-hdr"><span class="section-hdr-label">Borrowed</span><div class="section-hdr-line"></div></div>
+      <div class="tool-grid" id="borrowed-grid"></div>
+      <div style="margin-bottom:2rem;"></div>
+    </div>
+
+    <!-- My owned tools -->
+    <div class="section-hdr"><span class="section-hdr-label">Owned</span><div class="section-hdr-line"></div></div>
+    <div id="my-tools-grid" class="tool-grid"></div>
+  </div>
+</div>
+
+<!-- ══ COMMUNITY TAB ══ -->
+<div id="panel-community" class="panel" style="display:none;">
+  <div class="panel-inner">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Community</div>
+        <div class="page-sub">Browse what everyone owns</div>
+      </div>
+    </div>
+    <div class="filter-bar">
+      <input type="text" id="search-input" placeholder="Search tools…" oninput="filterCommunity()">
+      <select id="cat-filter" onchange="filterCommunity()">
+        <option value="">All categories</option>
+        <option>Power Tools</option>
+        <option>Hand Tools</option>
+        <option>Garden</option>
+        <option>Measuring</option>
+        <option>Fastening</option>
+        <option>Cutting</option>
+        <option>Automotive</option>
+        <option>Plumbing</option>
+        <option>Electrical</option>
+        <option>Ladders & Access</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div id="community-list"></div>
+  </div>
+</div>
+
+<!-- ══ REQUESTS TAB ══ -->
+<div id="panel-requests" class="panel" style="display:none;">
+  <div class="panel-inner">
+    <div class="page-header">
+      <div><div class="page-title">Requests</div></div>
+    </div>
+
+    <div class="section-hdr"><span class="section-hdr-label">Incoming — pending approval</span><div class="section-hdr-line"></div></div>
+    <div id="incoming-list"></div>
+
+    <div style="margin-bottom:1.5rem;"></div>
+    <div class="section-hdr"><span class="section-hdr-label">My requests</span><div class="section-hdr-line"></div></div>
+    <div id="outgoing-list"></div>
+  </div>
+</div>
+
+<!-- ══ FRIENDS PANEL ══ -->
+<div id="panel-friends" class="panel" style="display:none;">
+  <div class="panel-inner">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Friends</div>
+        <div class="page-sub">People whose tools you can see and borrow</div>
+      </div>
+    </div>
+
+    <!-- Invite link card -->
+    <div class="invite-card">
+      <div class="invite-card-label">Your invite link</div>
+      <div class="invite-card-body">
+        <input type="text" id="invite-link-input" readonly placeholder="Generating…">
+        <button class="btn-copy" id="btn-copy-invite" onclick="copyInviteLink()">Copy</button>
+        <button class="btn-qr" onclick="showQR()">QR</button>
+      </div>
+      <div class="invite-card-hint">Share this link or QR code — anyone who signs up with it is automatically added as your friend.</div>
+    </div>
+
+    <div style="margin-bottom:1.5rem;"></div>
+    <div class="section-hdr"><span class="section-hdr-label">Your friends</span><div class="section-hdr-line"></div></div>
+    <div id="friends-list"></div>
+  </div>
+</div>
+
+<!-- ══ ADD / EDIT TOOL MODAL ══ -->
+<div class="modal-overlay" id="tool-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="tool-modal-title">Add a tool</div>
+      <button class="modal-close" onclick="closeModal('tool-modal')">×</button>
+    </div>
+    <div class="photo-preview" id="photo-preview" onclick="document.getElementById('photo-input').click()">
+      🔧
+      <span class="photo-preview-hint">Tap to add photo</span>
+    </div>
+    <input type="file" id="photo-input" class="photo-input" accept="image/*" onchange="previewPhoto(this)">
+    <div class="field"><label>Tool name *</label><input type="text" id="tool-name" placeholder="e.g. DeWalt Circular Saw"></div>
+    <div class="field-row">
+      <div class="field"><label>Brand</label><input type="text" id="tool-brand" placeholder="e.g. DeWalt"></div>
+      <div class="field"><label>Category</label>
+        <select id="tool-category">
+          <option value="">Select…</option>
+          <option>Power Tools</option><option>Hand Tools</option><option>Garden</option>
+          <option>Measuring</option><option>Fastening</option><option>Cutting</option>
+          <option>Automotive</option><option>Plumbing</option><option>Electrical</option>
+          <option>Ladders & Access</option><option>Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Notes</label><textarea id="tool-notes" placeholder="Condition, accessories included, any special instructions…"></textarea></div>
+    <input type="hidden" id="tool-edit-id">
+    <button class="btn-primary" id="tool-modal-submit" onclick="submitTool()">Add tool</button>
+  </div>
+</div>
+
+<!-- ══ BORROW REQUEST MODAL ══ -->
+<div class="modal-overlay" id="borrow-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Request to Borrow</div>
+      <button class="modal-close" onclick="closeModal('borrow-modal')">×</button>
+    </div>
+    <div id="borrow-tool-info" style="margin-bottom:1rem; font-family:var(--font-mono); font-size:13px; color:var(--text2);"></div>
+    <div class="field"><label>Message (optional)</label><textarea id="borrow-message" placeholder="Hi! Could I borrow this for the weekend?"></textarea></div>
+    <input type="hidden" id="borrow-tool-id">
+    <button class="btn-primary" onclick="submitBorrow()">Send Request</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG ─────────────────────────────────────────────────────────────────
+const API = 'https://davenn.com/api.php';
+
+// ── STATE ──────────────────────────────────────────────────────────────────
+let currentUser  = null;
+let authToken    = null;
+let allTools     = [];   // community cache
+let myTools      = [];
+let borrowedTools = [];
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+(function init() {
+  authToken   = localStorage.getItem('tb_token');
+  const saved = localStorage.getItem('tb_user');
+  if (authToken && saved) {
+    currentUser = JSON.parse(saved);
+    showApp();
+  }
+
+  // Check for invite code in URL
+  const params     = new URLSearchParams(window.location.search);
+  const inviteCode = params.get('invite');
+  if (inviteCode) {
+    localStorage.setItem('tb_pending_invite', inviteCode);
+    previewInvite(inviteCode);
+  }
+
+  ['login-pass','reg-pass'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') id === 'login-pass' ? doLogin() : doRegister(); });
+  });
+})();
+
+// ── AUTH ───────────────────────────────────────────────────────────────────
+function switchAuthTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((b,i) => b.classList.toggle('active', (i===0) === (tab==='login')));
+  document.getElementById('form-login').classList.toggle('active', tab === 'login');
+  document.getElementById('form-register').classList.toggle('active', tab === 'register');
+  document.getElementById('auth-error').classList.remove('show');
+}
+
+async function doLogin() {
+  const btn = document.getElementById('btn-login');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  const res = await apiFetch('?action=tb_login', { method:'POST', body: JSON.stringify({ username: v('login-user'), password: v('login-pass') }) });
+  btn.disabled = false; btn.textContent = 'Sign in';
+  if (res?.success) { saveAuth(res); await acceptPendingInvite(); showApp(); }
+  else showAuthError(res?.error || 'Login failed');
+}
+
+async function doRegister() {
+  const btn = document.getElementById('btn-register');
+  btn.disabled = true; btn.textContent = 'Creating…';
+  const res = await apiFetch('?action=tb_register', { method:'POST', body: JSON.stringify({ username: v('reg-user'), display_name: v('reg-name'), email: v('reg-email'), password: v('reg-pass') }) });
+  btn.disabled = false; btn.textContent = 'Create account';
+  if (res?.success) { saveAuth(res); await acceptPendingInvite(); showApp(); }
+  else showAuthError(res?.error || 'Registration failed');
+}
+
+async function doLogout() {
+  await apiFetch('?action=tb_logout', { method:'POST' });
+  localStorage.removeItem('tb_token');
+  localStorage.removeItem('tb_user');
+  authToken = null; currentUser = null;
+  location.reload();
+}
+
+function saveAuth(res) {
+  authToken   = res.token;
+  currentUser = res.user;
+  localStorage.setItem('tb_token', authToken);
+  localStorage.setItem('tb_user', JSON.stringify(currentUser));
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg; el.classList.add('show');
+}
+
+function showApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-nav').style.display     = 'flex';
+  document.getElementById('app-tabs').style.display    = 'flex';
+  document.querySelectorAll('.panel').forEach(p => p.style.display = 'block');
+  document.getElementById('nav-user-label').innerHTML  = `<strong>${escHtml(currentUser.display_name)}</strong>`;
+  loadLibrary();
+  pollBadge();
+
+  // Show any pending welcome toast from invite acceptance during auth
+  if (pendingWelcomeToast) {
+    setTimeout(() => { showToast(pendingWelcomeToast); pendingWelcomeToast = null; }, 600);
+  }
+
+  // If user was already logged in and arrived with an invite link, show the banner
+  if (pendingInviter) {
+    showInviteBanner(pendingInviter);
+    pendingInviter = null;
+  }
+}
+
+// ── TABS ───────────────────────────────────────────────────────────────────
+function showTab(tab) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+  const idx = ['library','community','requests','friends'].indexOf(tab);
+  document.querySelectorAll('.tab-btn')[idx].classList.add('active');
+  if (tab === 'community') loadCommunity();
+  if (tab === 'requests')  loadRequests();
+  if (tab === 'friends')   loadFriends();
+}
+
+// ── LIBRARY ────────────────────────────────────────────────────────────────
+async function loadLibrary() {
+  document.getElementById('my-tools-grid').innerHTML = '<div class="spinner">Loading…</div>';
+  const data = await apiFetch('?action=tb_my_tools');
+  if (!data) return;
+
+  myTools      = data.filter(t => t.owner_id == currentUser.id);
+  borrowedTools = await getBorrowedTools();
+
+  renderLibrary();
+  pollBadge();
+}
+
+async function getBorrowedTools() {
+  // get approved outgoing requests → tool details
+  const reqs = await apiFetch('?action=tb_requests');
+  if (!reqs) return [];
+  return reqs.outgoing.filter(r => r.status === 'approved');
+}
+
+function renderLibrary() {
+  // owned tools
+  const grid = document.getElementById('my-tools-grid');
+  if (!myTools.length) {
+    grid.innerHTML = '<div class="empty"><div class="empty-icon">🔧</div><div class="empty-text">No tools yet — add your first one above</div></div>';
+  } else {
+    grid.innerHTML = myTools.map(t => toolCardHTML(t, 'mine')).join('');
+  }
+
+  // borrowed
+  const bsec = document.getElementById('borrowed-section');
+  const bgrid = document.getElementById('borrowed-grid');
+  if (borrowedTools.length) {
+    bsec.style.display = 'block';
+    bgrid.innerHTML = borrowedTools.map(r => borrowedCardHTML(r)).join('');
+  } else {
+    bsec.style.display = 'none';
+  }
+
+  document.getElementById('library-sub').textContent = `${myTools.length} tool${myTools.length !== 1 ? 's' : ''} owned · ${borrowedTools.length} borrowed`;
+}
+
+// ── COMMUNITY ──────────────────────────────────────────────────────────────
+async function loadCommunity() {
+  document.getElementById('community-list').innerHTML = '<div class="spinner">Loading…</div>';
+  const data = await apiFetch('?action=tb_tools');
+  if (!data) return;
+  allTools = data;
+
+  // If user has no friends yet, show an invite nudge
+  if (!allTools.filter(t => t.owner_id != currentUser.id).length) {
+    document.getElementById('community-list').innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">👥</div>
+        <div class="empty-text">No friends yet — go to the Friends tab to share your invite link</div>
+      </div>`;
+    return;
+  }
+  filterCommunity();
+}
+
+function filterCommunity() {
+  const q   = document.getElementById('search-input').value.toLowerCase();
+  const cat = document.getElementById('cat-filter').value;
+  let tools = allTools;
+  if (q)   tools = tools.filter(t => (t.name+t.brand+t.notes+t.owner_name).toLowerCase().includes(q));
+  if (cat) tools = tools.filter(t => t.category === cat);
+
+  const el = document.getElementById('community-list');
+  if (!tools.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">No tools found</div></div>'; return; }
+
+  // group by owner
+  const byOwner = {};
+  tools.forEach(t => {
+    if (!byOwner[t.owner_id]) byOwner[t.owner_id] = { name: t.owner_name, tools: [] };
+    byOwner[t.owner_id].tools.push(t);
+  });
+
+  el.innerHTML = Object.entries(byOwner).map(([oid, group]) => {
+    const isMe = parseInt(oid) === currentUser.id;
+    const label = isMe ? 'You' : group.name;
+    const init  = label[0].toUpperCase();
+    const cards = group.tools.map(t => toolCardHTML(t, isMe ? 'mine' : 'community')).join('');
+    return `<div class="owner-group">
+      <div class="owner-label">
+        <div class="owner-avatar">${init}</div>
+        <div class="owner-name">${escHtml(label)}</div>
+        <div class="owner-count">${group.tools.length} tool${group.tools.length !== 1 ? 's' : ''}</div>
+      </div>
+      <div class="tool-grid">${cards}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── REQUESTS ───────────────────────────────────────────────────────────────
+async function loadRequests() {
+  document.getElementById('incoming-list').innerHTML = '<div class="spinner">Loading…</div>';
+  document.getElementById('outgoing-list').innerHTML = '';
+  const data = await apiFetch('?action=tb_requests');
+  if (!data) return;
+
+  const inc = document.getElementById('incoming-list');
+  const out = document.getElementById('outgoing-list');
+
+  if (!data.incoming.length) {
+    inc.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No pending requests</div></div>';
+  } else {
+    inc.innerHTML = data.incoming.map(r => incomingCardHTML(r)).join('');
+  }
+
+  if (!data.outgoing.length) {
+    out.innerHTML = '<div class="empty"><div class="empty-icon">📤</div><div class="empty-text">No requests sent yet</div></div>';
+  } else {
+    out.innerHTML = data.outgoing.map(r => outgoingCardHTML(r)).join('');
+  }
+
+  updateBadge(data.incoming.length);
+}
+
+async function respondRequest(id, status) {
+  const res = await apiFetch(`?action=tb_respond_request&id=${id}`, { method:'POST', body: JSON.stringify({ status }) });
+  if (res?.success) {
+    showToast(status === 'approved' ? 'Request approved ✓' : 'Request declined');
+    loadRequests();
+    loadLibrary();
+  }
+}
+
+async function returnTool(req_id) {
+  const res = await apiFetch(`?action=tb_return_tool&id=${req_id}`, { method:'POST' });
+  if (res?.success) { showToast('Tool marked as returned'); loadLibrary(); loadRequests(); }
+}
+
+// ── TOOL MODAL ─────────────────────────────────────────────────────────────
+function openAddTool() {
+  document.getElementById('tool-edit-id').value = '';
+  document.getElementById('tool-name').value     = '';
+  document.getElementById('tool-brand').value    = '';
+  document.getElementById('tool-category').value = '';
+  document.getElementById('tool-notes').value    = '';
+  document.getElementById('tool-modal-title').textContent = 'Add a tool';
+  document.getElementById('tool-modal-submit').textContent = 'Add tool';
+  resetPhotoPreview();
+  openModal('tool-modal');
+}
+
+function openEditTool(t) {
+  document.getElementById('tool-edit-id').value  = t.id;
+  document.getElementById('tool-name').value     = t.name;
+  document.getElementById('tool-brand').value    = t.brand || '';
+  document.getElementById('tool-category').value = t.category || '';
+  document.getElementById('tool-notes').value    = t.notes || '';
+  document.getElementById('tool-modal-title').textContent  = 'Edit tool';
+  document.getElementById('tool-modal-submit').textContent = 'Save changes';
+  const prev = document.getElementById('photo-preview');
+  if (t.photo_url) { prev.innerHTML = `<img src="${escHtml(t.photo_url)}" alt="">`; }
+  else resetPhotoPreview();
+  openModal('tool-modal');
+}
+
+async function submitTool() {
+  const editId = document.getElementById('tool-edit-id').value;
+  const name   = document.getElementById('tool-name').value.trim();
+  if (!name) { showToast('Tool name is required'); return; }
+
+  const btn = document.getElementById('tool-modal-submit');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  const fd = new FormData();
+  fd.append('name',     name);
+  fd.append('brand',    document.getElementById('tool-brand').value.trim());
+  fd.append('category', document.getElementById('tool-category').value);
+  fd.append('notes',    document.getElementById('tool-notes').value.trim());
+  const file = document.getElementById('photo-input').files[0];
+  if (file) fd.append('photo', file);
+
+  const action = editId ? `tb_edit_tool&id=${editId}` : 'tb_add_tool';
+  if (editId) fd.append('id', editId);
+
+  const res = await apiFetchForm(`?action=${action}`, fd);
+  btn.disabled = false; btn.textContent = editId ? 'Save changes' : 'Add tool';
+
+  if (res?.success) {
+    closeModal('tool-modal');
+    showToast(editId ? 'Tool updated' : 'Tool added ✓');
+    loadLibrary();
+  } else {
+    showToast(res?.error || 'Something went wrong');
+  }
+}
+
+async function deleteTool(id) {
+  if (!confirm('Delete this tool?')) return;
+  const res = await apiFetch(`?action=tb_delete_tool&id=${id}`, { method:'DELETE' });
+  if (res?.success) { showToast('Tool deleted'); loadLibrary(); }
+}
+
+// ── BORROW MODAL ───────────────────────────────────────────────────────────
+function openBorrowModal(tool) {
+  document.getElementById('borrow-tool-id').value = tool.id;
+  document.getElementById('borrow-tool-info').textContent = `${tool.name}${tool.brand ? ' · ' + tool.brand : ''} — owned by ${tool.owner_name}`;
+  document.getElementById('borrow-message').value = '';
+  openModal('borrow-modal');
+}
+
+async function submitBorrow() {
+  const tool_id = document.getElementById('borrow-tool-id').value;
+  const message = document.getElementById('borrow-message').value.trim();
+  const res = await apiFetch('?action=tb_request', { method:'POST', body: JSON.stringify({ tool_id: parseInt(tool_id), message }) });
+  if (res?.success) {
+    closeModal('borrow-modal');
+    showToast('Request sent ✓ Owner will be notified');
+    loadCommunity();
+  } else {
+    showToast(res?.error || 'Could not send request');
+  }
+}
+
+// ── CARD HTML ──────────────────────────────────────────────────────────────
+function toolCardHTML(t, mode) {
+  const photo = t.photo_url
+    ? `<img src="${escHtml(t.photo_url)}" alt="${escHtml(t.name)}" loading="lazy">`
+    : `<span class="tool-photo-placeholder">🔧</span>`;
+
+  const tags = [t.brand, t.category].filter(Boolean).map(x => `<span class="tool-tag">${escHtml(x)}</span>`).join('');
+  const notes = t.notes ? `<div class="tool-notes">${escHtml(t.notes.substring(0,80))}${t.notes.length > 80 ? '…' : ''}</div>` : '';
+
+  let statusPill = '';
+  let actions    = '';
+
+  if (mode === 'mine') {
+    if (t.status === 'borrowed') {
+      statusPill = `<span class="status-pill borrowed">Out — ${escHtml(t.borrower_name || '?')}</span>`;
+      actions    = `<div class="tool-actions">
+        <button class="btn-icon" onclick='openEditTool(${JSON.stringify(t)})' title="Edit">✏️</button>
+        <button class="btn-icon danger" onclick="deleteTool(${t.id})" title="Delete">🗑</button>
+        <button class="btn-icon" onclick="returnTool(${t.active_request_id})" title="Mark returned" style="font-size:11px;width:auto;padding:0 8px;">Returned</button>
+      </div>`;
+    } else {
+      statusPill = `<span class="status-pill mine">Yours</span>`;
+      actions    = `<div class="tool-actions">
+        <button class="btn-icon" onclick='openEditTool(${JSON.stringify(t)})' title="Edit">✏️</button>
+        <button class="btn-icon danger" onclick="deleteTool(${t.id})" title="Delete">🗑</button>
+      </div>`;
+    }
+  } else {
+    // community view
+    if (t.status === 'borrowed') {
+      statusPill = `<span class="status-pill borrowed">Borrowed</span>`;
+      actions    = '';
+    } else {
+      statusPill = `<span class="status-pill available">Available</span>`;
+      actions    = `<div class="tool-actions"><button class="btn-icon" onclick='openBorrowModal(${JSON.stringify(t).replace(/'/g,"&#39;")})' title="Request to borrow">📋</button></div>`;
+    }
+  }
+
+  return `<div class="tool-card" id="tool-card-${t.id}">
+    <div class="tool-photo">${photo}</div>
+    <div class="tool-body">
+      <div class="tool-name">${escHtml(t.name)}</div>
+      <div class="tool-meta">${tags}</div>
+      ${notes}
+    </div>
+    <div class="tool-status-bar">${statusPill}${actions}</div>
+  </div>`;
+}
+
+function borrowedCardHTML(r) {
+  const photo = r.photo_url
+    ? `<img src="${escHtml(r.photo_url)}" alt="" loading="lazy">`
+    : `<span class="tool-photo-placeholder">🔧</span>`;
+  const tags = [r.brand, r.category].filter(Boolean).map(x => `<span class="tool-tag">${escHtml(x)}</span>`).join('');
+  return `<div class="tool-card">
+    <div class="tool-photo">${photo}</div>
+    <div class="tool-body">
+      <div class="tool-name">${escHtml(r.tool_name)}</div>
+      <div class="tool-meta">${tags}</div>
+      <div class="borrowed-owner">Owned by ${escHtml(r.owner_name)}</div>
+    </div>
+    <div class="tool-status-bar">
+      <span class="status-pill borrowed">Borrowed</span>
+      <button class="btn-ghost" onclick="returnTool(${r.id})" style="font-size:11px;padding:5px 10px;">Return</button>
+    </div>
+  </div>`;
+}
+
+function incomingCardHTML(r) {
+  const photo = r.photo_url ? `<img src="${escHtml(r.photo_url)}" alt="">` : '🔧';
+  const msg   = r.message ? `<div class="request-message">"${escHtml(r.message)}"</div>` : '';
+  return `<div class="request-card">
+    <div class="request-photo">${typeof photo === 'string' && photo.startsWith('<img') ? photo : photo}</div>
+    <div>
+      <div class="request-tool-name">${escHtml(r.tool_name)}</div>
+      <div class="request-meta">${escHtml(r.requester_name)} wants to borrow · ${timeAgo(r.created_at)}</div>
+      ${msg}
+      <div class="request-actions">
+        <button class="btn-approve" onclick="respondRequest(${r.id},'approved')">Approve</button>
+        <button class="btn-decline" onclick="respondRequest(${r.id},'declined')">Decline</button>
+      </div>
+    </div>
+    <span class="request-status-badge pending">Pending</span>
+  </div>`;
+}
+
+function outgoingCardHTML(r) {
+  const photo = r.photo_url ? `<img src="${escHtml(r.photo_url)}" alt="">` : '🔧';
+  const canReturn = r.status === 'approved';
+  const returnBtn = canReturn ? `<button class="btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="returnTool(${r.id})">Mark returned</button>` : '';
+  return `<div class="request-card">
+    <div class="request-photo">${typeof photo === 'string' && photo.startsWith('<img') ? photo : photo}</div>
+    <div>
+      <div class="request-tool-name">${escHtml(r.tool_name)}</div>
+      <div class="request-meta">From ${escHtml(r.owner_name)} · ${timeAgo(r.created_at)}</div>
+      ${returnBtn}
+    </div>
+    <span class="request-status-badge ${r.status}">${r.status}</span>
+  </div>`;
+}
+
+// ── BADGE ──────────────────────────────────────────────────────────────────
+async function pollBadge() {
+  const data = await apiFetch('?action=tb_request_count');
+  if (data) updateBadge(data.count);
+  setTimeout(pollBadge, 30000); // poll every 30s
+}
+
+function updateBadge(count) {
+  const b = document.getElementById('req-badge');
+  if (count > 0) { b.textContent = count; b.classList.add('show'); }
+  else { b.classList.remove('show'); }
+}
+
+// ── PHOTO PREVIEW ──────────────────────────────────────────────────────────
+function previewPhoto(input) {
+  if (!input.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('photo-preview').innerHTML = `<img src="${e.target.result}" alt="">`;
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+function resetPhotoPreview() {
+  document.getElementById('photo-preview').innerHTML = '🔧<span class="photo-preview-hint">Tap to add photo</span>';
+  document.getElementById('photo-input').value = '';
+}
+
+// ── MODAL HELPERS ──────────────────────────────────────────────────────────
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+});
+
+// ── API HELPERS ────────────────────────────────────────────────────────────
+async function apiFetch(path, options = {}) {
+  try {
+    const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+    if (authToken) headers['X-Auth-Token'] = authToken;
+    const res = await fetch(API + path, { ...options, headers });
+    return await res.json();
+  } catch(e) { showToast('Network error'); return null; }
+}
+
+async function apiFetchForm(path, formData) {
+  try {
+    const headers = {};
+    if (authToken) headers['X-Auth-Token'] = authToken;
+    const res = await fetch(API + path, { method:'POST', headers, body: formData });
+    return await res.json();
+  } catch(e) { showToast('Network error'); return null; }
+}
+
+
+// ── FRIENDS ────────────────────────────────────────────────────────────────
+let pendingInviter      = null;
+let pendingWelcomeToast = null;
+
+async function loadFriends() {
+  document.getElementById('friends-list').innerHTML = '<div class="spinner">Loading...</div>';
+
+  // Load invite link
+  const inv = await apiFetch('?action=tb_my_invite');
+  if (inv?.invite_code) {
+    const link = `${window.location.origin}${window.location.pathname}?invite=${inv.invite_code}`;
+    document.getElementById('invite-link-input').value = link;
+  }
+
+  // Load friends list
+  const friends = await apiFetch('?action=tb_friends') || [];
+  const el = document.getElementById('friends-list');
+  if (!friends.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">🤝</div><div class="empty-text">No friends yet — copy your invite link above and share it</div></div>';
+    return;
+  }
+  el.innerHTML = friends.map(f => `
+    <div class="friend-row" id="friend-row-${f.id}">
+      <div class="friend-avatar">${f.display_name[0].toUpperCase()}</div>
+      <div class="friend-info">
+        <div class="friend-name">${escHtml(f.display_name)}</div>
+        <div class="friend-meta">@${escHtml(f.username)} &middot; ${f.tool_count} tool${f.tool_count != 1 ? 's' : ''}</div>
+      </div>
+      <button class="btn-danger" onclick="removeFriend(${f.id}, '${escHtml(f.display_name)}')">Remove</button>
+    </div>`).join('');
+}
+
+async function copyInviteLink() {
+  const val = document.getElementById('invite-link-input').value;
+  if (!val) return;
+  try {
+    await navigator.clipboard.writeText(val);
+    const btn = document.getElementById('btn-copy-invite');
+    btn.textContent = 'Copied!'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  } catch(e) {
+    document.getElementById('invite-link-input').select();
+    showToast('Press Ctrl+C / Cmd+C to copy');
+  }
+}
+
+function showQR() {
+  const url = document.getElementById('invite-link-input').value;
+  if (!url) { showToast('Invite link not ready yet'); return; }
+
+  openModal('qr-modal');
+
+  // Small delay to let modal render before drawing canvas
+  setTimeout(() => {
+    const canvas = document.getElementById('qr-canvas');
+    new QRious({
+      element: canvas,
+      value:   url,
+      size:    240,
+      padding: 16,
+      background: '#ffffff',
+      foreground: '#1a1916',
+      level: 'H'   // high error correction — more robust for sharing
+    });
+    // Wire up download link
+    const dl = document.getElementById('qr-download');
+    dl.href = canvas.toDataURL('image/png');
+  }, 50);
+}
+
+async function removeFriend(id, name) {
+  if (!confirm('Remove ' + name + ' as a friend? They will not be able to see your tools.')) return;
+  const res = await apiFetch('?action=tb_remove_friend&id=' + id, { method:'DELETE' });
+  if (res?.success) { showToast(name + ' removed'); loadFriends(); loadCommunity(); }
+}
+
+async function previewInvite(code) {
+  const res = await apiFetch('?action=tb_invite_preview&code=' + code);
+  if (!res?.success) return;
+  pendingInviter = res.inviter;
+  if (currentUser) showInviteBanner(res.inviter);
+}
+
+function showInviteBanner(inviter) {
+  const banner = document.getElementById('invite-banner');
+  document.getElementById('invite-banner-text').innerHTML =
+    '<strong>' + escHtml(inviter.display_name) + '</strong> invited you to Toolbox';
+  banner.classList.add('show');
+  document.querySelectorAll('.panel').forEach(p => p.style.paddingTop = 'calc(var(--nav-h) + var(--tab-h) + 44px)');
+}
+
+function dismissInviteBanner() {
+  document.getElementById('invite-banner').classList.remove('show');
+  document.querySelectorAll('.panel').forEach(p => p.style.paddingTop = '');
+  localStorage.removeItem('tb_pending_invite');
+}
+
+async function acceptInviteBanner() {
+  const code = localStorage.getItem('tb_pending_invite');
+  if (!code) return;
+  const res = await apiFetch('?action=tb_accept_invite', { method:'POST', body: JSON.stringify({ invite_code: code }) });
+  localStorage.removeItem('tb_pending_invite');
+  dismissInviteBanner();
+  if (res?.success) {
+    const name = res.friend?.display_name || 'Friend';
+    showToast(res.already_friends ? 'Already friends with ' + name : 'Connected with ' + name + ' \u2713');
+    loadCommunity();
+    if (document.getElementById('panel-friends').classList.contains('active')) loadFriends();
+  }
+}
+
+async function acceptPendingInvite() {
+  const code = localStorage.getItem('tb_pending_invite');
+  if (!code) return;
+  const res = await apiFetch('?action=tb_accept_invite', { method:'POST', body: JSON.stringify({ invite_code: code }) });
+  localStorage.removeItem('tb_pending_invite');
+  if (res?.success) {
+    const name = res.friend?.display_name || 'Friend';
+    pendingWelcomeToast = res.already_friends ? 'Already friends with ' + name : 'Connected with ' + name + ' \u2713';
+  }
+}
+
+// ── UTILS ──────────────────────────────────────────────────────────────────
+function v(id) { return document.getElementById(id)?.value?.trim() || ''; }
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function timeAgo(dt) {
+  const diff = (Date.now() - new Date(dt).getTime()) / 1000;
+  if (diff < 60)   return 'just now';
+  if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+  return Math.floor(diff/86400) + 'd ago';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.opacity = '1';
+  setTimeout(() => t.style.opacity = '0', 2800);
+}
+</script>
+<!-- ══ QR CODE MODAL ══ -->
+<div class="modal-overlay" id="qr-modal">
+  <div class="modal" style="max-width:320px; text-align:center;">
+    <div class="modal-header">
+      <div class="modal-title">Invite QR Code</div>
+      <button class="modal-close" onclick="closeModal('qr-modal')">×</button>
+    </div>
+    <p style="font-family:var(--font-mono);font-size:11px;color:var(--text2);margin-bottom:1rem;line-height:1.6;">
+      Anyone who scans this is automatically connected with you when they sign up or log in.
+    </p>
+    <div class="qr-wrap">
+      <canvas id="qr-canvas"></canvas>
+    </div>
+    <a id="qr-download" class="qr-download" download="toolbox-invite.png">Download PNG</a>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+</body>
+</html>

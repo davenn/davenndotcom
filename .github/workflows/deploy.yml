@@ -1,0 +1,38 @@
+name: Deploy to GoDaddy
+
+on:
+  push:
+    branches:
+      - main   # fires on every push to main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Check out your repo
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2   # needed so FTP action can diff changed files
+
+      # 2. Upload to GoDaddy via FTP
+      #    Only uploads files that changed in the push — fast and safe.
+      - name: FTP Deploy
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server:   ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+
+          # Root of your GoDaddy site — adjust if your files live in a subfolder
+          server-dir: /public_html/
+
+          # Exclude these from every deploy
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            **/uploads/**
+            .env
+            .env.*

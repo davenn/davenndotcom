@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Track Timer — davenn.com</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── DARK THEME (default) ── */
+:root,
+[data-theme="dark"] {
+  --bg:        #0a0a0a;
+  --surface:   #121212;
+  --surface2:  #1a1a1a;
+  --border:    #2a2a2a;
+  --border2:   #333;
+  --accent:    #e8ff47;
+  --accent2:   #ff6b35;
+  --text:      #f0f0f0;
+  --text2:     #888;
+  --text3:     #555;
+  --danger:    #ff4444;
+  --success:   #44ff88;
+  --nav-bg:    #000;
+  --nav-border: rgba(255,255,255,0.08);
+  --clock-color: #e8ff47;
+  --clock-glow: rgba(232,255,71,0.25);
+  --lane-line: rgba(255,255,255,0.025);
+  --warning-bg: #2a1f00;
+  --warning-border: #7c6000;
+  --warning-text: #e8c84a;
+  --font-disp: 'Barlow Condensed', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+  --nav-h: 52px;
+}
+
+/* ── LIGHT THEME ── */
+[data-theme="light"] {
+  --bg:        #f5f4f0;
+  --surface:   #ffffff;
+  --surface2:  #f0efe9;
+  --border:    #e0ddd4;
+  --border2:   #d0cdc3;
+  --accent:    #111110;
+  --accent2:   #d95f28;
+  --text:      #111110;
+  --text2:     #555;
+  --text3:     #aaa;
+  --danger:    #d93025;
+  --success:   #1a7a3a;
+  --nav-bg:    #111110;
+  --nav-border: rgba(255,255,255,0.08);
+  --clock-color: #111110;
+  --clock-glow: rgba(0,0,0,0);
+  --lane-line: rgba(0,0,0,0.04);
+  --warning-bg: #fff8e1;
+  --warning-border: #ffe082;
+  --warning-text: #7c5c00;
+}
+
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-disp); transition: background 0.2s, color 0.2s; }
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: var(--nav-h);
+  background: var(--nav-bg);
+  border-bottom: 1px solid var(--nav-border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 1.5rem; z-index: 200;
+}
+.nav-logo { font-family: var(--font-mono); font-size: 13px; color: rgba(255,255,255,0.4); text-decoration: none; }
+.nav-logo strong { color: #fff; }
+.nav-right { display: flex; align-items: center; gap: 1.2rem; }
+.nav-back { font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.45); text-decoration: none; letter-spacing: 0.05em; text-transform: uppercase; transition: color 0.15s; }
+.nav-back:hover { color: #fff; }
+
+/* ── THEME TOGGLE ── */
+.theme-toggle {
+  position: relative; width: 44px; height: 24px; cursor: pointer;
+  background: none; border: none; padding: 0;
+}
+.theme-toggle-track {
+  width: 44px; height: 24px; border-radius: 12px;
+  background: #333; border: 1px solid #555;
+  transition: background 0.2s, border-color 0.2s;
+  display: flex; align-items: center; padding: 0 3px;
+}
+[data-theme="light"] .theme-toggle-track { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); }
+.theme-toggle-thumb {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #888; transition: transform 0.2s, background 0.2s;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; line-height: 1;
+}
+[data-theme="light"] .theme-toggle-thumb { transform: translateX(20px); background: #fff; }
+[data-theme="dark"]  .theme-toggle-thumb { transform: translateX(0); background: #666; }
+
+/* ── TABS ── */
+.tab-bar {
+  position: fixed; top: var(--nav-h); left: 0; right: 0;
+  background: var(--nav-bg); border-bottom: 1px solid var(--nav-border);
+  display: flex; z-index: 190;
+}
+.tab-btn {
+  flex: 1; padding: 0 1rem; height: 44px;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: rgba(255,255,255,0.35); background: none; border: none; cursor: pointer;
+  border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s;
+}
+.tab-btn.active { color: #e8ff47; border-bottom-color: #e8ff47; }
+[data-theme="light"] .tab-btn.active { color: #e8ff47; border-bottom-color: #e8ff47; }
+
+/* ── PANELS ── */
+.panel { display: none; padding-top: calc(var(--nav-h) + 44px); min-height: 100vh; }
+.panel.active { display: block; }
+
+/* ── CLOCK ── */
+.clock-wrap {
+  text-align: center; padding: 2.5rem 1rem 2rem; position: relative;
+}
+.clock-wrap::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    90deg, transparent, transparent calc(100%/8 - 1px),
+    var(--lane-line) calc(100%/8 - 1px),
+    var(--lane-line) calc(100%/8)
+  );
+  pointer-events: none;
+}
+#clock {
+  font-family: var(--font-mono);
+  font-size: clamp(3.5rem, 12vw, 7rem);
+  font-weight: 500; letter-spacing: -0.03em;
+  color: var(--clock-color); line-height: 1;
+  text-shadow: 0 0 60px var(--clock-glow);
+  position: relative;
+  transition: color 0.2s, text-shadow 0.2s;
+}
+.clock-status {
+  font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: 0.15em; text-transform: uppercase;
+  margin-top: 10px; color: var(--text3); height: 16px;
+}
+.clock-status.running { color: var(--success); }
+.clock-status.stopped { color: var(--danger); }
+
+/* ── CONTROLS ── */
+.master-controls {
+  display: flex; gap: 10px; justify-content: center;
+  padding: 0 1rem 1.5rem;
+}
+.btn {
+  font-family: var(--font-disp); font-size: 16px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 12px 28px; border-radius: 4px; border: none; cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.btn-start { background: var(--accent); color: #000; }
+[data-theme="dark"] .btn-start { color: #000; }
+[data-theme="light"] .btn-start { color: #fff; background: #111110; }
+.btn-stop  { background: var(--danger); color: #fff; }
+.btn-lap   { background: var(--surface2); color: var(--text); border: 1px solid var(--border2); }
+.btn-reset { background: transparent; color: var(--text2); border: 1px solid var(--border); font-size: 13px; padding: 12px 18px; }
+
+/* ── API WARNING ── */
+.api-warning {
+  display: none; max-width: 860px; margin: 0 auto 1rem;
+  background: var(--warning-bg); border: 1px solid var(--warning-border);
+  border-radius: 6px; padding: 10px 14px;
+  font-family: var(--font-mono); font-size: 12px; color: var(--warning-text);
+}
+.api-warning.show { display: block; }
+
+/* ── SAVE BAR ── */
+.save-bar { display: none; max-width: 860px; margin: 0 auto; padding: 0 1.5rem; }
+.save-bar.show { display: block; }
+.save-bar-inner {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: 6px; padding: 14px;
+  display: flex; gap: 10px; align-items: center;
+}
+.save-bar-inner input {
+  flex: 1; background: var(--surface2); border: 1px solid var(--border2);
+  color: var(--text); font-family: var(--font-mono); font-size: 13px;
+  padding: 9px 12px; border-radius: 4px; outline: none;
+  transition: border-color 0.15s;
+}
+.save-bar-inner input::placeholder { color: var(--text3); }
+.save-bar-inner input:focus { border-color: var(--accent); }
+.btn-save-session {
+  font-family: var(--font-disp); font-size: 14px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  background: var(--accent); color: #fff; border: none; border-radius: 4px;
+  padding: 10px 20px; cursor: pointer; white-space: nowrap;
+  transition: opacity 0.15s;
+}
+[data-theme="dark"] .btn-save-session { color: #000; }
+.btn-save-session:hover { opacity: 0.85; }
+.btn-save-session:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── SECTION DIVIDER ── */
+.section-divider {
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 1.5rem 1rem; max-width: 860px; margin: 0 auto;
+}
+.section-divider span {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); white-space: nowrap;
+}
+.section-divider hr { flex: 1; border: none; border-top: 1px solid var(--border); }
+
+/* ── ADD ATHLETE ── */
+.add-athlete-row {
+  display: flex; gap: 8px; padding: 0 1.5rem 1.2rem;
+  max-width: 860px; margin: 0 auto;
+}
+.add-athlete-row input {
+  flex: 1; background: var(--surface2); border: 1px solid var(--border2);
+  color: var(--text); font-family: var(--font-mono); font-size: 13px;
+  padding: 9px 12px; border-radius: 4px; outline: none; transition: border-color 0.15s;
+}
+.add-athlete-row input::placeholder { color: var(--text3); }
+.add-athlete-row input:focus { border-color: var(--accent); }
+.btn-add {
+  font-family: var(--font-disp); font-size: 14px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  background: var(--surface2); color: var(--accent); border: 1px solid var(--accent);
+  padding: 9px 18px; border-radius: 4px; cursor: pointer; white-space: nowrap;
+  transition: background 0.15s;
+}
+.btn-add:hover { background: var(--surface); }
+
+/* ── ATHLETE CARDS ── */
+.athletes-wrap { max-width: 860px; margin: 0 auto; padding: 0 1.5rem; }
+.athlete-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; margin-bottom: 10px; overflow: hidden;
+  transition: border-color 0.15s, background 0.2s;
+}
+.athlete-header {
+  display: grid; grid-template-columns: 28px 1fr auto auto auto;
+  align-items: center; gap: 10px; padding: 10px 14px;
+}
+.athlete-lane { font-family: var(--font-mono); font-size: 11px; color: var(--text3); text-align: center; }
+.athlete-name { font-size: 18px; font-weight: 700; letter-spacing: 0.02em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.athlete-last-split { font-family: var(--font-mono); font-size: 13px; color: var(--text2); text-align: right; }
+.athlete-last-split .split-label { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text3); display: block; }
+.btn-split {
+  font-family: var(--font-disp); font-size: 13px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  background: var(--surface2); color: var(--text); border: 1px solid var(--border2);
+  padding: 7px 14px; border-radius: 4px; cursor: pointer; white-space: nowrap;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+}
+.btn-split:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.btn-split:active:not(:disabled) { background: var(--surface); }
+.btn-split:disabled { opacity: 0.3; cursor: not-allowed; }
+.btn-remove {
+  background: none; border: none; color: var(--text3); cursor: pointer;
+  font-size: 16px; padding: 4px 6px; line-height: 1; transition: color 0.15s;
+}
+.btn-remove:hover { color: var(--danger); }
+
+/* splits table */
+.splits-list { border-top: 1px solid var(--border); display: none; }
+.athlete-card.has-splits .splits-list { display: block; }
+.splits-table { width: 100%; border-collapse: collapse; }
+.splits-table th {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text3); padding: 6px 14px; text-align: left;
+  border-bottom: 1px solid var(--border); font-weight: 400;
+}
+.splits-table th:last-child { text-align: right; }
+.splits-table td {
+  font-family: var(--font-mono); font-size: 12px; color: var(--text2);
+  padding: 5px 14px; border-bottom: 1px solid var(--border);
+}
+.splits-table tr:last-child td { border-bottom: none; }
+.splits-table td:last-child { text-align: right; }
+.split-num { color: var(--text3); }
+.split-time-abs { color: var(--text); }
+.split-time-delta { color: var(--accent2); }
+.split-time-delta.best { color: var(--success); }
+.empty-athletes {
+  text-align: center; padding: 3rem 1rem;
+  font-family: var(--font-mono); font-size: 12px; color: var(--text3); letter-spacing: 0.05em;
+}
+
+/* ── BOARD PANEL ── */
+#panel-board { padding-bottom: 60px; }
+.board-wrap { max-width: 860px; margin: 0 auto; padding: 1.5rem; }
+.board-top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.2rem; }
+.board-top-bar h2 { font-size: 22px; font-weight: 700; letter-spacing: 0.04em; }
+.btn-clear-board { font-family: var(--font-mono); font-size: 11px; color: var(--danger); background: none; border: none; cursor: pointer; letter-spacing: 0.05em; padding: 4px 8px; }
+.board-session {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; margin-bottom: 16px; overflow: hidden;
+  transition: background 0.2s;
+}
+.board-session-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  cursor: pointer; user-select: none;
+}
+.board-session-header:hover { background: var(--surface2); }
+.board-session-title { font-size: 18px; font-weight: 700; letter-spacing: 0.02em; }
+.board-session-meta { font-family: var(--font-mono); font-size: 11px; color: var(--text3); margin-top: 2px; }
+.board-session-right { display: flex; align-items: center; gap: 12px; }
+.board-session-chevron { font-size: 14px; color: var(--text3); transition: transform 0.2s; }
+.board-session.open .board-session-chevron { transform: rotate(180deg); }
+.btn-delete-session { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 14px; padding: 4px; transition: color 0.15s; }
+.btn-delete-session:hover { color: var(--danger); }
+.board-session-body { display: none; }
+.board-session.open .board-session-body { display: block; }
+.board-athlete { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.board-athlete:last-child { border-bottom: none; }
+.board-athlete-name { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.board-splits { display: flex; flex-wrap: wrap; gap: 6px; }
+.board-split-chip {
+  font-family: var(--font-mono); font-size: 11px;
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 4px; padding: 3px 8px; color: var(--text2);
+}
+.board-split-chip .lap-n { color: var(--text3); margin-right: 4px; }
+.board-split-chip .t-abs { color: var(--text); }
+.board-split-chip .t-delta { color: var(--accent2); margin-left: 4px; }
+.board-split-chip.best-lap .t-delta { color: var(--success); }
+.board-empty { text-align: center; padding: 4rem 1rem; font-family: var(--font-mono); font-size: 12px; color: var(--text3); letter-spacing: 0.05em; }
+.board-loading { text-align: center; padding: 3rem; font-family: var(--font-mono); font-size: 12px; color: var(--text3); }
+
+/* ── FLASH ── */
+@keyframes flashBorder {
+  0%   { border-color: var(--accent); box-shadow: 0 0 12px rgba(232,255,71,0.2); }
+  100% { border-color: var(--border); box-shadow: none; }
+}
+[data-theme="light"] .athlete-card {
+  --flash-color: #111110;
+}
+.flash { animation: flashBorder 0.6s ease forwards; }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+  background: var(--surface); border: 1px solid var(--border2);
+  color: var(--text); font-family: var(--font-mono); font-size: 12px;
+  padding: 8px 18px; border-radius: 20px;
+  opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 999;
+  white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="index.html"><strong>davenn</strong>dotcom</a>
+  <div class="nav-right">
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode" aria-label="Toggle theme">
+      <div class="theme-toggle-track">
+        <div class="theme-toggle-thumb" id="toggle-icon">🌙</div>
+      </div>
+    </button>
+    <a class="nav-back" href="index.html">← Back</a>
+  </div>
+</nav>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="showTab('timer')">Timer</button>
+  <button class="tab-btn" onclick="showTab('board')">Session Board</button>
+</div>
+
+<!-- ═══════════ TIMER PANEL ═══════════ -->
+<div id="panel-timer" class="panel active">
+
+  <div class="clock-wrap">
+    <div id="clock">00:00.000</div>
+    <div class="clock-status" id="clock-status">Ready</div>
+  </div>
+
+  <div class="master-controls">
+    <button class="btn btn-start" id="btn-start" onclick="startTimer()">Start</button>
+    <button class="btn btn-stop"  id="btn-stop"  onclick="stopTimer()" disabled>Stop</button>
+    <button class="btn btn-lap"   id="btn-lap"   onclick="masterLap()" disabled>Lap All</button>
+    <button class="btn btn-reset" id="btn-reset" onclick="resetTimer()">Reset</button>
+  </div>
+
+  <div class="api-warning" id="api-warning">
+    &#9888; Set <code>API_URL</code> at the top of the &lt;script&gt; to point to your <code>api.php</code> file before saving sessions.
+  </div>
+
+  <div class="save-bar" id="save-bar">
+    <div class="save-bar-inner">
+      <input type="text" id="session-name" placeholder="Session name (e.g. 100m Heat 1)" maxlength="80">
+      <button class="btn-save-session" id="btn-save-session" onclick="saveSession()">Save to Board</button>
+    </div>
+  </div>
+
+  <div class="section-divider" style="margin-top:1.5rem;">
+    <span>Athletes</span><hr>
+  </div>
+
+  <div class="add-athlete-row">
+    <input type="text" id="athlete-input" placeholder="Athlete name…" maxlength="40"
+      onkeydown="if(event.key==='Enter') addAthlete()">
+    <button class="btn-add" onclick="addAthlete()">+ Add</button>
+  </div>
+
+  <div class="athletes-wrap" id="athletes-wrap">
+    <div class="empty-athletes" id="empty-msg">No athletes added yet — type a name above.</div>
+  </div>
+
+</div>
+
+<!-- ═══════════ BOARD PANEL ═══════════ -->
+<div id="panel-board" class="panel">
+  <div class="board-wrap">
+    <div class="board-top-bar">
+      <h2>Session Board</h2>
+      <button class="btn-clear-board" onclick="clearBoard()">Clear all</button>
+    </div>
+    <div id="board-list"><div class="board-loading">Loading…</div></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+const API_URL = 'https://davenn.com/api.php';
+// ─────────────────────────────────────────────────────────────────────────────
+
+if (!API_URL) document.getElementById('api-warning').classList.add('show');
+
+// ── THEME ─────────────────────────────────────────────────────────────────────
+function getTheme() {
+  return localStorage.getItem('track_theme') || 'dark';
+}
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('toggle-icon').textContent = theme === 'dark' ? '🌙' : '☀️';
+  localStorage.setItem('track_theme', theme);
+}
+function toggleTheme() {
+  applyTheme(getTheme() === 'dark' ? 'light' : 'dark');
+}
+applyTheme(getTheme());
+
+// ── TIMER STATE ───────────────────────────────────────────────────────────────
+let startTime = 0;
+let elapsed   = 0;
+let rafId     = null;
+let running   = false;
+let athletes  = [];
+let nextId    = 1;
+
+// ── CLOCK ─────────────────────────────────────────────────────────────────────
+function getElapsed() {
+  return running ? elapsed + (performance.now() - startTime) : elapsed;
+}
+
+function fmtTime(ms) {
+  const total  = Math.floor(ms);
+  const mins   = Math.floor(total / 60000);
+  const secs   = Math.floor((total % 60000) / 1000);
+  const millis = total % 1000;
+  return `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}.${String(millis).padStart(3,'0')}`;
+}
+
+function tick() {
+  document.getElementById('clock').textContent = fmtTime(getElapsed());
+  rafId = requestAnimationFrame(tick);
+}
+
+function startTimer() {
+  if (running) return;
+  startTime = performance.now();
+  running   = true;
+  rafId     = requestAnimationFrame(tick);
+  setUIRunning(true);
+  document.getElementById('save-bar').classList.remove('show');
+  const st = document.getElementById('clock-status');
+  st.textContent = 'Running'; st.className = 'clock-status running';
+}
+
+function stopTimer() {
+  if (!running) return;
+  elapsed += performance.now() - startTime;
+  running  = false;
+  cancelAnimationFrame(rafId);
+  setUIRunning(false);
+  const st = document.getElementById('clock-status');
+  st.textContent = 'Stopped — ' + fmtTime(elapsed);
+  st.className = 'clock-status stopped';
+  const hasSplits = athletes.some(a => a.splits.length > 0);
+  if (hasSplits) document.getElementById('save-bar').classList.add('show');
+}
+
+function resetTimer() {
+  if (running) { elapsed += performance.now() - startTime; running = false; cancelAnimationFrame(rafId); }
+  elapsed = 0;
+  document.getElementById('clock').textContent = '00:00.000';
+  const st = document.getElementById('clock-status');
+  st.textContent = 'Ready'; st.className = 'clock-status';
+  setUIRunning(false);
+  document.getElementById('btn-reset').disabled = false;
+  document.getElementById('save-bar').classList.remove('show');
+  athletes.forEach(a => a.splits = []);
+  renderAthletes();
+}
+
+function setUIRunning(on) {
+  document.getElementById('btn-start').disabled = on;
+  document.getElementById('btn-stop').disabled  = !on;
+  document.getElementById('btn-lap').disabled   = !on;
+  document.getElementById('btn-reset').disabled = on;
+  syncSplitButtons();
+}
+
+function masterLap() { athletes.forEach(a => recordSplit(a.id)); }
+
+function syncSplitButtons() {
+  athletes.forEach(a => {
+    const btn = document.getElementById('split-btn-' + a.id);
+    if (btn) btn.disabled = !running;
+  });
+}
+
+// ── ATHLETES ──────────────────────────────────────────────────────────────────
+function addAthlete() {
+  const inp  = document.getElementById('athlete-input');
+  const name = inp.value.trim();
+  if (!name) return;
+  athletes.push({ id: nextId++, name, splits: [] });
+  inp.value = '';
+  renderAthletes();
+}
+
+function removeAthlete(id) {
+  athletes = athletes.filter(a => a.id !== id);
+  const card = document.getElementById('card-' + id);
+  if (card) card.remove();
+  if (athletes.length === 0) {
+    document.getElementById('athletes-wrap').innerHTML =
+      '<div class="empty-athletes" id="empty-msg">No athletes added yet — type a name above.</div>';
+  }
+}
+
+function recordSplit(id) {
+  if (!running) return;
+  const now = getElapsed();
+  const a   = athletes.find(x => x.id === id);
+  if (!a) return;
+  const prev = a.splits.length ? a.splits[a.splits.length - 1].abs : 0;
+  a.splits.push({ abs: now, delta: now - prev });
+  renderAthleteSplits(id);
+  const card = document.getElementById('card-' + id);
+  if (card) { card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash'); }
+}
+
+function renderAthletes() {
+  const wrap  = document.getElementById('athletes-wrap');
+  const empty = document.getElementById('empty-msg');
+  if (athletes.length === 0) {
+    wrap.innerHTML = '<div class="empty-athletes" id="empty-msg">No athletes added yet — type a name above.</div>';
+    return;
+  }
+  if (empty) empty.remove();
+
+  athletes.forEach((a, idx) => {
+    if (!document.getElementById('card-' + a.id)) {
+      const card = document.createElement('div');
+      card.className = 'athlete-card';
+      card.id = 'card-' + a.id;
+      card.innerHTML = `
+        <div class="athlete-header">
+          <div class="athlete-lane">${idx + 1}</div>
+          <div class="athlete-name">${escHtml(a.name)}</div>
+          <div class="athlete-last-split" id="last-split-${a.id}">
+            <span class="split-label">Last</span>—
+          </div>
+          <button class="btn-split" id="split-btn-${a.id}" onclick="recordSplit(${a.id})" disabled>Split</button>
+          <button class="btn-remove" onclick="removeAthlete(${a.id})" title="Remove">×</button>
+        </div>
+        <div class="splits-list">
+          <table class="splits-table">
+            <thead><tr>
+              <th>Lap</th><th>Time</th><th style="text-align:right">Split</th>
+            </tr></thead>
+            <tbody id="splits-body-${a.id}"></tbody>
+          </table>
+        </div>`;
+      wrap.appendChild(card);
+    }
+    renderAthleteSplits(a.id);
+  });
+}
+
+function renderAthleteSplits(id) {
+  const a = athletes.find(x => x.id === id);
+  if (!a) return;
+  const card = document.getElementById('card-' + id);
+  if (!card) return;
+  const splitBtn = document.getElementById('split-btn-' + id);
+  if (splitBtn) splitBtn.disabled = !running;
+  const lastEl = document.getElementById('last-split-' + id);
+  if (lastEl && a.splits.length) {
+    const last = a.splits[a.splits.length - 1];
+    lastEl.innerHTML = `<span class="split-label">Lap ${a.splits.length}</span>${fmtTime(last.delta)}`;
+  }
+  if (a.splits.length) card.classList.add('has-splits');
+  const tbody = document.getElementById('splits-body-' + id);
+  if (!tbody) return;
+  const minDelta = a.splits.length > 1 ? Math.min(...a.splits.map(s => s.delta)) : Infinity;
+  tbody.innerHTML = a.splits.map((s, i) => {
+    const isBest = a.splits.length > 1 && s.delta === minDelta;
+    return `<tr>
+      <td class="split-num">${i + 1}</td>
+      <td class="split-time-abs">${fmtTime(s.abs)}</td>
+      <td class="split-time-delta ${isBest ? 'best' : ''}">${isBest ? '▲ ' : ''}${fmtTime(s.delta)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── API HELPER ────────────────────────────────────────────────────────────────
+async function apiFetch(path, options = {}) {
+  if (!API_URL) { showToast('API_URL not configured'); return null; }
+  try {
+    const res = await fetch(API_URL + path, options);
+    return await res.json();
+  } catch(e) {
+    showToast('Network error — check API_URL');
+    return null;
+  }
+}
+
+// ── SAVE SESSION ──────────────────────────────────────────────────────────────
+async function saveSession() {
+  const name = document.getElementById('session-name').value.trim() || 'Untitled Session';
+  const btn  = document.getElementById('btn-save-session');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  const result = await apiFetch('?action=save_track_session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name,
+      duration: Math.round(elapsed),
+      athletes: athletes.map(a => ({
+        name: a.name,
+        splits: a.splits.map(s => ({ abs: Math.round(s.abs), delta: Math.round(s.delta) }))
+      }))
+    })
+  });
+
+  btn.textContent = 'Save to Board';
+  if (result?.success) {
+    showToast(`"${name}" saved to board`);
+    document.getElementById('session-name').value = '';
+    document.getElementById('save-bar').classList.remove('show');
+  } else {
+    btn.disabled = false;
+    showToast('Save failed — check your API');
+  }
+}
+
+// ── BOARD ─────────────────────────────────────────────────────────────────────
+function showTab(tab) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+  document.querySelectorAll('.tab-btn')[tab === 'timer' ? 0 : 1].classList.add('active');
+  if (tab === 'board') renderBoard();
+}
+
+async function renderBoard() {
+  const el = document.getElementById('board-list');
+  el.innerHTML = '<div class="board-loading">Loading…</div>';
+  const sessions = await apiFetch('?action=track_sessions') || [];
+  if (!sessions.length) {
+    el.innerHTML = '<div class="board-empty">No sessions saved yet.</div>';
+    return;
+  }
+  el.innerHTML = sessions.map(s => {
+    const athleteRows = (s.athletes || []).map(a => {
+      const minDelta = a.splits.length > 1 ? Math.min(...a.splits.map(sp => sp.delta)) : Infinity;
+      const chips = a.splits.map((sp, i) => {
+        const isBest = a.splits.length > 1 && sp.delta === minDelta;
+        return `<div class="board-split-chip ${isBest ? 'best-lap' : ''}">
+          <span class="lap-n">L${i+1}</span>
+          <span class="t-abs">${fmtTime(sp.abs)}</span>
+          <span class="t-delta">${fmtTime(sp.delta)}</span>
+        </div>`;
+      }).join('');
+      return `<div class="board-athlete">
+        <div class="board-athlete-name">${escHtml(a.name)}</div>
+        <div class="board-splits">${chips || '<span style="font-family:var(--font-mono);font-size:11px;color:var(--text3)">No splits recorded</span>'}</div>
+      </div>`;
+    }).join('');
+    const dateStr = new Date(s.created_at).toLocaleDateString(undefined,
+      { month:'short', day:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    return `<div class="board-session" id="bsession-${s.id}">
+      <div class="board-session-header" onclick="toggleSession(${s.id})">
+        <div>
+          <div class="board-session-title">${escHtml(s.name)}</div>
+          <div class="board-session-meta">${dateStr} &nbsp;·&nbsp; ${fmtTime(s.duration)}</div>
+        </div>
+        <div class="board-session-right">
+          <button class="btn-delete-session" onclick="event.stopPropagation(); deleteSession(${s.id})" title="Delete">✕</button>
+          <span class="board-session-chevron">▼</span>
+        </div>
+      </div>
+      <div class="board-session-body">${athleteRows}</div>
+    </div>`;
+  }).join('');
+}
+
+function toggleSession(id) {
+  const el = document.getElementById('bsession-' + id);
+  if (el) el.classList.toggle('open');
+}
+
+async function deleteSession(id) {
+  const result = await apiFetch(`?action=delete_track_session&id=${id}`, { method: 'DELETE' });
+  if (result?.success) { showToast('Session deleted'); renderBoard(); }
+}
+
+async function clearBoard() {
+  if (!confirm('Delete all saved sessions?')) return;
+  const result = await apiFetch('?action=clear_track_sessions', { method: 'DELETE' });
+  if (result?.success) { showToast('All sessions cleared'); renderBoard(); }
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.opacity = '1';
+  setTimeout(() => t.style.opacity = '0', 2800);
+}
+</script>
+</body>
+</html>

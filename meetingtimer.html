@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meeting Cost Timer</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f8f9fa; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
+        * { box-sizing: border-box; }
+        .card { background: white; padding: 2rem; border-radius: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); width: 100%; max-width: 520px; }
+        h2 { margin-top: 0; text-align: center; color: #202124; font-size: 1.3rem; }
+
+        /* Tabs */
+        .tabs { display: flex; gap: 8px; margin-bottom: 1.5rem; }
+        .tabs button { flex: 1; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: 1px solid #dadce0; background: white; color: #5f6368; transition: all 0.15s; }
+        .tabs button.active { background: #f1f3f4; color: #202124; border-color: #bdc1c6; }
+        .panel { display: none; } .panel.active { display: block; }
+
+        /* Timer panel */
+        .grid-header { display: grid; grid-template-columns: 1fr 1.2fr; gap: 10px; margin-bottom: 4px; font-weight: 700; font-size: 0.75rem; color: #555; text-transform: uppercase; }
+        .input-row { display: grid; grid-template-columns: 1fr 1.2fr; gap: 10px; margin-bottom: 12px; align-items: center; }
+        label { font-size: 0.85rem; color: #333; margin-bottom: 4px; display: block; font-weight: 600; }
+        input[type=number], input[type=text] { width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 8px; font-size: 0.95rem; }
+        .timer-section { background: #f1f3f4; padding: 20px; border-radius: 12px; margin: 20px 0; text-align: center; }
+        #timerInput { font-size: 3rem; font-weight: 800; color: #1a73e8; text-align: center; border: none; background: transparent; width: 100%; cursor: pointer; }
+        .cost-label { font-size: 0.9rem; color: #666; margin-bottom: 5px; }
+        .cost-display { font-size: 3rem; color: #d93025; font-weight: bold; margin-bottom: 10px; }
+        .burn-rate { font-size: 0.8rem; color: #5f6368; }
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        button { padding: 14px; font-size: 1rem; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .start { background: #34a853; color: white; }
+        .stop  { background: #ea4335; color: white; }
+        .reset { background: #5f6368; color: white; grid-column: span 2; }
+        button:disabled { background: #dadce0; color: #70757a; cursor: not-allowed; }
+        .save-row { display: flex; gap: 8px; margin-top: 14px; }
+        .save-row input { flex: 1; }
+        .btn-save { background: #1a73e8; color: white; padding: 10px 16px; font-size: 0.9rem; white-space: nowrap; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; }
+        .btn-save:disabled { background: #dadce0; color: #70757a; cursor: not-allowed; }
+
+        /* Leaderboard panel */
+        .week-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+        .week-nav button { padding: 6px 14px; font-size: 13px; background: #f1f3f4; border: 1px solid #dadce0; border-radius: 6px; cursor: pointer; font-weight: 600; color: #444; }
+        .week-label { font-size: 14px; font-weight: 600; color: #333; }
+        .week-totals { display: flex; gap: 10px; margin-bottom: 1rem; }
+        .stat-card { flex: 1; background: #f8f9fa; border-radius: 8px; padding: 10px 14px; text-align: center; }
+        .stat-label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+        .stat-val { font-size: 1.2rem; font-weight: bold; color: #202124; }
+        .stat-val.danger { color: #d93025; }
+        .lb-item { display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; background: #fafafa; border: 1px solid #e8eaed; margin-bottom: 8px; }
+        .lb-rank { font-size: 14px; font-weight: bold; color: #999; text-align: center; }
+        .lb-rank.gold   { color: #f9ab00; }
+        .lb-rank.silver { color: #80868b; }
+        .lb-rank.bronze { color: #c07c49; }
+        .lb-title { font-size: 14px; font-weight: 600; color: #202124; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .lb-date  { font-size: 12px; color: #888; }
+        .lb-cost-val { font-size: 15px; font-weight: bold; color: #d93025; text-align: right; }
+        .lb-duration { font-size: 12px; color: #888; text-align: right; font-family: monospace; }
+        .lb-empty { text-align: center; padding: 2rem; color: #aaa; font-size: 14px; }
+        .lb-actions { display: flex; justify-content: flex-end; margin-bottom: 0.75rem; }
+        .btn-clear { font-size: 12px; color: #d93025; background: none; border: none; cursor: pointer; padding: 4px 8px; font-weight: 600; }
+        .toast { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 8px 18px; border-radius: 20px; font-size: 13px; opacity: 0; transition: opacity 0.25s; pointer-events: none; z-index: 99; white-space: nowrap; }
+
+        /* Config note */
+        .api-config { background: #fff8e1; border: 1px solid #ffe082; border-radius: 8px; padding: 10px 14px; margin-bottom: 1rem; font-size: 12px; color: #7c6000; display: none; }
+        .api-config.show { display: block; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h2>Meeting Cost Calculator</h2>
+
+    <!-- API config warning — shown if API_URL is not set -->
+    <div class="api-config" id="apiWarning">
+        &#9888; Set <code>API_URL</code> at the top of the &lt;script&gt; to point to your <code>api.php</code> file.
+    </div>
+
+    <div class="tabs">
+        <button class="active" onclick="showTab('timer')">Timer</button>
+        <button onclick="showTab('leaderboard')">Leaderboard</button>
+    </div>
+
+    <!-- TIMER PANEL -->
+    <div id="tab-timer" class="panel active">
+        <div class="grid-header"><div>Headcount</div><div>Avg. Salary ($)</div></div>
+
+        <label>Individual Contributors</label>
+        <div class="input-row">
+            <input type="number" id="count1" value="0" min="0">
+            <input type="number" id="sal1" value="120000">
+        </div>
+
+        <label>Sr. & Mid-Level Managers</label>
+        <div class="input-row">
+            <input type="number" id="count2" value="0" min="0">
+            <input type="number" id="sal2" value="175000">
+        </div>
+
+        <label>Upper-Level Managers</label>
+        <div class="input-row">
+            <input type="number" id="count3" value="0" min="0">
+            <input type="number" id="sal3" value="225000">
+        </div>
+
+        <div class="timer-section">
+            <input type="text" id="timerInput" value="00:00:00" onchange="manualTimeAdjust()">
+            <div class="cost-display" id="cost">$0.00</div>
+            <div class="burn-rate" id="burnRate">Current Burn: $0.00/sec</div>
+        </div>
+
+        <div class="controls">
+            <button id="startBtn" class="start" onclick="startTimer()">Start Timer</button>
+            <button id="stopBtn" class="stop" onclick="stopTimer()" disabled>Stop</button>
+            <button class="reset" onclick="resetAll()">Reset Everything</button>
+        </div>
+
+        <div class="save-row">
+            <input type="text" id="meetingTitle" placeholder="Meeting title (e.g. Q2 Planning)" maxlength="80">
+            <button id="saveBtn" class="btn-save" onclick="saveMeeting()" disabled>Save to board</button>
+        </div>
+    </div>
+
+    <!-- LEADERBOARD PANEL -->
+    <div id="tab-leaderboard" class="panel">
+        <div class="week-nav">
+            <button onclick="changeWeek(-1)">&#8592; Prev</button>
+            <div class="week-label" id="weekLabel"></div>
+            <button onclick="changeWeek(1)">Next &#8594;</button>
+        </div>
+        <div class="week-totals" id="weekTotals"></div>
+        <div class="lb-actions">
+            <button class="btn-clear" onclick="clearWeek()">Clear this week</button>
+        </div>
+        <div id="leaderboardList"></div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+// Set this to the URL of your uploaded api.php file, e.g.:
+// const API_URL = 'https://yourdomain.com/api.php';
+// or if in a subfolder:
+// const API_URL = 'https://yourdomain.com/meeting-timer/api.php';
+const API_URL = 'https://davenn.com/api.php';
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SECONDS_IN_WORK_YEAR = 7488000;
+let totalSeconds = 0;
+let accumulatedCost = 0;
+let timerInterval;
+let viewWeekOffset = 0;
+
+if (!API_URL) {
+    document.getElementById('apiWarning').classList.add('show');
+}
+
+// ── TIMER LOGIC ───────────────────────────────────────────────────────────────
+function getCostPerSecond() {
+    const tiers = [['count1','sal1'],['count2','sal2'],['count3','sal3']];
+    return tiers.reduce((r,[c,s]) => {
+        return r + ((parseFloat(document.getElementById(s).value)||0) / SECONDS_IN_WORK_YEAR)
+                 * (parseInt(document.getElementById(c).value)||0);
+    }, 0);
+}
+
+function startTimer() {
+    document.getElementById('startBtn').disabled = true;
+    document.getElementById('stopBtn').disabled = false;
+    document.getElementById('timerInput').disabled = true;
+    timerInterval = setInterval(() => {
+        totalSeconds++;
+        accumulatedCost += getCostPerSecond();
+        updateDisplay();
+    }, 1000);
+}
+
+function stopTimer() {
+    clearInterval(timerInterval);
+    document.getElementById('startBtn').disabled = false;
+    document.getElementById('stopBtn').disabled = true;
+    document.getElementById('timerInput').disabled = false;
+    document.getElementById('saveBtn').disabled = (totalSeconds === 0 || !API_URL);
+}
+
+function resetAll() {
+    stopTimer();
+    totalSeconds = 0;
+    accumulatedCost = 0;
+    ['count1','count2','count3'].forEach(id => document.getElementById(id).value = 0);
+    document.getElementById('saveBtn').disabled = true;
+    updateDisplay();
+}
+
+function manualTimeAdjust() {
+    const parts = document.getElementById('timerInput').value.split(':').map(p => parseInt(p)||0).reverse();
+    totalSeconds = (parts[0]||0) + (parts[1]||0)*60 + (parts[2]||0)*3600;
+    accumulatedCost = totalSeconds * getCostPerSecond();
+    updateDisplay();
+}
+
+function updateDisplay() {
+    const hrs  = Math.floor(totalSeconds / 3600).toString().padStart(2,'0');
+    const mins = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2,'0');
+    const secs = (totalSeconds % 60).toString().padStart(2,'0');
+    document.getElementById('timerInput').value = `${hrs}:${mins}:${secs}`;
+    document.getElementById('cost').innerText = '$' + accumulatedCost.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+    document.getElementById('burnRate').innerText = `Current Burn: $${getCostPerSecond().toFixed(2)}/sec`;
+}
+
+// ── WEEK HELPERS ──────────────────────────────────────────────────────────────
+function getMondayKey(offset) {
+    const now = new Date();
+    const day = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + offset * 7);
+    monday.setHours(0,0,0,0);
+    return monday.toISOString().split('T')[0]; // YYYY-MM-DD
+}
+
+function getWeekLabel(offset) {
+    const now = new Date();
+    const day = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + offset * 7);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const fmt = d => d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+    return `${fmt(monday)} – ${fmt(sunday)}`;
+}
+
+// ── API CALLS ─────────────────────────────────────────────────────────────────
+async function apiFetch(path, options = {}) {
+    if (!API_URL) { showToast('API_URL not configured'); return null; }
+    try {
+        const res = await fetch(API_URL + path, options);
+        return await res.json();
+    } catch (e) {
+        showToast('Network error — check API_URL');
+        return null;
+    }
+}
+
+async function saveMeeting() {
+    const title = document.getElementById('meetingTitle').value.trim() || 'Untitled meeting';
+    const week_key = getMondayKey(0);
+
+    document.getElementById('saveBtn').disabled = true;
+    document.getElementById('saveBtn').textContent = 'Saving…';
+
+    const result = await apiFetch('?action=save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, cost: accumulatedCost, seconds: totalSeconds, week_key })
+    });
+
+    document.getElementById('saveBtn').textContent = 'Save to board';
+
+    if (result?.success) {
+        showToast(`Saved "${title}" to the leaderboard`);
+        document.getElementById('meetingTitle').value = '';
+        document.getElementById('saveBtn').disabled = true;
+    } else {
+        showToast('Save failed — check your API');
+        document.getElementById('saveBtn').disabled = false;
+    }
+}
+
+async function clearWeek() {
+    if (!confirm('Delete all entries for this week?')) return;
+    const week_key = getMondayKey(viewWeekOffset);
+    const result = await apiFetch(`?action=clear_week&week_key=${week_key}`, { method: 'DELETE' });
+    if (result?.success) { showToast('Week cleared'); renderLeaderboard(); }
+}
+
+async function renderLeaderboard() {
+    document.getElementById('weekLabel').textContent = getWeekLabel(viewWeekOffset);
+    const week_key = getMondayKey(viewWeekOffset);
+
+    const entries = await apiFetch(`?action=week&week_key=${week_key}`) || [];
+
+    const totalCost = entries.reduce((s,e) => s + parseFloat(e.cost), 0);
+    const totalSecs = entries.reduce((s,e) => s + parseInt(e.seconds), 0);
+    const totalH = Math.floor(totalSecs/3600);
+    const totalM = Math.floor((totalSecs%3600)/60);
+
+    document.getElementById('weekTotals').innerHTML = `
+        <div class="stat-card"><div class="stat-label">Meetings</div><div class="stat-val">${entries.length}</div></div>
+        <div class="stat-card"><div class="stat-label">Total time</div><div class="stat-val">${totalH}h ${totalM}m</div></div>
+        <div class="stat-card"><div class="stat-label">Total cost</div><div class="stat-val danger">$${totalCost.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+    `;
+
+    const rankClasses = ['gold','silver','bronze'];
+    const list = document.getElementById('leaderboardList');
+
+    if (!entries.length) {
+        list.innerHTML = '<div class="lb-empty">No meetings saved this week.</div>';
+        return;
+    }
+
+    list.innerHTML = entries.map((e, i) => {
+        const secs = parseInt(e.seconds);
+        const h = Math.floor(secs/3600).toString().padStart(2,'0');
+        const m = Math.floor((secs%3600)/60).toString().padStart(2,'0');
+        const s = (secs%60).toString().padStart(2,'0');
+        const dateStr = new Date(e.created_at).toLocaleDateString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+        return `<div class="lb-item">
+            <div class="lb-rank ${rankClasses[i]||''}">#${i+1}</div>
+            <div>
+                <div class="lb-title">${e.title}</div>
+                <div class="lb-date">${dateStr}</div>
+            </div>
+            <div>
+                <div class="lb-cost-val">$${parseFloat(e.cost).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                <div class="lb-duration">${h}:${m}:${s}</div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ── UI HELPERS ────────────────────────────────────────────────────────────────
+function showTab(tab) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    document.querySelectorAll('.tabs button')[tab === 'timer' ? 0 : 1].classList.add('active');
+    if (tab === 'leaderboard') renderLeaderboard();
+}
+
+function changeWeek(dir) {
+    viewWeekOffset += dir;
+    renderLeaderboard();
+}
+
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.opacity = '1';
+    setTimeout(() => t.style.opacity = '0', 2800);
+}
+</script>
+</body>
+</html>
