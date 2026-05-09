@@ -687,7 +687,7 @@ function showApp() {
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('app-nav').style.display     = 'flex';
   document.getElementById('app-tabs').style.display    = 'flex';
-  document.querySelectorAll('.panel').forEach(p => p.style.display = 'block');
+  document.querySelectorAll('.panel').forEach(p => p.style.display = '');
   document.getElementById('nav-user-label').innerHTML  = `<strong>${escHtml(currentUser.display_name)}</strong>`;
   loadLibrary();
   pollBadge();
