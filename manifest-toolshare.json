@@ -1,0 +1,13 @@
+{
+  "name": "Toolshare",
+  "short_name": "Toolshare",
+  "description": "Tool library for sharing with friends",
+  "start_url": "/toolshare.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#1a1916",
+  "background_color": "#1a1916",
+  "icons": [
+    { "src": "/icons/toolshare.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

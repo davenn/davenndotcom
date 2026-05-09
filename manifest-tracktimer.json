@@ -1,0 +1,13 @@
+{
+  "name": "Track Timer",
+  "short_name": "Track Timer",
+  "description": "Millisecond-accurate multi-athlete split timer",
+  "start_url": "/tracktimer.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#111110",
+  "background_color": "#111110",
+  "icons": [
+    { "src": "/icons/tracktimer.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

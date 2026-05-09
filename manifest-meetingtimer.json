@@ -1,0 +1,13 @@
+{
+  "name": "Meeting Cost Timer",
+  "short_name": "Meet Cost",
+  "description": "Real-time salary burn calculator for meetings",
+  "start_url": "/meetingtimer.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#202124",
+  "background_color": "#f8f9fa",
+  "icons": [
+    { "src": "/icons/meetingtimer.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
