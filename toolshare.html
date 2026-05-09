@@ -568,22 +568,24 @@ nav {
       <span class="photo-preview-hint">Tap to add photo</span>
     </div>
     <input type="file" id="photo-input" class="photo-input" accept="image/*" capture="environment" onchange="previewPhoto(this)">
-    <div class="field"><label>Tool name *</label><input type="text" id="tool-name" placeholder="e.g. DeWalt Circular Saw"></div>
-    <div class="field-row">
-      <div class="field"><label>Brand</label><input type="text" id="tool-brand" placeholder="e.g. DeWalt"></div>
-      <div class="field"><label>Category</label>
-        <select id="tool-category">
-          <option value="">Select…</option>
-          <option>Power Tools</option><option>Hand Tools</option><option>Garden</option>
-          <option>Measuring</option><option>Fastening</option><option>Cutting</option>
-          <option>Automotive</option><option>Plumbing</option><option>Electrical</option>
-          <option>Ladders & Access</option><option>Other</option>
-        </select>
+    <div id="tool-form-fields" style="display:none;">
+      <div class="field"><label>Tool name *</label><input type="text" id="tool-name" placeholder="e.g. DeWalt Circular Saw"></div>
+      <div class="field-row">
+        <div class="field"><label>Brand</label><input type="text" id="tool-brand" placeholder="e.g. DeWalt"></div>
+        <div class="field"><label>Category</label>
+          <select id="tool-category">
+            <option value="">Select…</option>
+            <option>Power Tools</option><option>Hand Tools</option><option>Garden</option>
+            <option>Measuring</option><option>Fastening</option><option>Cutting</option>
+            <option>Automotive</option><option>Plumbing</option><option>Electrical</option>
+            <option>Ladders & Access</option><option>Other</option>
+          </select>
+        </div>
       </div>
+      <div class="field"><label>Notes</label><textarea id="tool-notes" placeholder="Condition, accessories included, any special instructions…"></textarea></div>
+      <input type="hidden" id="tool-edit-id">
+      <button class="btn-primary" id="tool-modal-submit" onclick="submitTool()">Add tool</button>
     </div>
-    <div class="field"><label>Notes</label><textarea id="tool-notes" placeholder="Condition, accessories included, any special instructions…"></textarea></div>
-    <input type="hidden" id="tool-edit-id">
-    <button class="btn-primary" id="tool-modal-submit" onclick="submitTool()">Add tool</button>
   </div>
 </div>
 
@@ -858,6 +860,7 @@ function openAddTool() {
   document.getElementById('tool-notes').value    = '';
   document.getElementById('tool-modal-title').textContent = 'Add a tool';
   document.getElementById('tool-modal-submit').textContent = 'Add tool';
+  document.getElementById('tool-form-fields').style.display = 'none';
   resetPhotoPreview();
   openModal('tool-modal');
 }
@@ -870,6 +873,7 @@ function openEditTool(t) {
   document.getElementById('tool-notes').value    = t.notes || '';
   document.getElementById('tool-modal-title').textContent  = 'Edit tool';
   document.getElementById('tool-modal-submit').textContent = 'Save changes';
+  document.getElementById('tool-form-fields').style.display = 'block';
   const prev = document.getElementById('photo-preview');
   if (t.photo_url) { prev.innerHTML = `<img src="${escHtml(t.photo_url)}" alt="">`; }
   else resetPhotoPreview();
@@ -1095,6 +1099,7 @@ async function identifyTool(file) {
 
   document.getElementById('identify-badge')?.remove();
   fields.forEach(id => document.getElementById(id).disabled = false);
+  document.getElementById('tool-form-fields').style.display = 'block';
 
   if (!res?.success) return;
   const { name, brand, category } = res.tool;
