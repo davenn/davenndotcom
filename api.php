@@ -106,6 +106,8 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS tb_requests (
 
 // Add invite_code column if not already present (safe migration — runs harmlessly)
 try { $pdo->exec("ALTER TABLE tb_users ADD COLUMN invite_code VARCHAR(16) UNIQUE DEFAULT NULL"); } catch(PDOException $e) {}
+// Expand category to TEXT to support multiple comma-separated tags
+try { $pdo->exec("ALTER TABLE tb_tools MODIFY COLUMN category TEXT DEFAULT NULL"); } catch(PDOException $e) {}
 
 $pdo->exec("CREATE TABLE IF NOT EXISTS tb_friendships (
     id         INT AUTO_INCREMENT PRIMARY KEY,
@@ -425,9 +427,9 @@ if ($method === 'POST' && $action === 'tb_identify_tool') {
     $prompt = 'Identify this tool. Respond with ONLY a JSON object (no markdown, no explanation) with these exact keys:
 "name": the specific tool name (e.g. "Circular Saw", "Cordless Drill", "Tape Measure")
 "brand": the brand/manufacturer if clearly visible (e.g. "DeWalt", "Milwaukee", "Makita"), or "" if not visible
-"category": exactly one of: Power Tools, Hand Tools, Garden, Measuring, Fastening, Cutting, Automotive, Plumbing, Electrical, Ladders & Access, Other
+"tags": a JSON array of 1-4 short, relevant tags that describe this tool — include the tool type, power type if relevant, and use case. Use concise terms (e.g. ["Power Tools", "Cordless", "Drilling"] or ["Hand Tools", "Measuring", "Levelling"])
 
-Example: {"name":"Cordless Drill","brand":"DeWalt","category":"Power Tools"}';
+Example: {"name":"Cordless Drill","brand":"DeWalt","tags":["Power Tools","Cordless","Drilling"]}';
 
     $payload = json_encode([
         'model'      => 'claude-haiku-4-5-20251001',
@@ -473,10 +475,11 @@ Example: {"name":"Cordless Drill","brand":"DeWalt","category":"Power Tools"}';
         http_response_code(502); echo json_encode(['error' => 'Could not identify tool.']); exit;
     }
 
+    $tags = array_values(array_filter(array_map('trim', (array)($result['tags'] ?? []))));
     echo json_encode(['success' => true, 'tool' => [
-        'name'     => $result['name']     ?? '',
-        'brand'    => $result['brand']    ?? '',
-        'category' => $result['category'] ?? '',
+        'name'  => $result['name']  ?? '',
+        'brand' => $result['brand'] ?? '',
+        'tags'  => $tags,
     ]]);
     exit;
 }
@@ -650,6 +653,27 @@ function areFriends(PDO $pdo, int $a, int $b): bool {
     $stmt = $pdo->prepare("SELECT id FROM tb_friendships WHERE user_a = ? AND user_b = ?");
     $stmt->execute([$lo,$hi]);
     return (bool)$stmt->fetch();
+}
+
+// GET ?action=tb_tag_suggestions — unique tags from visible tools
+if ($method === 'GET' && $action === 'tb_tag_suggestions') {
+    $me = requireAuth($pdo);
+    $stmt = $pdo->prepare("
+        SELECT category FROM tb_tools
+        WHERE category IS NOT NULL AND category != ''
+          AND (owner_id = :me OR owner_id IN (
+              SELECT IF(user_a = :me2, user_b, user_a) FROM tb_friendships WHERE user_a = :me3 OR user_b = :me4
+          ))
+    ");
+    $stmt->execute([':me'=>$me['id'],':me2'=>$me['id'],':me3'=>$me['id'],':me4'=>$me['id']]);
+    $tags = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $row) {
+        foreach (explode(',', $row) as $tag) {
+            $tag = trim($tag);
+            if ($tag) $tags[$tag] = true;
+        }
+    }
+    echo json_encode(array_values(array_keys($tags))); exit;
 }
 
 // GET ?action=tb_my_invite

@@ -283,6 +283,43 @@ nav {
 .photo-preview-hint { position: absolute; bottom: 8px; left: 0; right: 0; text-align: center; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text3); }
 .photo-input { display: none; }
 
+/* ══ TAG PICKER ══ */
+.tag-picker { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag-option {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 20px; border: 1px solid var(--border2);
+  background: var(--surface2); color: var(--text2); cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.tag-option.selected { background: var(--accent-bg); color: #fff; border-color: var(--accent-bg); }
+
+/* ══ TAG INPUT ══ */
+.tag-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; min-height: 0; }
+.tag-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 20px;
+  background: var(--accent-bg); color: #fff;
+}
+.tag-chip-remove {
+  background: none; border: none; color: rgba(255,255,255,0.6); cursor: pointer;
+  font-size: 13px; line-height: 1; padding: 0; margin-left: 2px;
+}
+.tag-chip-remove:hover { color: #fff; }
+.tag-input-wrap { position: relative; }
+.tag-suggestions {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 200;
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  display: none; overflow: hidden;
+}
+.tag-suggestions.show { display: block; }
+.tag-suggestion {
+  padding: 9px 12px; font-family: var(--font-mono); font-size: 12px;
+  color: var(--text2); cursor: pointer;
+}
+.tag-suggestion:hover { background: var(--surface2); color: var(--text); }
+
 /* ══ EMPTY STATES ══ */
 .empty { text-align: center; padding: 3rem 1rem; }
 .empty-icon { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.4; }
@@ -570,17 +607,17 @@ nav {
     <input type="file" id="photo-input" class="photo-input" accept="image/*" capture="environment" onchange="previewPhoto(this)">
     <div id="tool-form-fields" style="display:none;">
       <div class="field"><label>Tool name *</label><input type="text" id="tool-name" placeholder="e.g. DeWalt Circular Saw"></div>
-      <div class="field-row">
-        <div class="field"><label>Brand</label><input type="text" id="tool-brand" placeholder="e.g. DeWalt"></div>
-        <div class="field"><label>Category</label>
-          <select id="tool-category">
-            <option value="">Select…</option>
-            <option>Power Tools</option><option>Hand Tools</option><option>Garden</option>
-            <option>Measuring</option><option>Fastening</option><option>Cutting</option>
-            <option>Automotive</option><option>Plumbing</option><option>Electrical</option>
-            <option>Ladders & Access</option><option>Other</option>
-          </select>
+      <div class="field"><label>Brand</label><input type="text" id="tool-brand" placeholder="e.g. DeWalt"></div>
+      <div class="field">
+        <label>Tags</label>
+        <div class="tag-chips" id="tag-chips"></div>
+        <div class="tag-input-wrap">
+          <input type="text" id="tag-custom-input" placeholder="Type a tag and press Enter…" autocomplete="off"
+            style="width:100%;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--font-mono);font-size:13px;color:var(--text);outline:none;"
+            oninput="handleTagInput(this)" onkeydown="handleTagKeydown(event)" onfocus="handleTagInput(this)" onblur="setTimeout(()=>document.getElementById('tag-suggestions').classList.remove('show'),150)">
+          <div class="tag-suggestions" id="tag-suggestions"></div>
         </div>
+        <input type="hidden" id="tool-category">
       </div>
       <div class="field"><label>Notes</label><textarea id="tool-notes" placeholder="Condition, accessories included, any special instructions…"></textarea></div>
       <input type="hidden" id="tool-edit-id">
@@ -615,6 +652,8 @@ let authToken    = null;
 let allTools     = [];   // community cache
 let myTools      = [];
 let borrowedTools = [];
+let selectedTags  = new Set();
+let tagSuggestions = [];
 
 // ── INIT ───────────────────────────────────────────────────────────────────
 (function init() {
@@ -784,7 +823,7 @@ function filterCommunity() {
   const cat = document.getElementById('cat-filter').value;
   let tools = allTools;
   if (q)   tools = tools.filter(t => (t.name+t.brand+t.notes+t.owner_name).toLowerCase().includes(q));
-  if (cat) tools = tools.filter(t => t.category === cat);
+  if (cat) tools = tools.filter(t => (t.category || '').split(',').map(s => s.trim()).includes(cat));
 
   const el = document.getElementById('community-list');
   if (!tools.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">No tools found</div></div>'; return; }
@@ -854,26 +893,29 @@ async function returnTool(req_id) {
 // ── TOOL MODAL ─────────────────────────────────────────────────────────────
 function openAddTool() {
   document.getElementById('tool-edit-id').value = '';
-  document.getElementById('tool-name').value     = '';
-  document.getElementById('tool-brand').value    = '';
-  document.getElementById('tool-category').value = '';
-  document.getElementById('tool-notes').value    = '';
-  document.getElementById('tool-modal-title').textContent = 'Add a tool';
+  document.getElementById('tool-name').value    = '';
+  document.getElementById('tool-brand').value   = '';
+  document.getElementById('tool-notes').value   = '';
+  document.getElementById('tool-modal-title').textContent  = 'Add a tool';
   document.getElementById('tool-modal-submit').textContent = 'Add tool';
   document.getElementById('tool-form-fields').style.display = 'none';
+  selectedTags = new Set(); renderTagChips();
+  loadTagSuggestions();
   resetPhotoPreview();
   openModal('tool-modal');
 }
 
 function openEditTool(t) {
-  document.getElementById('tool-edit-id').value  = t.id;
-  document.getElementById('tool-name').value     = t.name;
-  document.getElementById('tool-brand').value    = t.brand || '';
-  document.getElementById('tool-category').value = t.category || '';
-  document.getElementById('tool-notes').value    = t.notes || '';
+  document.getElementById('tool-edit-id').value = t.id;
+  document.getElementById('tool-name').value    = t.name;
+  document.getElementById('tool-brand').value   = t.brand || '';
+  document.getElementById('tool-notes').value   = t.notes || '';
   document.getElementById('tool-modal-title').textContent  = 'Edit tool';
   document.getElementById('tool-modal-submit').textContent = 'Save changes';
   document.getElementById('tool-form-fields').style.display = 'block';
+  selectedTags = new Set((t.category || '').split(',').map(s => s.trim()).filter(Boolean));
+  renderTagChips();
+  loadTagSuggestions();
   const prev = document.getElementById('photo-preview');
   if (t.photo_url) { prev.innerHTML = `<img src="${escHtml(t.photo_url)}" alt="">`; }
   else resetPhotoPreview();
@@ -947,7 +989,8 @@ function toolCardHTML(t, mode) {
     ? `<img src="${escHtml(t.photo_url)}" alt="${escHtml(t.name)}" loading="lazy">`
     : `<span class="tool-photo-placeholder">🔧</span>`;
 
-  const tags = [t.brand, t.category].filter(Boolean).map(x => `<span class="tool-tag">${escHtml(x)}</span>`).join('');
+  const tagList = [t.brand, ...(t.category||'').split(',').map(s=>s.trim())].filter(Boolean);
+  const tags = tagList.map(x => `<span class="tool-tag">${escHtml(x)}</span>`).join('');
   const notes = t.notes ? `<div class="tool-notes">${escHtml(t.notes.substring(0,80))}${t.notes.length > 80 ? '…' : ''}</div>` : '';
 
   let statusPill = '';
@@ -994,7 +1037,7 @@ function borrowedCardHTML(r) {
   const photo = r.photo_url
     ? `<img src="${escHtml(r.photo_url)}" alt="" loading="lazy">`
     : `<span class="tool-photo-placeholder">🔧</span>`;
-  const tags = [r.brand, r.category].filter(Boolean).map(x => `<span class="tool-tag">${escHtml(x)}</span>`).join('');
+  const tags = [r.brand, ...(r.category||'').split(',').map(s=>s.trim())].filter(Boolean).map(x => `<span class="tool-tag">${escHtml(x)}</span>`).join('');
   return `<div class="tool-card">
     <div class="tool-photo">${photo}</div>
     <div class="tool-body">
@@ -1055,6 +1098,63 @@ function updateBadge(count) {
   else { b.classList.remove('show'); }
 }
 
+// ── TAG INPUT ──────────────────────────────────────────────────────────────
+async function loadTagSuggestions() {
+  const res = await apiFetch('?action=tb_tag_suggestions');
+  if (Array.isArray(res)) tagSuggestions = res;
+}
+
+function renderTagChips() {
+  document.getElementById('tag-chips').innerHTML = [...selectedTags].map(tag =>
+    `<span class="tag-chip">${escHtml(tag)}<button class="tag-chip-remove" onclick="removeTag('${escHtml(tag).replace(/'/g,"&#39;")}')">&times;</button></span>`
+  ).join('');
+  document.getElementById('tool-category').value = [...selectedTags].join(',');
+}
+
+function removeTag(tag) {
+  selectedTags.delete(tag);
+  renderTagChips();
+}
+
+function addTag(tag) {
+  tag = tag.trim();
+  if (!tag) return;
+  selectedTags.add(tag);
+  if (!tagSuggestions.includes(tag)) tagSuggestions.push(tag);
+  renderTagChips();
+}
+
+function handleTagInput(input) {
+  const q = input.value.trim().toLowerCase();
+  const matches = tagSuggestions.filter(s => s.toLowerCase().includes(q) && !selectedTags.has(s));
+  const sugEl = document.getElementById('tag-suggestions');
+  if (matches.length) {
+    sugEl.innerHTML = matches.slice(0, 6).map(s =>
+      `<div class="tag-suggestion" onmousedown="addTagFromSuggestion('${escHtml(s).replace(/'/g,"&#39;")}')">${escHtml(s)}</div>`
+    ).join('');
+    sugEl.classList.add('show');
+  } else {
+    sugEl.classList.remove('show');
+  }
+}
+
+function handleTagKeydown(e) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const val = e.target.value.replace(/,$/, '').trim();
+    if (val) { addTag(val); e.target.value = ''; }
+    document.getElementById('tag-suggestions').classList.remove('show');
+  } else if (e.key === 'Escape') {
+    document.getElementById('tag-suggestions').classList.remove('show');
+  }
+}
+
+function addTagFromSuggestion(tag) {
+  addTag(tag);
+  document.getElementById('tag-custom-input').value = '';
+  document.getElementById('tag-suggestions').classList.remove('show');
+}
+
 // ── PHOTO PREVIEW ──────────────────────────────────────────────────────────
 function previewPhoto(input) {
   if (!input.files[0]) return;
@@ -1089,7 +1189,7 @@ function resizeForIdentify(file) {
 }
 
 async function identifyTool(file) {
-  const fields = ['tool-name', 'tool-brand', 'tool-category', 'tool-notes'];
+  const fields = ['tool-name', 'tool-brand', 'tag-custom-input', 'tool-notes'];
   fields.forEach(id => document.getElementById(id).disabled = true);
 
   const resized = await resizeForIdentify(file);
@@ -1102,13 +1202,12 @@ async function identifyTool(file) {
   document.getElementById('tool-form-fields').style.display = 'block';
 
   if (!res?.success) return;
-  const { name, brand, category } = res.tool;
+  const { name, brand, tags } = res.tool;
   const nameEl  = document.getElementById('tool-name');
   const brandEl = document.getElementById('tool-brand');
-  const catEl   = document.getElementById('tool-category');
-  if (!nameEl.value  && name)     nameEl.value  = name;
-  if (!brandEl.value && brand)    brandEl.value = brand;
-  if (!catEl.value   && category) catEl.value   = category;
+  if (!nameEl.value  && name)  nameEl.value  = name;
+  if (!brandEl.value && brand) brandEl.value = brand;
+  if (!selectedTags.size && tags?.length) tags.forEach(addTag);
   if (name || brand) showToast('Tool identified ✓');
 }
 
