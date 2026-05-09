@@ -531,20 +531,6 @@ nav {
     </div>
     <div class="filter-bar">
       <input type="text" id="search-input" placeholder="Search tools…" oninput="filterCommunity()">
-      <select id="cat-filter" onchange="filterCommunity()">
-        <option value="">All categories</option>
-        <option>Power Tools</option>
-        <option>Hand Tools</option>
-        <option>Garden</option>
-        <option>Measuring</option>
-        <option>Fastening</option>
-        <option>Cutting</option>
-        <option>Automotive</option>
-        <option>Plumbing</option>
-        <option>Electrical</option>
-        <option>Ladders & Access</option>
-        <option>Other</option>
-      </select>
     </div>
     <div id="community-list"></div>
   </div>
@@ -819,11 +805,9 @@ async function loadCommunity() {
 }
 
 function filterCommunity() {
-  const q   = document.getElementById('search-input').value.toLowerCase();
-  const cat = document.getElementById('cat-filter').value;
-  let tools = allTools;
-  if (q)   tools = tools.filter(t => (t.name+t.brand+t.notes+t.owner_name).toLowerCase().includes(q));
-  if (cat) tools = tools.filter(t => (t.category || '').split(',').map(s => s.trim()).includes(cat));
+  const q = document.getElementById('search-input').value.toLowerCase();
+  let tools = allTools.filter(t => t.owner_id != currentUser.id);
+  if (q) tools = tools.filter(t => (t.name+t.brand+t.notes+t.owner_name+(t.category||'')).toLowerCase().includes(q));
 
   const el = document.getElementById('community-list');
   if (!tools.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">No tools found</div></div>'; return; }
