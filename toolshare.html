@@ -890,7 +890,10 @@ async function submitTool() {
   fd.append('category', document.getElementById('tool-category').value);
   fd.append('notes',    document.getElementById('tool-notes').value.trim());
   const file = document.getElementById('photo-input').files[0];
-  if (file) fd.append('photo', file);
+  if (file) {
+    const resized = await resizeForIdentify(file);
+    fd.append('photo', resized, 'tool.jpg');
+  }
 
   const action = editId ? `tb_edit_tool&id=${editId}` : 'tb_add_tool';
   if (editId) fd.append('id', editId);
