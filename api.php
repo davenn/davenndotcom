@@ -1,7 +1,7 @@
 <?php
 // ============================================================
 // davenn.com — Unified API v3
-// Apps: Meeting Cost Timer · Track Timer · Toolbox
+// Apps: Meeting Cost Timer · Track Timer · Toolshare
 // Upload to GoDaddy hosting root. Fill in credentials below.
 // ============================================================
 
@@ -155,10 +155,10 @@ function borrowRequestEmail(array $owner, array $requester, array $tool, array $
       <p style='margin-top:24px;'>
         <a href='{$app_url}' style='background:#111;color:#fff;padding:10px 20px;
            border-radius:6px;text-decoration:none;font-weight:bold;'>
-          Review Request in Toolbox
+          Review Request in Toolshare
         </a>
       </p>
-      <p style='margin-top:24px;font-size:12px;color:#999;'>davenn.com Toolbox</p>
+      <p style='margin-top:24px;font-size:12px;color:#999;'>davenn.com Toolshare</p>
     </div>";
     sendEmail($owner['email'], $owner['display_name'], $subject, $body, $from, $from_name);
 }
@@ -175,10 +175,10 @@ function requestUpdateEmail(array $requester, array $owner, array $tool, string 
       <p style='margin-top:24px;'>
         <a href='{$app_url}' style='background:#111;color:#fff;padding:10px 20px;
            border-radius:6px;text-decoration:none;font-weight:bold;'>
-          Open Toolbox
+          Open Toolshare
         </a>
       </p>
-      <p style='margin-top:24px;font-size:12px;color:#999;'>davenn.com Toolbox</p>
+      <p style='margin-top:24px;font-size:12px;color:#999;'>davenndotcom Toolshare</p>
     </div>";
     sendEmail($requester['email'], $requester['display_name'], $subject, $body, $from, $from_name);
 }
@@ -262,7 +262,7 @@ if ($method === 'DELETE' && $action === 'clear_track_sessions') {
 }
 
 // ══════════════════════════════════════════════════════════════
-// TOOLBOX — AUTH
+// Toolshare — AUTH
 // ══════════════════════════════════════════════════════════════
 
 // POST ?action=tb_register
@@ -316,7 +316,7 @@ if ($method === 'POST' && $action === 'tb_logout') {
 }
 
 // ══════════════════════════════════════════════════════════════
-// TOOLBOX — TOOLS
+// Toolshare — TOOLS
 // ══════════════════════════════════════════════════════════════
 
 // GET ?action=tb_tools  — all tools with owner info + active borrow info
@@ -439,7 +439,7 @@ if ($method === 'DELETE' && $action === 'tb_delete_tool') {
 }
 
 // ══════════════════════════════════════════════════════════════
-// TOOLBOX — BORROW REQUESTS
+// Toolshare — BORROW REQUESTS
 // ══════════════════════════════════════════════════════════════
 
 // POST ?action=tb_request  — create borrow request + email owner
@@ -562,7 +562,7 @@ if ($method === 'POST' && $action === 'tb_return_tool') {
 
 
 // =============================================================
-// TOOLBOX — FRIENDS
+// Toolshare — FRIENDS
 // =============================================================
 
 // Helper: ensure a user has an invite code

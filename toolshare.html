@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Toolbox — davenndotcom</title>
+<title>Toolshare — davenndotcom</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@400;500&family=Syne:wght@500;700;800&display=swap" rel="stylesheet">
@@ -403,7 +403,7 @@ nav {
 <!-- ══ AUTH SCREEN ══ -->
 <div id="auth-screen">
   <div class="auth-card">
-    <div class="auth-title">Toolbox</div>
+    <div class="auth-title">Toolshare</div>
     <div class="auth-sub">Share tools with friends</div>
     <div class="auth-tabs">
       <button class="auth-tab active" onclick="switchAuthTab('login')">Sign in</button>
@@ -1177,7 +1177,7 @@ async function previewInvite(code) {
 function showInviteBanner(inviter) {
   const banner = document.getElementById('invite-banner');
   document.getElementById('invite-banner-text').innerHTML =
-    '<strong>' + escHtml(inviter.display_name) + '</strong> invited you to Toolbox';
+    '<strong>' + escHtml(inviter.display_name) + '</strong> invited you to Toolshare';
   banner.classList.add('show');
   document.querySelectorAll('.panel').forEach(p => p.style.paddingTop = 'calc(var(--nav-h) + var(--tab-h) + 44px)');
 }
@@ -1247,7 +1247,7 @@ function showToast(msg) {
     <div class="qr-wrap">
       <canvas id="qr-canvas"></canvas>
     </div>
-    <a id="qr-download" class="qr-download" download="toolbox-invite.png">Download PNG</a>
+    <a id="qr-download" class="qr-download" download="Toolshare-invite.png">Download PNG</a>
   </div>
 </div>
 
