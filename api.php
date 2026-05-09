@@ -319,24 +319,6 @@ if ($method === 'POST' && $action === 'tb_logout') {
 // Toolshare — TOOLS
 // ══════════════════════════════════════════════════════════════
 
-// GET ?action=tb_tools  — all tools with owner info + active borrow info
-if ($method === 'GET' && $action === 'tb_tools') {
-    requireAuth($pdo);
-    $stmt = $pdo->query("
-        SELECT t.*,
-               u.display_name  AS owner_name,
-               u.username      AS owner_username,
-               r.id            AS active_request_id,
-               r.requester_id  AS borrower_id,
-               bu.display_name AS borrower_name
-        FROM   tb_tools t
-        JOIN   tb_users u  ON u.id = t.owner_id
-        LEFT JOIN tb_requests r  ON r.tool_id = t.id AND r.status = 'approved'
-        LEFT JOIN tb_users    bu ON bu.id = r.requester_id
-        ORDER  BY u.display_name, t.name
-    ");
-    echo json_encode($stmt->fetchAll()); exit;
-}
 
 // GET ?action=tb_my_tools — current user's tools only
 if ($method === 'GET' && $action === 'tb_my_tools') {
