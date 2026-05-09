@@ -1053,9 +1053,29 @@ function previewPhoto(input) {
   if (!input.files[0]) return;
   const reader = new FileReader();
   reader.onload = e => {
-    document.getElementById('photo-preview').innerHTML = `<img src="${e.target.result}" alt="">`;
+    document.getElementById('photo-preview').innerHTML =
+      `<img src="${e.target.result}" alt=""><span class="photo-preview-hint" id="identify-badge">Identifying…</span>`;
   };
   reader.readAsDataURL(input.files[0]);
+  identifyTool(input.files[0]);
+}
+
+async function identifyTool(file) {
+  const fd = new FormData();
+  fd.append('photo', file);
+  const res = await apiFetchForm('?action=tb_identify_tool', fd);
+
+  document.getElementById('identify-badge')?.remove();
+
+  if (!res?.success) return;
+  const { name, brand, category } = res.tool;
+  const nameEl  = document.getElementById('tool-name');
+  const brandEl = document.getElementById('tool-brand');
+  const catEl   = document.getElementById('tool-category');
+  if (!nameEl.value  && name)     nameEl.value  = name;
+  if (!brandEl.value && brand)    brandEl.value = brand;
+  if (!catEl.value   && category) catEl.value   = category;
+  if (name || brand) showToast('Tool identified ✓');
 }
 
 function resetPhotoPreview() {

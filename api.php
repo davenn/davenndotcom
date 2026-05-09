@@ -421,6 +421,80 @@ if ($method === 'POST' && $action === 'tb_edit_tool') {
     echo json_encode(['success' => true, 'tool' => $row->fetch()]); exit;
 }
 
+// POST ?action=tb_identify_tool — vision-based auto-fill via Claude
+if ($method === 'POST' && $action === 'tb_identify_tool') {
+    requireAuth($pdo);
+
+    $api_key = $_ENV['ANTHROPIC_API_KEY'] ?? '';
+    if (!$api_key) { http_response_code(500); echo json_encode(['error' => 'Vision API not configured.']); exit; }
+
+    if (empty($_FILES['photo']['tmp_name'])) {
+        http_response_code(400); echo json_encode(['error' => 'No image provided.']); exit;
+    }
+
+    $ext = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
+    $mime_map = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp'];
+    if (!isset($mime_map[$ext])) { http_response_code(400); echo json_encode(['error' => 'Invalid image type.']); exit; }
+    if ($_FILES['photo']['size'] > 5 * 1024 * 1024) { http_response_code(400); echo json_encode(['error' => 'Photo must be under 5 MB.']); exit; }
+
+    $image_data = base64_encode(file_get_contents($_FILES['photo']['tmp_name']));
+    $media_type = $mime_map[$ext];
+
+    $prompt = 'Identify this tool. Respond with ONLY a JSON object (no markdown, no explanation) with these exact keys:
+"name": the specific tool name (e.g. "Circular Saw", "Cordless Drill", "Tape Measure")
+"brand": the brand/manufacturer if clearly visible (e.g. "DeWalt", "Milwaukee", "Makita"), or "" if not visible
+"category": exactly one of: Power Tools, Hand Tools, Garden, Measuring, Fastening, Cutting, Automotive, Plumbing, Electrical, Ladders & Access, Other
+
+Example: {"name":"Cordless Drill","brand":"DeWalt","category":"Power Tools"}';
+
+    $payload = json_encode([
+        'model'      => 'claude-haiku-4-5-20251001',
+        'max_tokens' => 150,
+        'messages'   => [[
+            'role'    => 'user',
+            'content' => [
+                ['type' => 'image', 'source' => ['type' => 'base64', 'media_type' => $media_type, 'data' => $image_data]],
+                ['type' => 'text',  'text'   => $prompt],
+            ],
+        ]],
+    ]);
+
+    $ch = curl_init('https://api.anthropic.com/v1/messages');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => $payload,
+        CURLOPT_HTTPHEADER     => [
+            'x-api-key: ' . $api_key,
+            'anthropic-version: 2023-06-01',
+            'content-type: application/json',
+        ],
+        CURLOPT_TIMEOUT => 20,
+    ]);
+    $response  = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if (!$response || $http_code !== 200) {
+        http_response_code(502); echo json_encode(['error' => 'Vision API error.']); exit;
+    }
+
+    $data   = json_decode($response, true);
+    $text   = trim($data['content'][0]['text'] ?? '');
+    $result = json_decode($text, true);
+
+    if (!$result || !isset($result['name'])) {
+        http_response_code(502); echo json_encode(['error' => 'Could not identify tool.']); exit;
+    }
+
+    echo json_encode(['success' => true, 'tool' => [
+        'name'     => $result['name']     ?? '',
+        'brand'    => $result['brand']    ?? '',
+        'category' => $result['category'] ?? '',
+    ]]);
+    exit;
+}
+
 // DELETE ?action=tb_delete_tool&id=X
 if ($method === 'DELETE' && $action === 'tb_delete_tool') {
     $me = requireAuth($pdo);
