@@ -479,8 +479,12 @@ Example: {"name":"Cordless Drill","brand":"DeWalt","category":"Power Tools"}';
         http_response_code(502); echo json_encode(['error' => 'Vision API error.']); exit;
     }
 
-    $data   = json_decode($response, true);
-    $text   = trim($data['content'][0]['text'] ?? '');
+    $data = json_decode($response, true);
+    $text = trim($data['content'][0]['text'] ?? '');
+    // Strip markdown code fences if Claude wrapped the JSON
+    $text = preg_replace('/^```(?:json)?\s*/i', '', $text);
+    $text = preg_replace('/\s*```$/m', '', $text);
+    $text = trim($text);
     $result = json_decode($text, true);
 
     if (!$result || !isset($result['name'])) {
