@@ -567,7 +567,7 @@ nav {
       🔧
       <span class="photo-preview-hint">Tap to add photo</span>
     </div>
-    <input type="file" id="photo-input" class="photo-input" accept="image/*" onchange="previewPhoto(this)">
+    <input type="file" id="photo-input" class="photo-input" accept="image/*" capture="environment" onchange="previewPhoto(this)">
     <div class="field"><label>Tool name *</label><input type="text" id="tool-name" placeholder="e.g. DeWalt Circular Saw"></div>
     <div class="field-row">
       <div class="field"><label>Brand</label><input type="text" id="tool-brand" placeholder="e.g. DeWalt"></div>
@@ -1085,12 +1085,16 @@ function resizeForIdentify(file) {
 }
 
 async function identifyTool(file) {
+  const fields = ['tool-name', 'tool-brand', 'tool-category', 'tool-notes'];
+  fields.forEach(id => document.getElementById(id).disabled = true);
+
   const resized = await resizeForIdentify(file);
   const fd = new FormData();
   fd.append('photo', resized, 'tool.jpg');
   const res = await apiFetchForm('?action=tb_identify_tool', fd);
 
   document.getElementById('identify-badge')?.remove();
+  fields.forEach(id => document.getElementById(id).disabled = false);
 
   if (!res?.success) return;
   const { name, brand, category } = res.tool;
