@@ -109,6 +109,15 @@ try { $pdo->exec("ALTER TABLE tb_users ADD COLUMN invite_code VARCHAR(16) UNIQUE
 // Expand category to TEXT to support multiple comma-separated tags
 try { $pdo->exec("ALTER TABLE tb_tools MODIFY COLUMN category TEXT DEFAULT NULL"); } catch(PDOException $e) {}
 
+$pdo->exec("CREATE TABLE IF NOT EXISTS fb_scores (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    name       VARCHAR(32)  NOT NULL,
+    score      INT          NOT NULL,
+    week_start DATE         NOT NULL,
+    created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_week_score (week_start, score)
+)");
+
 $pdo->exec("CREATE TABLE IF NOT EXISTS tb_friendships (
     id         INT AUTO_INCREMENT PRIMARY KEY,
     user_a     INT NOT NULL,
@@ -764,6 +773,43 @@ if ($method === 'GET' && $action === 'tb_tools') {
     ");
     $stmt->execute([':me'=>$me['id'],':me2'=>$me['id'],':me3'=>$me['id'],':me4'=>$me['id']]);
     echo json_encode($stmt->fetchAll()); exit;
+}
+
+// ══════════════════════════════════════════════════════════════
+// FACE BREAKER — LEADERBOARD
+// ══════════════════════════════════════════════════════════════
+
+// GET ?action=fb_leaderboard — top 10 for the current ISO week (no auth)
+if ($method === 'GET' && $action === 'fb_leaderboard') {
+    $now = new DateTime();
+    $now->setISODate((int)$now->format('o'), (int)$now->format('W'));
+    $weekStart = $now->format('Y-m-d');
+    $stmt = $pdo->prepare("SELECT name, score FROM fb_scores WHERE week_start = ? ORDER BY score DESC LIMIT 10");
+    $stmt->execute([$weekStart]);
+    echo json_encode(['success' => true, 'scores' => $stmt->fetchAll()]); exit;
+}
+
+// POST ?action=fb_save_score  body: { name, score } — no auth required
+if ($method === 'POST' && $action === 'fb_save_score') {
+    $body  = json_decode(file_get_contents('php://input'), true);
+    $name  = mb_substr(strip_tags(trim($body['name'] ?? '')), 0, 32);
+    $score = intval($body['score'] ?? 0);
+    if (!$name || $score <= 0) {
+        http_response_code(400); echo json_encode(['error' => 'Invalid input.']); exit;
+    }
+    $now = new DateTime();
+    $now->setISODate((int)$now->format('o'), (int)$now->format('W'));
+    $weekStart = $now->format('Y-m-d');
+    // Count how many scores strictly beat this one this week
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM fb_scores WHERE week_start = ? AND score > ?");
+    $stmt->execute([$weekStart, $score]);
+    $above = (int)$stmt->fetchColumn();
+    if ($above >= 10) {
+        echo json_encode(['success' => false, 'message' => 'Score did not make top 10.']); exit;
+    }
+    $pdo->prepare("INSERT INTO fb_scores (name, score, week_start) VALUES (?, ?, ?)")
+        ->execute([$name, $score, $weekStart]);
+    echo json_encode(['success' => true, 'rank' => $above + 1]); exit;
 }
 
 // =============================================================

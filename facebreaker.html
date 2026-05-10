@@ -51,6 +51,52 @@ html, body { height: 100%; background: #0a0a0f; color: #fff; font-family: system
 #screen-game { padding: 0; }
 canvas { display: block; }
 
+/* ── OVERLAYS ── */
+.ovl {
+  position: fixed; inset: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(10,10,15,0.88);
+}
+.ovl.hidden { display: none; }
+.ovl-box {
+  background: #13131a; border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px; padding: 32px 28px; width: min(360px, 92vw);
+  display: flex; flex-direction: column; gap: 14px; text-align: center;
+}
+.ovl-title { font-size: 26px; font-weight: 900; letter-spacing: -0.04em; }
+.ovl-score { font-family: monospace; font-size: 13px; color: rgba(255,255,255,0.4); }
+.ovl-badge { font-family: monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #f1c40f; }
+.ovl-input {
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px; padding: 12px 14px; color: #fff; font-size: 16px;
+  text-align: center; outline: none; width: 100%; font-family: system-ui;
+}
+.ovl-input:focus { border-color: rgba(255,255,255,0.4); }
+.ovl-btn {
+  padding: 13px; border-radius: 8px; font-size: 13px; font-weight: 700;
+  letter-spacing: 0.05em; text-transform: uppercase; cursor: pointer; border: none;
+  transition: opacity 0.12s;
+}
+.ovl-btn:active { opacity: 0.75; }
+.ovl-btn-primary  { background: #fff; color: #0a0a0f; }
+.ovl-btn-secondary { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.5); }
+.board-list { display: flex; flex-direction: column; gap: 5px; text-align: left; }
+.board-row {
+  display: flex; align-items: center; gap: 10px;
+  font-family: monospace; font-size: 13px;
+  padding: 7px 10px; border-radius: 6px;
+}
+.board-row.gold .board-rank,
+.board-row.gold .board-name,
+.board-row.gold .board-pts { color: #f1c40f; }
+.board-row.me { background: rgba(52,152,219,0.15); }
+.board-row.me .board-rank,
+.board-row.me .board-name,
+.board-row.me .board-pts { color: #3498db; }
+.board-rank { width: 22px; color: rgba(255,255,255,0.3); flex-shrink: 0; }
+.board-name { flex: 1; }
+.board-pts  { color: rgba(255,255,255,0.45); }
+
 /* ── BACK LINK ── */
 .back-link {
   position: fixed; top: 12px; left: 16px; z-index: 999;
@@ -88,23 +134,50 @@ canvas { display: block; }
   <canvas id="canvas"></canvas>
 </div>
 
+<!-- ── GAME-END OVERLAY ── -->
+<div id="ovl-end" class="ovl hidden">
+  <div class="ovl-box">
+    <div class="ovl-title" id="ovl-end-title">GAME OVER</div>
+    <div class="ovl-score" id="ovl-end-score"></div>
+    <div id="ovl-save-wrap">
+      <div class="ovl-badge">🏆 You made the top 10!</div>
+      <input class="ovl-input" id="ovl-name" type="text" maxlength="20"
+             placeholder="Your name" autocomplete="off" spellcheck="false">
+      <button class="ovl-btn ovl-btn-primary" id="btn-save">Save Score</button>
+    </div>
+    <button class="ovl-btn ovl-btn-secondary" id="btn-see-board">View Leaderboard</button>
+    <button class="ovl-btn ovl-btn-secondary" id="btn-end-play-again">Play Again</button>
+  </div>
+</div>
+
+<!-- ── LEADERBOARD OVERLAY ── -->
+<div id="ovl-board" class="ovl hidden">
+  <div class="ovl-box">
+    <div class="ovl-title">WEEKLY BOARD</div>
+    <div class="board-list" id="board-list"></div>
+    <button class="ovl-btn ovl-btn-primary" id="btn-board-play-again">Play Again</button>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────────────
 const MODEL_URL    = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js/weights';
 const COLS         = 8;
 const ROWS         = 5;
-const ROW_COLORS   = ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#3498db'];
+const ROW_COLORS   = ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#3498db','#9b59b6','#1abc9c','#e91e63','#ff5722'];
 const BALL_R       = 9;
-const BALL_SPEED   = 5;
+const BALL_SPEED_BASE = 7;
+const MAX_LEVELS   = 5;
 const PADDLE_W     = 130;
 const PADDLE_H     = 80;
 const LIVES_START  = 3;
 
 // ── STATE ─────────────────────────────────────────────────────────────────
 let canvas, ctx, W, H;
-let phase = 'intro';   // intro | loading | ready | playing | dead | won
+let phase = 'intro';   // intro | loading | ready | playing | levelup | dead | won
 let modelsReady = false;
+let level = 1;
 
 let ball    = { x:0, y:0, vx:0, vy:0 };
 let paddle  = { x:0, y:0 };
@@ -131,6 +204,12 @@ window.addEventListener('load', () => {
   canvas.addEventListener('click',      onTap);
   canvas.addEventListener('touchend',   onTap);
   window.addEventListener('resize',     onResize);
+
+  document.getElementById('btn-save').addEventListener('click', saveScore);
+  document.getElementById('ovl-name').addEventListener('keydown', e => { if (e.key === 'Enter') saveScore(); });
+  document.getElementById('btn-see-board').addEventListener('click', showBoard);
+  document.getElementById('btn-end-play-again').addEventListener('click', playAgain);
+  document.getElementById('btn-board-play-again').addEventListener('click', playAgain);
 
   // Load models silently in background while user sees intro
   loadModels();
@@ -238,9 +317,12 @@ function drawSmiley(c, w, h) {
 }
 
 // ── GAME INIT ─────────────────────────────────────────────────────────────
+const currentSpeed = () => BALL_SPEED_BASE + (level - 1) * 2;
+const currentRows  = () => ROWS + level - 1;
+
 function initGame() {
   onResize();
-  score = 0; lives = LIVES_START;
+  score = 0; lives = LIVES_START; level = 1;
   paddle.x = W / 2;
   paddle.y = H - 80;
   buildBlocks();
@@ -248,16 +330,17 @@ function initGame() {
 }
 
 function buildBlocks() {
+  const rows = currentRows();
   const pad  = 20, gap = 4;
   const bw   = (W - pad * 2 - gap * (COLS - 1)) / COLS;
   const bh   = 22;
   const topY = 60;
   blocks = [];
-  for (let r = 0; r < ROWS; r++)
+  for (let r = 0; r < rows; r++)
     for (let c = 0; c < COLS; c++)
       blocks.push({
         x: pad + c * (bw + gap), y: topY + r * (bh + gap),
-        w: bw, h: bh, color: ROW_COLORS[r], pts: (ROWS - r) * 10,
+        w: bw, h: bh, color: ROW_COLORS[r % ROW_COLORS.length], pts: (rows - r) * 10,
         alive: true
       });
 }
@@ -266,8 +349,9 @@ function launchBall() {
   ball.x  = paddle.x;
   ball.y  = paddle.y - PADDLE_H / 2 - BALL_R - 4;
   const a = -Math.PI / 2 + (Math.random() - 0.5) * 0.7;
-  ball.vx = Math.cos(a) * BALL_SPEED;
-  ball.vy = Math.sin(a) * BALL_SPEED;
+  const spd = currentSpeed();
+  ball.vx = Math.cos(a) * spd;
+  ball.vy = Math.sin(a) * spd;
 }
 
 // ── GAME LOOP ─────────────────────────────────────────────────────────────
@@ -291,7 +375,7 @@ function update() {
   // Fell off bottom
   if (ball.y - BALL_R > H) {
     lives--;
-    if (lives <= 0) { phase = 'dead'; return; }
+    if (lives <= 0) { phase = 'dead'; onGameEnd(); return; }
     phase = 'ready';
     launchBall();
     return;
@@ -309,17 +393,21 @@ function update() {
     }
   }
 
-  if (blocks.every(b => !b.alive)) { phase = 'won'; return; }
+  if (blocks.every(b => !b.alive)) {
+    if (level >= MAX_LEVELS) { phase = 'won'; onGameEnd(); }
+    else { level++; buildBlocks(); launchBall(); phase = 'levelup'; }
+    return;
+  }
 
   // Paddle collision — polygon test
   const poly = paddlePolygon.map(p => ({ x: p.x + paddle.x, y: p.y + paddle.y }));
   if (polyCircle(poly, ball.x, ball.y, BALL_R)) {
     ball.vy = -Math.abs(ball.vy);                          // always bounce up
-    const spin = ((ball.x - paddle.x) / (PADDLE_W / 2)) * BALL_SPEED * 0.8;
+    const spin = ((ball.x - paddle.x) / (PADDLE_W / 2)) * currentSpeed() * 0.8;
     ball.vx += spin;
     const spd = Math.hypot(ball.vx, ball.vy);             // normalise speed
-    ball.vx = ball.vx / spd * BALL_SPEED;
-    ball.vy = ball.vy / spd * BALL_SPEED;
+    ball.vx = ball.vx / spd * currentSpeed();
+    ball.vy = ball.vy / spd * currentSpeed();
     ball.y  = paddle.y - PADDLE_H / 2 - BALL_R - 2;      // push out
   }
 }
@@ -334,9 +422,8 @@ function render() {
   drawBall();
   drawHUD();
 
-  if (phase === 'ready') drawOverlay('TAP TO START', null, '');
-  if (phase === 'dead')  drawOverlay('GAME OVER', `SCORE  ${score}`, 'TAP TO RETRY');
-  if (phase === 'won')   drawOverlay('YOU WIN!',  `SCORE  ${score}`, 'TAP TO PLAY AGAIN');
+  if (phase === 'ready')   drawOverlay('TAP TO START', null, '');
+  if (phase === 'levelup') drawOverlay(`LEVEL ${level}`, `SCORE  ${score}`, 'TAP TO CONTINUE');
 }
 
 function drawBlocks() {
@@ -388,6 +475,8 @@ function drawHUD() {
   ctx.font      = 'bold 14px system-ui';
   ctx.textAlign = 'left';
   ctx.fillText(`${score}`, 16, 28);
+  ctx.textAlign = 'center';
+  ctx.fillText(`LVL ${level} / ${MAX_LEVELS}`, W / 2, 28);
   ctx.textAlign = 'right';
   ctx.fillText('♥'.repeat(lives) + '♡'.repeat(Math.max(0, LIVES_START - lives)), W - 16, 28);
 }
@@ -427,8 +516,8 @@ function onTouch(e) {
 }
 
 function onTap() {
-  if (phase === 'ready') { phase = 'playing'; return; }
-  if (phase === 'dead' || phase === 'won') { initGame(); phase = 'ready'; }
+  if (overlayVisible()) return;
+  if (phase === 'ready' || phase === 'levelup') { phase = 'playing'; return; }
 }
 
 function onResize() {
@@ -525,6 +614,99 @@ function makeCanvas(w, h) {
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// ── LEADERBOARD ───────────────────────────────────────────────
+let myEndScore = 0;
+let mySavedRank = null;
+
+function overlayVisible() {
+  return !document.getElementById('ovl-end').classList.contains('hidden') ||
+         !document.getElementById('ovl-board').classList.contains('hidden');
+}
+
+async function onGameEnd() {
+  myEndScore = score;
+  mySavedRank = null;
+  document.getElementById('ovl-end-title').textContent = phase === 'won' ? '🎉 YOU WIN!' : 'GAME OVER';
+  document.getElementById('ovl-end-score').textContent = `Score: ${score}  ·  Level ${level}`;
+  const saveWrap = document.getElementById('ovl-save-wrap');
+  saveWrap.style.display = 'none';
+  document.getElementById('ovl-end').classList.remove('hidden');
+  if (score > 0) {
+    try {
+      const res  = await fetch('/api.php?action=fb_leaderboard');
+      const data = await res.json();
+      if (data.success) {
+        const scores = data.scores;
+        const qualifies = scores.length < 10 || score > parseInt(scores[scores.length - 1].score);
+        if (qualifies) {
+          saveWrap.style.display = '';
+          document.getElementById('ovl-name').value = '';
+          document.getElementById('ovl-name').focus();
+        }
+      }
+    } catch {}
+  }
+}
+
+async function saveScore() {
+  const name = document.getElementById('ovl-name').value.trim();
+  if (!name) { document.getElementById('ovl-name').focus(); return; }
+  const btn = document.getElementById('btn-save');
+  btn.textContent = 'Saving…'; btn.disabled = true;
+  try {
+    const res  = await fetch('/api.php?action=fb_save_score', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, score: myEndScore })
+    });
+    const data = await res.json();
+    if (data.success) {
+      mySavedRank = data.rank;
+      await showBoard();
+      return;
+    }
+  } catch {}
+  btn.textContent = 'Save Score'; btn.disabled = false;
+}
+
+async function showBoard() {
+  document.getElementById('ovl-end').classList.add('hidden');
+  const list = document.getElementById('board-list');
+  list.innerHTML = '<div style="font-family:monospace;font-size:12px;color:rgba(255,255,255,0.3);padding:12px 0">Loading…</div>';
+  document.getElementById('ovl-board').classList.remove('hidden');
+  try {
+    const res  = await fetch('/api.php?action=fb_leaderboard');
+    const data = await res.json();
+    if (data.success && data.scores.length) {
+      list.innerHTML = data.scores.map((s, i) => {
+        const isMe = mySavedRank === i + 1 && parseInt(s.score) === myEndScore;
+        const cls  = isMe ? 'board-row me' : (i === 0 ? 'board-row gold' : 'board-row');
+        return `<div class="${cls}">
+          <span class="board-rank">${i + 1}</span>
+          <span class="board-name">${escHtml(s.name)}</span>
+          <span class="board-pts">${parseInt(s.score).toLocaleString()}</span>
+        </div>`;
+      }).join('');
+    } else {
+      list.innerHTML = '<div style="font-family:monospace;font-size:12px;color:rgba(255,255,255,0.3);padding:12px 0">No scores yet this week</div>';
+    }
+  } catch {
+    list.innerHTML = '<div style="font-family:monospace;font-size:12px;color:rgba(255,255,255,0.3);padding:12px 0">Could not load scores</div>';
+  }
+}
+
+function playAgain() {
+  document.getElementById('ovl-end').classList.add('hidden');
+  document.getElementById('ovl-board').classList.add('hidden');
+  mySavedRank = null;
+  initGame();
+  phase = 'ready';
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 </script>
 <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 </body>
