@@ -1,0 +1,11 @@
+{
+  "name": "Face Breaker",
+  "short_name": "FaceBreaker",
+  "start_url": "/facebreaker.html",
+  "display": "standalone",
+  "theme_color": "#0a0a0f",
+  "background_color": "#0a0a0f",
+  "icons": [
+    { "src": "/icons/facebreaker.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Face Breaker — davenn.com</title>
+<link rel="manifest" href="/manifest-facebreaker.json">
+<meta name="theme-color" content="#0a0a0f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: #0a0a0f; color: #fff; font-family: system-ui, sans-serif; overflow: hidden; touch-action: none; }
+
+.screen {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 20px; padding: 2rem;
+}
+.screen.hidden { display: none; }
+
+/* ── INTRO ── */
+.game-title {
+  font-size: clamp(3rem, 15vw, 5rem); font-weight: 900;
+  letter-spacing: -0.04em; line-height: 0.9; text-align: center;
+}
+.game-title span { color: rgba(255,255,255,0.25); display: block; font-size: 0.45em; font-weight: 400; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px; }
+.game-sub { font-size: 15px; color: rgba(255,255,255,0.45); font-family: monospace; letter-spacing: 0.04em; text-align: center; }
+
+.btn-photo {
+  margin-top: 12px; padding: 16px 36px;
+  font-size: 16px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  background: #fff; color: #0a0a0f;
+  border: none; border-radius: 40px; cursor: pointer;
+  transition: transform 0.12s, opacity 0.12s;
+}
+.btn-photo:active { transform: scale(0.96); opacity: 0.85; }
+.btn-hint { font-size: 11px; color: rgba(255,255,255,0.25); font-family: monospace; text-align: center; }
+
+/* ── LOADING ── */
+.spinner {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.1);
+  border-top-color: #fff;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-family: monospace; font-size: 13px; color: rgba(255,255,255,0.5); letter-spacing: 0.06em; }
+
+/* ── GAME ── */
+#screen-game { padding: 0; }
+canvas { display: block; }
+
+/* ── BACK LINK ── */
+.back-link {
+  position: fixed; top: 12px; left: 16px; z-index: 999;
+  font-family: monospace; font-size: 11px; color: rgba(255,255,255,0.3);
+  text-decoration: none; letter-spacing: 0.06em; text-transform: uppercase;
+  transition: color 0.15s;
+}
+.back-link:hover { color: rgba(255,255,255,0.7); }
+</style>
+</head>
+<body>
+
+<a class="back-link" href="index.html">← Home</a>
+
+<!-- ── INTRO ── -->
+<div id="screen-intro" class="screen">
+  <div class="game-title">
+    <span>davenn.com</span>
+    Face<br>Breaker
+  </div>
+  <p class="game-sub">Your face is the paddle.</p>
+  <button class="btn-photo" id="btn-photo">📸 Take Photo</button>
+  <p class="btn-hint">Front camera · No photo is stored or sent</p>
+  <input type="file" id="photo-input" accept="image/*" capture="user" style="display:none">
+</div>
+
+<!-- ── LOADING ── -->
+<div id="screen-loading" class="screen hidden">
+  <div class="spinner"></div>
+  <p class="loading-text" id="loading-text">Loading…</p>
+</div>
+
+<!-- ── GAME ── -->
+<div id="screen-game" class="screen hidden">
+  <canvas id="canvas"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────
+const MODEL_URL    = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js/weights';
+const COLS         = 8;
+const ROWS         = 5;
+const ROW_COLORS   = ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#3498db'];
+const BALL_R       = 9;
+const BALL_SPEED   = 5;
+const PADDLE_W     = 130;
+const PADDLE_H     = 80;
+const LIVES_START  = 3;
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let canvas, ctx, W, H;
+let phase = 'intro';   // intro | loading | ready | playing | dead | won
+let modelsReady = false;
+
+let ball    = { x:0, y:0, vx:0, vy:0 };
+let paddle  = { x:0, y:0 };
+let blocks  = [];
+let score   = 0;
+let lives   = LIVES_START;
+let paddlePolygon = [];   // [{x,y}] centered at 0,0
+let paddleImg     = null; // offscreen canvas
+
+// ── BOOT ──────────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  canvas = document.getElementById('canvas');
+  ctx    = canvas.getContext('2d');
+
+  document.getElementById('btn-photo').addEventListener('click', () =>
+    document.getElementById('photo-input').click()
+  );
+  document.getElementById('photo-input').addEventListener('change', e => {
+    if (e.target.files[0]) handlePhoto(e.target.files[0]);
+  });
+
+  canvas.addEventListener('mousemove', onMove);
+  canvas.addEventListener('touchmove',  onTouch, { passive: true });
+  canvas.addEventListener('click',      onTap);
+  canvas.addEventListener('touchend',   onTap);
+  window.addEventListener('resize',     onResize);
+
+  // Load models silently in background while user sees intro
+  loadModels();
+});
+
+async function loadModels() {
+  try {
+    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+    await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL);
+    modelsReady = true;
+  } catch (e) {
+    console.warn('face-api models failed to load', e);
+    modelsReady = true; // still allow game with default paddle
+  }
+}
+
+// ── PHOTO FLOW ────────────────────────────────────────────────────────────
+async function handlePhoto(file) {
+  show('loading');
+  setText('Resizing image…');
+
+  const img = await fileToImg(file);
+  const small = scaleImg(img, 640);
+
+  if (!modelsReady) {
+    setText('Loading face AI…');
+    while (!modelsReady) await sleep(150);
+  }
+
+  setText('Detecting face…');
+  let result = null;
+  try {
+    result = await faceapi
+      .detectSingleFace(small, new faceapi.TinyFaceDetectorOptions())
+      .withFaceLandmarks(true);
+  } catch (e) { /* fall through to default */ }
+
+  if (result) {
+    buildFacePaddle(img, small, result);
+  } else {
+    await buildDefaultPaddle();
+  }
+
+  initGame();
+  show('game');
+  phase = 'ready';
+  requestAnimationFrame(loop);
+}
+
+function buildFacePaddle(origImg, smallImg, result) {
+  const sx = origImg.naturalWidth  / smallImg.width;
+  const sy = origImg.naturalHeight / smallImg.height;
+
+  // 68 landmark points scaled back to original image space
+  const pts = result.landmarks.positions.map(p => ({ x: p.x * sx, y: p.y * sy }));
+  const hull = convexHull(pts);
+
+  // Bounding box + centroid
+  const xs = hull.map(p => p.x), ys = hull.map(p => p.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const cx   = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+  const fW   = maxX - minX,       fH = maxY - minY;
+
+  // Normalize hull to paddle dimensions
+  paddlePolygon = hull.map(p => ({
+    x: ((p.x - cx) / fW) * PADDLE_W,
+    y: ((p.y - cy) / fH) * PADDLE_H
+  }));
+
+  // Crop face onto offscreen canvas
+  paddleImg = makeCanvas(PADDLE_W, PADDLE_H);
+  paddleImg.getContext('2d').drawImage(origImg, minX, minY, fW, fH, 0, 0, PADDLE_W, PADDLE_H);
+}
+
+async function buildDefaultPaddle() {
+  // Oval polygon
+  const n = 32;
+  paddlePolygon = Array.from({ length: n }, (_, i) => {
+    const a = (i / n) * Math.PI * 2;
+    return { x: Math.cos(a) * PADDLE_W / 2, y: Math.sin(a) * PADDLE_H / 2 };
+  });
+
+  paddleImg = makeCanvas(PADDLE_W, PADDLE_H);
+  const pc  = paddleImg.getContext('2d');
+
+  // Try user-supplied default, fall back to drawn smiley
+  try {
+    const img = await loadImgSrc('/default-face.jpg');
+    pc.drawImage(img, 0, 0, PADDLE_W, PADDLE_H);
+  } catch {
+    drawSmiley(pc, PADDLE_W, PADDLE_H);
+  }
+}
+
+function drawSmiley(c, w, h) {
+  const cx = w / 2, cy = h / 2;
+  c.fillStyle   = '#FFD700';
+  c.beginPath(); c.ellipse(cx, cy, w/2 - 1, h/2 - 1, 0, 0, Math.PI * 2); c.fill();
+  c.fillStyle   = '#333';
+  c.beginPath(); c.arc(cx - w * 0.2, cy - h * 0.1, 5, 0, Math.PI * 2);
+  c.arc(cx + w * 0.2, cy - h * 0.1, 5, 0, Math.PI * 2); c.fill();
+  c.strokeStyle = '#333'; c.lineWidth = 3;
+  c.beginPath(); c.arc(cx, cy + h * 0.05, w * 0.25, 0, Math.PI); c.stroke();
+}
+
+// ── GAME INIT ─────────────────────────────────────────────────────────────
+function initGame() {
+  onResize();
+  score = 0; lives = LIVES_START;
+  paddle.x = W / 2;
+  paddle.y = H - 80;
+  buildBlocks();
+  launchBall();
+}
+
+function buildBlocks() {
+  const pad  = 20, gap = 4;
+  const bw   = (W - pad * 2 - gap * (COLS - 1)) / COLS;
+  const bh   = 22;
+  const topY = 60;
+  blocks = [];
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      blocks.push({
+        x: pad + c * (bw + gap), y: topY + r * (bh + gap),
+        w: bw, h: bh, color: ROW_COLORS[r], pts: (ROWS - r) * 10,
+        alive: true
+      });
+}
+
+function launchBall() {
+  ball.x  = paddle.x;
+  ball.y  = paddle.y - PADDLE_H / 2 - BALL_R - 4;
+  const a = -Math.PI / 2 + (Math.random() - 0.5) * 0.7;
+  ball.vx = Math.cos(a) * BALL_SPEED;
+  ball.vy = Math.sin(a) * BALL_SPEED;
+}
+
+// ── GAME LOOP ─────────────────────────────────────────────────────────────
+function loop() {
+  update();
+  render();
+  requestAnimationFrame(loop);
+}
+
+function update() {
+  if (phase !== 'playing') return;
+
+  ball.x += ball.vx;
+  ball.y += ball.vy;
+
+  // Walls
+  if (ball.x - BALL_R < 0)  { ball.x = BALL_R;     ball.vx =  Math.abs(ball.vx); }
+  if (ball.x + BALL_R > W)  { ball.x = W - BALL_R; ball.vx = -Math.abs(ball.vx); }
+  if (ball.y - BALL_R < 0)  { ball.y = BALL_R;     ball.vy =  Math.abs(ball.vy); }
+
+  // Fell off bottom
+  if (ball.y - BALL_R > H) {
+    lives--;
+    if (lives <= 0) { phase = 'dead'; return; }
+    phase = 'ready';
+    launchBall();
+    return;
+  }
+
+  // Block collisions
+  for (const b of blocks) {
+    if (!b.alive) continue;
+    if (circleRect(ball.x, ball.y, BALL_R, b.x, b.y, b.w, b.h)) {
+      b.alive = false;
+      score  += b.pts;
+      const overlapX = (ball.x < b.x || ball.x > b.x + b.w);
+      if (overlapX) ball.vx = -ball.vx; else ball.vy = -ball.vy;
+      break;
+    }
+  }
+
+  if (blocks.every(b => !b.alive)) { phase = 'won'; return; }
+
+  // Paddle collision — polygon test
+  const poly = paddlePolygon.map(p => ({ x: p.x + paddle.x, y: p.y + paddle.y }));
+  if (polyCircle(poly, ball.x, ball.y, BALL_R)) {
+    ball.vy = -Math.abs(ball.vy);                          // always bounce up
+    const spin = ((ball.x - paddle.x) / (PADDLE_W / 2)) * BALL_SPEED * 0.8;
+    ball.vx += spin;
+    const spd = Math.hypot(ball.vx, ball.vy);             // normalise speed
+    ball.vx = ball.vx / spd * BALL_SPEED;
+    ball.vy = ball.vy / spd * BALL_SPEED;
+    ball.y  = paddle.y - PADDLE_H / 2 - BALL_R - 2;      // push out
+  }
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────
+function render() {
+  ctx.fillStyle = '#0a0a0f';
+  ctx.fillRect(0, 0, W, H);
+
+  drawBlocks();
+  drawPaddle();
+  drawBall();
+  drawHUD();
+
+  if (phase === 'ready') drawOverlay('TAP TO START', null, '');
+  if (phase === 'dead')  drawOverlay('GAME OVER', `SCORE  ${score}`, 'TAP TO RETRY');
+  if (phase === 'won')   drawOverlay('YOU WIN!',  `SCORE  ${score}`, 'TAP TO PLAY AGAIN');
+}
+
+function drawBlocks() {
+  for (const b of blocks) {
+    if (!b.alive) continue;
+    ctx.fillStyle = b.color;
+    ctx.beginPath();
+    ctx.roundRect(b.x, b.y, b.w, b.h, 3);
+    ctx.fill();
+  }
+}
+
+function drawPaddle() {
+  if (!paddleImg || !paddlePolygon.length) return;
+  ctx.save();
+  ctx.translate(paddle.x, paddle.y);
+  ctx.beginPath();
+  ctx.moveTo(paddlePolygon[0].x, paddlePolygon[0].y);
+  for (let i = 1; i < paddlePolygon.length; i++)
+    ctx.lineTo(paddlePolygon[i].x, paddlePolygon[i].y);
+  ctx.closePath();
+  ctx.clip();
+  ctx.drawImage(paddleImg, -PADDLE_W / 2, -PADDLE_H / 2, PADDLE_W, PADDLE_H);
+  ctx.restore();
+
+  // Glow outline
+  ctx.save();
+  ctx.translate(paddle.x, paddle.y);
+  ctx.beginPath();
+  ctx.moveTo(paddlePolygon[0].x, paddlePolygon[0].y);
+  for (let i = 1; i < paddlePolygon.length; i++)
+    ctx.lineTo(paddlePolygon[i].x, paddlePolygon[i].y);
+  ctx.closePath();
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.lineWidth   = 2;
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawBall() {
+  ctx.fillStyle = '#ffffff';
+  ctx.shadowColor = '#fff'; ctx.shadowBlur = 12;
+  ctx.beginPath(); ctx.arc(ball.x, ball.y, BALL_R, 0, Math.PI * 2); ctx.fill();
+  ctx.shadowBlur = 0;
+}
+
+function drawHUD() {
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.font      = 'bold 14px system-ui';
+  ctx.textAlign = 'left';
+  ctx.fillText(`${score}`, 16, 28);
+  ctx.textAlign = 'right';
+  ctx.fillText('♥'.repeat(lives) + '♡'.repeat(Math.max(0, LIVES_START - lives)), W - 16, 28);
+}
+
+function drawOverlay(title, sub, hint) {
+  ctx.fillStyle = 'rgba(10,10,15,0.72)';
+  ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#fff';
+  ctx.font      = `bold ${clamp(W * 0.1, 28, 52)}px system-ui`;
+  ctx.fillText(title, W / 2, H / 2 - (sub ? 24 : 0));
+  if (sub) {
+    ctx.font      = `${clamp(W * 0.055, 16, 24)}px monospace`;
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.fillText(sub, W / 2, H / 2 + 24);
+  }
+  if (hint) {
+    ctx.font      = `13px monospace`;
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.fillText(hint, W / 2, H / 2 + 60);
+  }
+}
+
+// ── INPUT ─────────────────────────────────────────────────────────────────
+function onMove(e) {
+  if (phase !== 'playing') return;
+  const r  = canvas.getBoundingClientRect();
+  const sx = W / r.width;
+  paddle.x = clamp((e.clientX - r.left) * sx, PADDLE_W / 2, W - PADDLE_W / 2);
+}
+
+function onTouch(e) {
+  if (phase !== 'playing') return;
+  const r  = canvas.getBoundingClientRect();
+  const sx = W / r.width;
+  paddle.x = clamp((e.touches[0].clientX - r.left) * sx, PADDLE_W / 2, W - PADDLE_W / 2);
+}
+
+function onTap() {
+  if (phase === 'ready') { phase = 'playing'; return; }
+  if (phase === 'dead' || phase === 'won') { initGame(); phase = 'ready'; }
+}
+
+function onResize() {
+  W = canvas.width  = Math.min(window.innerWidth, 480);
+  H = canvas.height = window.innerHeight;
+}
+
+// ── COLLISION ─────────────────────────────────────────────────────────────
+function circleRect(cx, cy, r, rx, ry, rw, rh) {
+  const nx = Math.max(rx, Math.min(rx + rw, cx));
+  const ny = Math.max(ry, Math.min(ry + rh, cy));
+  return (cx - nx) ** 2 + (cy - ny) ** 2 <= r * r;
+}
+
+function polyCircle(poly, cx, cy, r) {
+  // Point-in-polygon (ray cast)
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const { x: xi, y: yi } = poly[i], { x: xj, y: yj } = poly[j];
+    if ((yi > cy) !== (yj > cy) && cx < ((xj - xi) * (cy - yi) / (yj - yi) + xi))
+      inside = !inside;
+  }
+  if (inside) return true;
+  // Edge proximity
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    if (segDist(cx, cy, poly[j].x, poly[j].y, poly[i].x, poly[i].y) <= r) return true;
+  }
+  return false;
+}
+
+function segDist(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay;
+  const t  = dx || dy ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy))) : 0;
+  return Math.hypot(px - ax - t * dx, py - ay - t * dy);
+}
+
+// Andrew's monotone chain convex hull
+function convexHull(pts) {
+  pts = [...pts].sort((a, b) => a.x !== b.x ? a.x - b.x : a.y - b.y);
+  const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+  const lo = [], hi = [];
+  for (const p of pts) {
+    while (lo.length >= 2 && cross(lo.at(-2), lo.at(-1), p) <= 0) lo.pop();
+    lo.push(p);
+  }
+  for (let i = pts.length - 1; i >= 0; i--) {
+    const p = pts[i];
+    while (hi.length >= 2 && cross(hi.at(-2), hi.at(-1), p) <= 0) hi.pop();
+    hi.push(p);
+  }
+  hi.pop(); lo.pop();
+  return lo.concat(hi);
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────
+function show(name) {
+  ['intro','loading','game'].forEach(s =>
+    document.getElementById(`screen-${s}`).classList.toggle('hidden', s !== name)
+  );
+}
+
+function setText(t) { document.getElementById('loading-text').textContent = t; }
+
+function fileToImg(file) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload  = () => res(img);
+    img.onerror = rej;
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function loadImgSrc(src) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload  = () => res(img);
+    img.onerror = rej;
+    img.src = src;
+  });
+}
+
+function scaleImg(img, max) {
+  const s  = Math.min(max / img.naturalWidth, max / img.naturalHeight, 1);
+  const c  = makeCanvas(Math.round(img.naturalWidth * s), Math.round(img.naturalHeight * s));
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return c;
+}
+
+function makeCanvas(w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  return c;
+}
+
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+</script>
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+</body>
+</html>
