@@ -424,12 +424,14 @@ if ($method === 'POST' && $action === 'tb_identify_tool') {
     $image_data = base64_encode(file_get_contents($_FILES['photo']['tmp_name']));
     $media_type = $mime_map[$ext];
 
-    $prompt = 'Identify this tool. Respond with ONLY a JSON object (no markdown, no explanation) with these exact keys:
-"name": the specific tool name (e.g. "Circular Saw", "Cordless Drill", "Tape Measure")
-"brand": the brand/manufacturer if clearly visible (e.g. "DeWalt", "Milwaukee", "Makita"), or "" if not visible
-"tags": a JSON array of 1-4 short, relevant tags that describe this tool — include the tool type, power type if relevant, and use case. Use concise terms (e.g. ["Power Tools", "Cordless", "Drilling"] or ["Hand Tools", "Measuring", "Levelling"])
+    $prompt = 'Analyse this image. Respond with ONLY a JSON object (no markdown, no explanation) with these exact keys:
+"appropriate": true if this is a photo of a real tool or equipment suitable for a tool-sharing app, false if it contains people, nudity, explicit content, offensive material, or is clearly not a tool
+"name": the specific tool name (e.g. "Circular Saw", "Cordless Drill", "Tape Measure"), or "" if not appropriate
+"brand": the brand/manufacturer if clearly visible (e.g. "DeWalt", "Milwaukee", "Makita"), or "" if not visible or not appropriate
+"tags": a JSON array of 1-4 short relevant tags (e.g. ["Power Tools", "Cordless", "Drilling"]), or [] if not appropriate
 
-Example: {"name":"Cordless Drill","brand":"DeWalt","tags":["Power Tools","Cordless","Drilling"]}';
+Example (tool): {"appropriate":true,"name":"Cordless Drill","brand":"DeWalt","tags":["Power Tools","Cordless","Drilling"]}
+Example (not a tool): {"appropriate":false,"name":"","brand":"","tags":[]}';
 
     $payload = json_encode([
         'model'      => 'claude-haiku-4-5-20251001',
@@ -471,15 +473,16 @@ Example: {"name":"Cordless Drill","brand":"DeWalt","tags":["Power Tools","Cordle
     $text = trim($text);
     $result = json_decode($text, true);
 
-    if (!$result || !isset($result['name'])) {
+    if (!$result || !array_key_exists('appropriate', $result)) {
         http_response_code(502); echo json_encode(['error' => 'Could not identify tool.']); exit;
     }
 
     $tags = array_values(array_filter(array_map('trim', (array)($result['tags'] ?? []))));
     echo json_encode(['success' => true, 'tool' => [
-        'name'  => $result['name']  ?? '',
-        'brand' => $result['brand'] ?? '',
-        'tags'  => $tags,
+        'appropriate' => (bool)$result['appropriate'],
+        'name'        => $result['name']  ?? '',
+        'brand'       => $result['brand'] ?? '',
+        'tags'        => $tags,
     ]]);
     exit;
 }

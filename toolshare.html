@@ -1192,7 +1192,12 @@ async function identifyTool(file) {
   document.getElementById('tool-form-fields').style.display = 'block';
 
   if (!res?.success) return;
-  const { name, brand, tags } = res.tool;
+  const { appropriate, name, brand, tags } = res.tool;
+  if (!appropriate) {
+    showToast('Photo not accepted — please upload a photo of a tool');
+    resetPhotoPreview();
+    return;
+  }
   const nameEl  = document.getElementById('tool-name');
   const brandEl = document.getElementById('tool-brand');
   if (!nameEl.value  && name)  nameEl.value  = name;
