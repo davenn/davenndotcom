@@ -1,9 +1,11 @@
-const CACHE = 'davenn-v1';
+const CACHE = 'davenn-v2';
 const SHELL = [
   '/index.html',
   '/tracktimer.html',
   '/meetingtimer.html',
   '/toolshare.html',
+  '/facebreaker.html',
+  '/pomodoro.html',
 ];
 
 self.addEventListener('install', e => {

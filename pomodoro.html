@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Pomodoro — davenn.com</title>
+<link rel="manifest" href="/manifest-pomodoro.json">
+<meta name="theme-color" content="#0f0f0f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-touch-icon" href="/icons/pomodoro.svg">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%; background: #0f0f0f; color: #fff;
+  font-family: system-ui, -apple-system, sans-serif;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  overflow: hidden; user-select: none; -webkit-user-select: none;
+}
+
+:root { --accent: #e05555; }
+
+/* ── BACK LINK ── */
+.back-link {
+  position: fixed; top: 14px; left: 16px; z-index: 10;
+  font-family: monospace; font-size: 11px; color: rgba(255,255,255,0.2);
+  text-decoration: none; letter-spacing: 0.06em; text-transform: uppercase;
+  transition: color 0.15s;
+}
+.back-link:hover { color: rgba(255,255,255,0.6); }
+
+/* ── MAIN LAYOUT ── */
+.container {
+  width: min(400px, 100vw);
+  padding: 0 2.5rem;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 0;
+}
+
+/* ── PHASE + DOTS ── */
+.phase-row {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  margin-bottom: 52px;
+}
+.phase-label {
+  font-family: monospace; font-size: 11px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--accent);
+  transition: color 0.4s;
+}
+.session-dots { display: flex; gap: 7px; }
+.dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  transition: background 0.3s;
+}
+.dot.done { background: var(--accent); }
+
+/* ── TIMER ── */
+.timer {
+  font-size: clamp(78px, 23vw, 108px);
+  font-weight: 200; letter-spacing: -0.04em; line-height: 1;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 36px;
+  transition: color 0.4s;
+}
+
+/* ── PROGRESS BAR ── */
+.progress-track {
+  width: 100%; height: 2px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 2px; overflow: hidden;
+  margin-bottom: 52px;
+}
+.progress-fill {
+  height: 100%; background: var(--accent);
+  border-radius: 2px; width: 0%;
+  transition: background 0.4s;
+}
+
+/* ── CONTROLS ── */
+.controls {
+  display: flex; align-items: center; gap: 36px;
+  margin-bottom: 64px;
+}
+.btn-play {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: var(--accent); border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.1s, opacity 0.12s, background 0.4s;
+  flex-shrink: 0;
+}
+.btn-play:active { transform: scale(0.92); opacity: 0.8; }
+.btn-play svg { width: 22px; height: 22px; fill: #fff; }
+.btn-skip {
+  width: 44px; height: 44px;
+  background: none; border: none; cursor: pointer;
+  color: rgba(255,255,255,0.2); padding: 8px;
+  display: flex; align-items: center; justify-content: center;
+  transition: color 0.15s;
+}
+.btn-skip:hover { color: rgba(255,255,255,0.55); }
+.btn-skip svg { width: 20px; height: 20px; fill: currentColor; }
+.spacer { width: 44px; } /* mirror of skip for centering */
+
+/* ── SETTINGS ── */
+.settings {
+  display: flex; gap: 32px;
+}
+.setting {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.setting-label {
+  font-family: monospace; font-size: 9px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: rgba(255,255,255,0.2);
+}
+.setting-input {
+  background: none; border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  color: #fff; font-size: 22px; font-weight: 200;
+  width: 44px; text-align: center; padding: 2px 0;
+  outline: none; font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+  transition: border-color 0.15s;
+}
+.setting-input::-webkit-inner-spin-button,
+.setting-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+.setting-input:focus { border-bottom-color: var(--accent); }
+</style>
+</head>
+<body>
+
+<a class="back-link" href="index.html">← Home</a>
+
+<div class="container">
+  <div class="phase-row">
+    <span class="phase-label" id="phase-label">Focus</span>
+    <div class="session-dots" id="dots"></div>
+  </div>
+
+  <div class="timer" id="timer">25:00</div>
+
+  <div class="progress-track">
+    <div class="progress-fill" id="progress-fill"></div>
+  </div>
+
+  <div class="controls">
+    <div class="spacer"></div>
+    <button class="btn-play" id="btn-play" aria-label="Start">
+      <svg id="icon-play"  viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      <svg id="icon-pause" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+    </button>
+    <button class="btn-skip" id="btn-skip" aria-label="Skip">
+      <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+    </button>
+  </div>
+
+  <div class="settings">
+    <div class="setting">
+      <label class="setting-label" for="inp-work">Work</label>
+      <input class="setting-input" id="inp-work" type="number" min="1" max="99">
+    </div>
+    <div class="setting">
+      <label class="setting-label" for="inp-short">Short</label>
+      <input class="setting-input" id="inp-short" type="number" min="1" max="99">
+    </div>
+    <div class="setting">
+      <label class="setting-label" for="inp-long">Long</label>
+      <input class="setting-input" id="inp-long" type="number" min="1" max="99">
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────
+const SESSIONS = 4;
+const COLORS = {
+  work:       '#e05555',
+  shortBreak: '#27ae60',
+  longBreak:  '#2980b9',
+};
+const LABELS = {
+  work:       'Focus',
+  shortBreak: 'Short Break',
+  longBreak:  'Long Break',
+};
+
+// ── PERSISTED SETTINGS ────────────────────────────────────────
+const cfg = {
+  work:       Math.max(1, parseInt(localStorage.getItem('pom_work'))  || 25),
+  shortBreak: Math.max(1, parseInt(localStorage.getItem('pom_short')) || 5),
+  longBreak:  Math.max(1, parseInt(localStorage.getItem('pom_long'))  || 15),
+};
+
+// ── STATE ─────────────────────────────────────────────────────
+let phase        = 'work';
+let workDone     = 0;       // completed work sessions this cycle (0-4)
+let timeLeft     = 0;       // seconds remaining
+let totalTime    = 0;       // seconds for this phase
+let running      = false;
+let ticker       = null;
+let startStamp   = 0;       // Date.now() when timer started
+let startLeft    = 0;       // timeLeft value at last start
+
+// ── ELEMENTS ──────────────────────────────────────────────────
+const timerEl  = document.getElementById('timer');
+const phaseEl  = document.getElementById('phase-label');
+const dotsEl   = document.getElementById('dots');
+const fillEl   = document.getElementById('progress-fill');
+const btnPlay  = document.getElementById('btn-play');
+const iconPlay = document.getElementById('icon-play');
+const iconPause= document.getElementById('icon-pause');
+const btnSkip  = document.getElementById('btn-skip');
+const inpWork  = document.getElementById('inp-work');
+const inpShort = document.getElementById('inp-short');
+const inpLong  = document.getElementById('inp-long');
+
+// ── BOOT ──────────────────────────────────────────────────────
+inpWork.value  = cfg.work;
+inpShort.value = cfg.shortBreak;
+inpLong.value  = cfg.longBreak;
+
+inpWork.addEventListener('change',  () => onSetting('work',       inpWork,  'pom_work'));
+inpShort.addEventListener('change', () => onSetting('shortBreak', inpShort, 'pom_short'));
+inpLong.addEventListener('change',  () => onSetting('longBreak',  inpLong,  'pom_long'));
+
+btnPlay.addEventListener('click', togglePlay);
+btnSkip.addEventListener('click', skip);
+
+// Request notification permission on first interaction
+btnPlay.addEventListener('click', () => {
+  if ('Notification' in window && Notification.permission === 'default')
+    Notification.requestPermission();
+}, { once: true });
+
+loadPhase('work');
+
+// ── SETTINGS ──────────────────────────────────────────────────
+function onSetting(key, el, storageKey) {
+  const v = Math.max(1, Math.min(99, parseInt(el.value) || 1));
+  el.value = v;
+  cfg[key] = v;
+  localStorage.setItem(storageKey, v);
+  if (!running && phase === key) { loadPhase(phase); render(); }
+}
+
+// ── PHASE ─────────────────────────────────────────────────────
+function loadPhase(p) {
+  phase     = p;
+  totalTime = cfg[p] * 60;
+  timeLeft  = totalTime;
+  document.documentElement.style.setProperty('--accent', COLORS[p]);
+}
+
+function advance() {
+  if (phase === 'work') {
+    workDone++;
+    if (workDone >= SESSIONS) {
+      workDone = 0;
+      loadPhase('longBreak');
+    } else {
+      loadPhase('shortBreak');
+    }
+  } else {
+    loadPhase('work');
+  }
+}
+
+// ── CONTROLS ──────────────────────────────────────────────────
+function togglePlay() {
+  running ? pause() : start();
+}
+
+function start() {
+  running    = true;
+  startStamp = Date.now();
+  startLeft  = timeLeft;
+  ticker = setInterval(tick, 250);
+  render();
+}
+
+function pause() {
+  running = false;
+  clearInterval(ticker);
+  ticker = null;
+  render();
+}
+
+function skip() {
+  pause();
+  advance();
+  render();
+}
+
+function tick() {
+  const elapsed = Math.floor((Date.now() - startStamp) / 1000);
+  timeLeft = Math.max(0, startLeft - elapsed);
+  if (timeLeft === 0) {
+    clearInterval(ticker);
+    ticker  = null;
+    running = false;
+    render();
+    beep();
+    notify();
+    advance();
+  }
+  render();
+}
+
+// ── NOTIFY + SOUND ────────────────────────────────────────────
+function notify() {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification(LABELS[phase] + ' complete!', {
+      body: phase === 'work' ? 'Time for a break.' : 'Back to focus.',
+      icon: '/icons/pomodoro.svg',
+      silent: true,
+    });
+  }
+}
+
+function beep() {
+  try {
+    const ctx  = new (window.AudioContext || window.webkitAudioContext)();
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type            = 'sine';
+    osc.frequency.value = 740;
+    gain.gain.setValueAtTime(0.25, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+    osc.start(); osc.stop(ctx.currentTime + 0.8);
+  } catch {}
+}
+
+// ── RENDER ────────────────────────────────────────────────────
+function render() {
+  const m = Math.floor(timeLeft / 60);
+  const s = timeLeft % 60;
+  const display = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+
+  timerEl.textContent  = display;
+  phaseEl.textContent  = LABELS[phase];
+  document.title       = `${display} — ${LABELS[phase]}`;
+
+  const pct = totalTime > 0 ? ((totalTime - timeLeft) / totalTime) * 100 : 0;
+  fillEl.style.width   = pct + '%';
+  fillEl.style.transition = running ? 'width 0.25s linear, background 0.4s' : 'background 0.4s';
+
+  iconPlay.style.display  = running ? 'none' : '';
+  iconPause.style.display = running ? ''     : 'none';
+
+  dotsEl.innerHTML = Array.from({ length: SESSIONS }, (_, i) =>
+    `<div class="dot${i < workDone ? ' done' : ''}"></div>`
+  ).join('');
+}
+</script>
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+</body>
+</html>

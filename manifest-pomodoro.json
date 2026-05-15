@@ -1,0 +1,11 @@
+{
+  "name": "Pomodoro",
+  "short_name": "Pomodoro",
+  "start_url": "/pomodoro.html",
+  "display": "standalone",
+  "theme_color": "#0f0f0f",
+  "background_color": "#0f0f0f",
+  "icons": [
+    { "src": "/icons/pomodoro.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
