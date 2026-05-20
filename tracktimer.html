@@ -666,12 +666,12 @@ async function saveSession() {
   });
 
   btn.textContent = 'Save to Board';
+  btn.disabled = false;
   if (result?.success) {
     showToast(`"${name}" saved to board`);
     document.getElementById('session-name').value = '';
     document.getElementById('save-bar').classList.remove('show');
   } else {
-    btn.disabled = false;
     showToast('Save failed — check your API');
   }
 }
