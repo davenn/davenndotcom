@@ -676,7 +676,7 @@ async function renderBoard() {
   const sorted = [...entries].sort((a, b) => a.avg_ms - b.avg_ms).slice(0, 10);
   const rankClass = ['gold', 'silver', 'bronze'];
   el.innerHTML = sorted.map((e, i) => {
-    const dateStr = new Date(e.created_at).toLocaleString('en-US', {
+    const dateStr = new Date(e.created_at.replace(' ', 'T') + '-08:00').toLocaleString('en-US', {
       timeZone: 'America/Chicago', month: 'short', day: 'numeric',
       hour: 'numeric', minute: '2-digit'
     }) + ' CST';
