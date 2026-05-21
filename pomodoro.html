@@ -77,6 +77,17 @@ nav {
 .nav-back { font-family: 'DM Mono', monospace; font-size: 11px; color: rgba(255,255,255,0.45); text-decoration: none; letter-spacing: 0.05em; text-transform: uppercase; transition: color 0.15s; }
 .nav-back:hover { color: #fff; }
 
+/* ── CAST BUTTON ── */
+.btn-cast {
+  display: none; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer; padding: 3px;
+  color: rgba(255,255,255,0.45); transition: color 0.15s;
+}
+.btn-cast.available { display: flex; }
+.btn-cast.casting   { color: var(--accent); }
+.btn-cast:hover     { color: rgba(255,255,255,0.9); }
+.btn-cast svg { width: 20px; height: 20px; fill: currentColor; }
+
 /* ── THEME TOGGLE ── */
 .theme-toggle {
   position: relative; width: 44px; height: 24px; cursor: pointer;
@@ -270,6 +281,9 @@ nav {
 <nav>
   <a class="nav-logo" href="index.html"><strong>davenn</strong>dotcom</a>
   <div class="nav-right">
+    <button class="btn-cast" id="btn-cast" onclick="toggleCast()" title="Cast to display" aria-label="Cast to display">
+      <svg viewBox="0 0 24 24"><path d="M1 18v3h3c0-1.66-1.34-3-3-3zm0-4v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm18-7H5c-1.1 0-2 .9-2 2v3h2v-3h14v12h-5v2h5c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zm-18 3v2c4.97 0 9 4.03 9 9h2c0-6.08-4.93-11-11-11z"/></svg>
+    </button>
     <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode" aria-label="Toggle theme">
       <div class="theme-toggle-track">
         <div class="theme-toggle-thumb" id="toggle-icon">🌙</div>
@@ -385,6 +399,42 @@ btnPlay.addEventListener('click', () => {
     Notification.requestPermission();
 }, { once: true });
 
+// ── CAST ──────────────────────────────────────────────────────────────────────
+const castBtn = document.getElementById('btn-cast');
+let castConn  = null;
+let castReq   = null;
+
+if ('presentation' in navigator) {
+  castReq = new PresentationRequest(['/pomodoro-cast.html']);
+  castBtn.classList.add('available');
+}
+
+async function toggleCast() {
+  if (castConn) {
+    castConn.terminate();
+    return;
+  }
+  try {
+    castConn = await castReq.start();
+    castBtn.classList.add('casting');
+    castConn.addEventListener('message', e => {
+      if (JSON.parse(e.data).type === 'ready') sendCastState();
+    });
+    castConn.addEventListener('close',     onCastEnd);
+    castConn.addEventListener('terminate', onCastEnd);
+  } catch (_) { /* user cancelled */ }
+}
+
+function onCastEnd() {
+  castConn = null;
+  castBtn.classList.remove('casting');
+}
+
+function sendCastState() {
+  if (!castConn || castConn.state !== 'connected') return;
+  castConn.send(JSON.stringify({ timeLeft, totalTime, phase, running, workDone, accent: COLORS[phase] }));
+}
+
 // ── THEME ─────────────────────────────────────────────────────────────────────
 function getTheme() { return localStorage.getItem('pom_theme') || 'dark'; }
 function applyTheme(theme) {
@@ -476,6 +526,7 @@ function render() {
   iconPause.style.display = running ? ''     : 'none';
   dotsEl.innerHTML = Array.from({ length: SESSIONS }, (_, i) =>
     `<div class="dot${i < workDone ? ' done' : ''}"></div>`).join('');
+  sendCastState();
 }
 </script>
 <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>

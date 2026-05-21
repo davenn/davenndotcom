@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pomodoro</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root { --accent: #e05555; }
+html, body {
+  height: 100%; background: #0f0f0f; color: #fff;
+  font-family: system-ui, -apple-system, sans-serif;
+  overflow: hidden; user-select: none;
+}
+.wrap {
+  height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 3vh; padding: 6vh 8vw;
+}
+.phase-label {
+  font-family: monospace;
+  font-size: clamp(14px, 2.2vw, 32px);
+  letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--accent); transition: color 0.4s;
+  min-height: 1.4em;
+}
+.timer {
+  font-size: clamp(80px, 20vw, 420px);
+  font-weight: 800; letter-spacing: -0.05em; line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.dots { display: flex; gap: clamp(8px, 1vw, 16px); }
+.dot {
+  width: clamp(8px, 1.1vw, 18px); height: clamp(8px, 1.1vw, 18px);
+  border-radius: 50%; background: rgba(255,255,255,0.12);
+  transition: background 0.3s;
+}
+.dot.done { background: var(--accent); }
+.progress-track {
+  width: min(700px, 75vw); height: 3px;
+  background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden;
+}
+.progress-fill {
+  height: 100%; background: var(--accent); border-radius: 2px; width: 0%;
+  transition: width 1s linear, background 0.4s;
+}
+.watermark {
+  position: fixed; bottom: 3vh; right: 4vw;
+  font-family: monospace; font-size: clamp(10px, 1vw, 16px);
+  color: rgba(255,255,255,0.1); letter-spacing: 0.06em;
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="phase-label" id="phase-label"></div>
+  <div class="timer" id="timer">--:--</div>
+  <div class="dots" id="dots"></div>
+  <div class="progress-track">
+    <div class="progress-fill" id="progress-fill"></div>
+  </div>
+</div>
+<div class="watermark">davenn.com</div>
+
+<script>
+const SESSIONS = 4;
+const PHASE_LABELS = { work: '', shortBreak: 'Short Break', longBreak: 'Long Break' };
+
+function applyState(state) {
+  const { timeLeft, totalTime, phase, workDone, accent } = state;
+  const m = Math.floor(timeLeft / 60), s = timeLeft % 60;
+  document.getElementById('timer').textContent =
+    String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  document.getElementById('phase-label').textContent = PHASE_LABELS[phase] ?? '';
+  document.documentElement.style.setProperty('--accent', accent || '#e05555');
+  const pct = totalTime > 0 ? ((totalTime - timeLeft) / totalTime) * 100 : 0;
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('dots').innerHTML =
+    Array.from({ length: SESSIONS }, (_, i) =>
+      `<div class="dot${i < workDone ? ' done' : ''}"></div>`).join('');
+}
+
+function setupConn(conn) {
+  conn.addEventListener('message', e => applyState(JSON.parse(e.data)));
+  conn.send(JSON.stringify({ type: 'ready' }));
+}
+
+if (navigator.presentation?.receiver) {
+  navigator.presentation.receiver.connectionList.then(list => {
+    list.connections.forEach(setupConn);
+    list.addEventListener('connectionavailable', e => setupConn(e.connection));
+  });
+}
+</script>
+</body>
+</html>

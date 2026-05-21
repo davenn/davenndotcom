@@ -6,6 +6,7 @@ const SHELL = [
   '/toolshare.html',
   '/facebreaker.html',
   '/pomodoro.html',
+  '/pomodoro-cast.html',
   '/reactiontest.html',
 ];
 
