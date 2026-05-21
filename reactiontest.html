@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reaction Test — davenn.com</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root, [data-theme="dark"] {
+  --bg:        #0a0a0a;
+  --surface:   #121212;
+  --surface2:  #1a1a1a;
+  --border:    #2a2a2a;
+  --border2:   #333;
+  --accent:    #e8ff47;
+  --accent2:   #ff6b35;
+  --text:      #f0f0f0;
+  --text2:     #888;
+  --text3:     #555;
+  --danger:    #ff4444;
+  --success:   #44ff88;
+  --nav-bg:    #000;
+  --nav-border: rgba(255,255,255,0.08);
+  --font-disp: 'Barlow Condensed', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+  --nav-h: 52px;
+  --tab-h: 44px;
+}
+
+[data-theme="light"] {
+  --bg:        #f5f4f0;
+  --surface:   #ffffff;
+  --surface2:  #f0efe9;
+  --border:    #e0ddd4;
+  --border2:   #d0cdc3;
+  --accent:    #111110;
+  --accent2:   #d95f28;
+  --text:      #111110;
+  --text2:     #555;
+  --text3:     #aaa;
+  --danger:    #d93025;
+  --success:   #1a7a3a;
+  --nav-bg:    #111110;
+  --nav-border: rgba(255,255,255,0.08);
+}
+
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-disp); transition: background 0.2s, color 0.2s; }
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: var(--nav-h);
+  background: var(--nav-bg);
+  border-bottom: 1px solid var(--nav-border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 1.5rem; z-index: 200;
+}
+.nav-logo { font-family: var(--font-mono); font-size: 13px; color: rgba(255,255,255,0.4); text-decoration: none; }
+.nav-logo strong { color: #fff; }
+.nav-right { display: flex; align-items: center; gap: 1.2rem; }
+.nav-back { font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.45); text-decoration: none; letter-spacing: 0.05em; text-transform: uppercase; transition: color 0.15s; }
+.nav-back:hover { color: #fff; }
+
+/* ── THEME TOGGLE ── */
+.theme-toggle { position: relative; width: 44px; height: 24px; cursor: pointer; background: none; border: none; padding: 0; }
+.theme-toggle-track { width: 44px; height: 24px; border-radius: 12px; background: #333; border: 1px solid #555; transition: background 0.2s, border-color 0.2s; display: flex; align-items: center; padding: 0 3px; }
+[data-theme="light"] .theme-toggle-track { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); }
+.theme-toggle-thumb { width: 18px; height: 18px; border-radius: 50%; background: #888; transition: transform 0.2s, background 0.2s; display: flex; align-items: center; justify-content: center; font-size: 10px; line-height: 1; }
+[data-theme="light"]  .theme-toggle-thumb { transform: translateX(20px); background: #fff; }
+[data-theme="dark"]   .theme-toggle-thumb { transform: translateX(0);    background: #666; }
+
+/* ── TABS ── */
+.tab-bar {
+  position: fixed; top: var(--nav-h); left: 0; right: 0;
+  background: var(--nav-bg); border-bottom: 1px solid var(--nav-border);
+  display: flex; z-index: 190;
+}
+.tab-btn {
+  flex: 1; padding: 0 1rem; height: var(--tab-h);
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: rgba(255,255,255,0.35); background: none; border: none; cursor: pointer;
+  border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s;
+}
+.tab-btn.active { color: #e8ff47; border-bottom-color: #e8ff47; }
+
+/* ── PANELS ── */
+.panel { display: none; padding-top: calc(var(--nav-h) + var(--tab-h)); min-height: 100vh; }
+.panel.active { display: flex; flex-direction: column; }
+
+/* ── TEST PANEL ── */
+.test-wrap {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 2rem 1rem; gap: 1.5rem;
+}
+
+.round-info {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text3); height: 16px; text-align: center;
+}
+
+/* ── CIRCLE ── */
+.circle-wrap {
+  width: clamp(200px, 45vw, 280px);
+  height: clamp(200px, 45vw, 280px);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background 0.12s, box-shadow 0.12s, transform 0.08s;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.circle-wrap:active { transform: scale(0.96); }
+
+.circle-wrap.state-idle   { background: var(--surface2); }
+.circle-wrap.state-wait   { background: var(--surface2); cursor: default; }
+.circle-wrap.state-ready  { background: var(--accent);   box-shadow: 0 0 80px rgba(232,255,71,0.25); }
+[data-theme="light"] .circle-wrap.state-ready { box-shadow: 0 0 60px rgba(0,0,0,0.15); }
+.circle-wrap.state-early  { background: var(--danger);   box-shadow: 0 0 60px rgba(255,68,68,0.25); cursor: default; }
+.circle-wrap.state-result { background: var(--surface2); cursor: pointer; }
+.circle-wrap.state-done   { background: var(--surface2); cursor: default; }
+
+.circle-label {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  pointer-events: none; text-align: center;
+}
+.circle-main {
+  font-family: var(--font-disp); font-size: clamp(1.6rem, 6vw, 2.4rem);
+  font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text);
+}
+.circle-sub {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--text3);
+}
+
+.state-ready .circle-main  { color: #000; }
+.state-ready .circle-sub   { color: rgba(0,0,0,0.45); }
+[data-theme="light"] .state-ready .circle-main { color: #fff; }
+[data-theme="light"] .state-ready .circle-sub  { color: rgba(255,255,255,0.55); }
+.state-early .circle-main  { color: #fff; }
+.state-early .circle-sub   { color: rgba(255,255,255,0.55); }
+
+/* ── TIMES CHIPS ── */
+.times-list { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; min-height: 28px; }
+.time-chip {
+  font-family: var(--font-mono); font-size: 12px;
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: 4px; padding: 4px 10px; color: var(--text2);
+}
+.time-chip.best  { border-color: var(--success); color: var(--success); }
+.time-chip.worst { border-color: var(--danger);  color: var(--danger);  }
+
+/* ── RESULTS CARD ── */
+.results-card {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: 8px; padding: 1.5rem 1.5rem 1.25rem;
+  width: 100%; max-width: 360px; text-align: center;
+}
+.results-avg {
+  font-family: var(--font-mono); font-size: clamp(3rem, 12vw, 5rem);
+  font-weight: 500; color: var(--accent); line-height: 1;
+}
+[data-theme="light"] .results-avg { color: var(--text); }
+.results-avg-label {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--text3); margin-top: 6px;
+}
+.results-rank {
+  font-family: var(--font-mono); font-size: 13px; color: var(--text2);
+  margin-top: 1rem; min-height: 20px;
+}
+.results-rank.qualified { color: var(--success); }
+
+.save-row { display: flex; gap: 8px; margin-top: 1rem; }
+.save-row input {
+  flex: 1; background: var(--surface2); border: 1px solid var(--border2);
+  color: var(--text); font-family: var(--font-mono); font-size: 13px;
+  padding: 9px 12px; border-radius: 4px; outline: none; transition: border-color 0.15s;
+  min-width: 0;
+}
+.save-row input::placeholder { color: var(--text3); }
+.save-row input:focus { border-color: var(--accent); }
+.btn-save-score {
+  font-family: var(--font-disp); font-size: 14px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  background: var(--accent); color: #000; border: none; border-radius: 4px;
+  padding: 10px 18px; cursor: pointer; white-space: nowrap; transition: opacity 0.15s;
+}
+[data-theme="light"] .btn-save-score { background: #111110; color: #fff; }
+.btn-save-score:hover { opacity: 0.85; }
+.btn-save-score:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-play-again {
+  margin-top: 0.85rem; width: 100%;
+  font-family: var(--font-disp); font-size: 14px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  background: transparent; color: var(--text2); border: 1px solid var(--border2);
+  border-radius: 4px; padding: 10px; cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.btn-play-again:hover { color: var(--text); border-color: var(--text2); }
+
+/* ── BOARD PANEL ── */
+#panel-board { padding-bottom: 60px; }
+.board-wrap { max-width: 600px; margin: 0 auto; padding: 1.5rem; }
+.board-top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.board-top-bar h2 { font-size: 22px; font-weight: 700; letter-spacing: 0.04em; }
+.btn-clear-board { font-family: var(--font-mono); font-size: 11px; color: var(--danger); background: none; border: none; cursor: pointer; letter-spacing: 0.05em; padding: 4px 8px; }
+.week-nav { display: flex; align-items: center; gap: 10px; margin-bottom: 1.2rem; }
+.week-nav-btn {
+  font-family: var(--font-mono); font-size: 11px; color: var(--text2);
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 4px; padding: 6px 14px; cursor: pointer; transition: color 0.15s; white-space: nowrap;
+}
+.week-nav-btn:hover { color: var(--text); }
+.week-label { font-family: var(--font-mono); font-size: 12px; color: var(--text2); flex: 1; text-align: center; }
+
+.lb-item {
+  display: grid; grid-template-columns: 36px 1fr auto;
+  align-items: center; gap: 12px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; padding: 12px 16px; margin-bottom: 8px;
+}
+.lb-rank { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--text3); text-align: center; }
+.lb-rank.gold   { color: #f9ab00; }
+.lb-rank.silver { color: #80868b; }
+.lb-rank.bronze { color: #c07c49; }
+.lb-name { font-size: 17px; font-weight: 700; letter-spacing: 0.02em; }
+.lb-date { font-family: var(--font-mono); font-size: 11px; color: var(--text3); margin-top: 2px; }
+.lb-score { font-family: var(--font-mono); font-size: 20px; font-weight: 500; color: var(--accent); text-align: right; }
+[data-theme="light"] .lb-score { color: var(--text); }
+.lb-score-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text3); text-align: right; }
+
+.lb-empty { text-align: center; padding: 4rem 1rem; font-family: var(--font-mono); font-size: 12px; color: var(--text3); letter-spacing: 0.05em; }
+.lb-loading { text-align: center; padding: 3rem; font-family: var(--font-mono); font-size: 12px; color: var(--text3); }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+  background: var(--surface); border: 1px solid var(--border2);
+  color: var(--text); font-family: var(--font-mono); font-size: 12px;
+  padding: 8px 18px; border-radius: 20px;
+  opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 999;
+  white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="index.html"><strong>davenn</strong>dotcom</a>
+  <div class="nav-right">
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme" aria-label="Toggle theme">
+      <div class="theme-toggle-track">
+        <div class="theme-toggle-thumb" id="toggle-icon">🌙</div>
+      </div>
+    </button>
+    <a class="nav-back" href="index.html">← Back</a>
+  </div>
+</nav>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="showTab('test')">Test</button>
+  <button class="tab-btn" onclick="showTab('board')">Leaderboard</button>
+</div>
+
+<!-- ═══════════ TEST PANEL ═══════════ -->
+<div id="panel-test" class="panel active">
+  <div class="test-wrap">
+
+    <div class="round-info" id="round-info"></div>
+
+    <div class="circle-wrap state-idle" id="circle" onclick="handleClick()">
+      <div class="circle-label">
+        <div class="circle-main" id="circle-main">Tap to start</div>
+        <div class="circle-sub"  id="circle-sub">5 rounds</div>
+      </div>
+    </div>
+
+    <div class="times-list" id="times-list"></div>
+
+    <div class="results-card" id="results-card" style="display:none">
+      <div class="results-avg" id="results-avg"></div>
+      <div class="results-avg-label">avg reaction time</div>
+      <div class="results-rank" id="results-rank">Checking leaderboard…</div>
+      <div id="save-area" style="display:none">
+        <div class="save-row">
+          <input type="text" id="player-name" placeholder="Your name" maxlength="30"
+            onkeydown="if(event.key==='Enter') saveScore()">
+          <button class="btn-save-score" id="btn-save-score" onclick="saveScore()">Save</button>
+        </div>
+      </div>
+      <button class="btn-play-again" onclick="resetGame()">Play Again</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════ BOARD PANEL ═══════════ -->
+<div id="panel-board" class="panel">
+  <div class="board-wrap">
+    <div class="board-top-bar">
+      <h2>Leaderboard</h2>
+      <button class="btn-clear-board" onclick="clearBoard()">Clear week</button>
+    </div>
+    <div class="week-nav">
+      <button class="week-nav-btn" onclick="changeWeek(-1)">← Prev</button>
+      <div class="week-label" id="week-label"></div>
+      <button class="week-nav-btn" onclick="changeWeek(1)">Next →</button>
+    </div>
+    <div id="board-list"><div class="lb-loading">Loading…</div></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API_URL   = 'https://davenn.com/api.php';
+const ROUNDS    = 5;
+const MIN_DELAY = 1500;
+const MAX_DELAY = 4000;
+
+// ── THEME ─────────────────────────────────────────────────────────────────────
+function getTheme() { return localStorage.getItem('reaction_theme') || 'dark'; }
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('toggle-icon').textContent = t === 'dark' ? '🌙' : '☀️';
+  localStorage.setItem('reaction_theme', t);
+}
+function toggleTheme() { applyTheme(getTheme() === 'dark' ? 'light' : 'dark'); }
+applyTheme(getTheme());
+
+// ── GAME STATE ────────────────────────────────────────────────────────────────
+// states: idle | wait | ready | early | result | done
+let state      = 'idle';
+let round      = 0;
+let times      = [];
+let waitTimer  = null;
+let shownAt    = 0;
+let gameGen    = 0; // incremented on reset to cancel in-flight async ops
+let scoreSaved = false;
+
+const $circle     = document.getElementById('circle');
+const $main       = document.getElementById('circle-main');
+const $sub        = document.getElementById('circle-sub');
+const $roundInfo  = document.getElementById('round-info');
+const $timesList  = document.getElementById('times-list');
+const $resultsCard = document.getElementById('results-card');
+
+function setCircleState(s) {
+  state = s;
+  $circle.className = 'circle-wrap state-' + s;
+}
+
+function handleClick() {
+  if (state === 'idle')   { beginRound(); return; }
+  if (state === 'early')  { beginRound(); return; }
+  if (state === 'wait')   { tooEarly();   return; }
+  if (state === 'result') { round < ROUNDS ? beginRound() : showResults(); return; }
+  if (state === 'ready')  { recordHit();  return; }
+}
+
+function beginRound() {
+  setCircleState('wait');
+  $main.textContent = 'Wait…';
+  $sub.textContent  = '';
+  $roundInfo.textContent = `Round ${round + 1} of ${ROUNDS}`;
+  const delay = MIN_DELAY + Math.random() * (MAX_DELAY - MIN_DELAY);
+  waitTimer = setTimeout(() => {
+    setCircleState('ready');
+    $main.textContent = 'Tap!';
+    $sub.textContent  = '';
+    shownAt = performance.now();
+  }, delay);
+}
+
+function tooEarly() {
+  clearTimeout(waitTimer);
+  setCircleState('early');
+  $main.textContent = 'Too early!';
+  $sub.textContent  = 'Tap to retry';
+}
+
+function recordHit() {
+  const rt = Math.round(performance.now() - shownAt);
+  times.push(rt);
+  round++;
+  setCircleState('result');
+  $main.textContent = rt + 'ms';
+  $sub.textContent  = round < ROUNDS ? 'Tap for next round' : 'Tap to see results';
+  $roundInfo.textContent = `Round ${round} of ${ROUNDS}`;
+  renderChips();
+}
+
+function renderChips() {
+  if (!times.length) { $timesList.innerHTML = ''; return; }
+  const mn = Math.min(...times), mx = Math.max(...times);
+  $timesList.innerHTML = times.map((t, i) => {
+    const cls = times.length > 1 ? (t === mn ? 'best' : t === mx ? 'worst' : '') : '';
+    return `<div class="time-chip ${cls}">R${i + 1}: ${t}ms</div>`;
+  }).join('');
+}
+
+async function showResults() {
+  const gen = gameGen;
+  setCircleState('done');
+  $main.textContent = '';
+  $sub.textContent  = '';
+  $roundInfo.textContent = '';
+
+  const avg = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
+  document.getElementById('results-avg').textContent = avg + 'ms';
+  $resultsCard.style.display = 'block';
+
+  const rankEl   = document.getElementById('results-rank');
+  const saveArea = document.getElementById('save-area');
+  rankEl.textContent  = 'Checking leaderboard…';
+  rankEl.className    = 'results-rank';
+  saveArea.style.display = 'none';
+
+  const entries = await apiFetch(`?action=reaction_week&week_key=${getMondayKey(0)}`);
+  if (gen !== gameGen) return; // game was reset while awaiting
+
+  if (!entries) {
+    rankEl.textContent = 'Could not reach leaderboard.';
+    return;
+  }
+
+  const sorted   = [...entries].sort((a, b) => a.avg_ms - b.avg_ms);
+  const userRank = sorted.filter(e => e.avg_ms < avg).length + 1;
+  const qualifies = sorted.length < 10 || avg < sorted[9].avg_ms;
+
+  if (qualifies) {
+    rankEl.textContent = `You're #${userRank} this week!`;
+    rankEl.className   = 'results-rank qualified';
+    saveArea.style.display = 'block';
+    document.getElementById('player-name').focus();
+  } else {
+    rankEl.textContent = `You ranked #${userRank} — just outside the top 10.`;
+  }
+}
+
+async function saveScore() {
+  if (scoreSaved) return;
+  const name = document.getElementById('player-name').value.trim();
+  if (!name) { document.getElementById('player-name').focus(); return; }
+
+  const avg = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
+  const btn = document.getElementById('btn-save-score');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  const result = await apiFetch('?action=save_reaction', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, avg_ms: avg, week_key: getMondayKey(0) })
+  });
+
+  btn.textContent = 'Save';
+  if (result?.success) {
+    scoreSaved = true;
+    document.getElementById('save-area').style.display = 'none';
+    document.getElementById('results-rank').textContent = 'Score saved!';
+    showToast(`${avg}ms saved to the board`);
+  } else {
+    btn.disabled = false;
+    showToast('Save failed — check API');
+  }
+}
+
+function resetGame() {
+  gameGen++;
+  clearTimeout(waitTimer);
+  state  = 'idle';
+  round  = 0;
+  times  = [];
+  scoreSaved = false;
+  setCircleState('idle');
+  $main.textContent = 'Tap to start';
+  $sub.textContent  = `${ROUNDS} rounds`;
+  $roundInfo.textContent = '';
+  $timesList.innerHTML   = '';
+  $resultsCard.style.display = 'none';
+  document.getElementById('player-name').value = '';
+}
+
+// ── WEEK HELPERS ──────────────────────────────────────────────────────────────
+let viewWeekOffset = 0;
+
+function getMondayKey(offset) {
+  const now = new Date();
+  const day = now.getDay();
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + offset * 7);
+  mon.setHours(0, 0, 0, 0);
+  return mon.toISOString().split('T')[0];
+}
+
+function getWeekLabel(offset) {
+  const now = new Date();
+  const day = now.getDay();
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + offset * 7);
+  const sun = new Date(mon);
+  sun.setDate(mon.getDate() + 6);
+  const fmt = d => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return `${fmt(mon)} – ${fmt(sun)}`;
+}
+
+// ── API ───────────────────────────────────────────────────────────────────────
+async function apiFetch(path, options = {}) {
+  if (!API_URL) { showToast('API_URL not configured'); return null; }
+  try {
+    const res = await fetch(API_URL + path, options);
+    return await res.json();
+  } catch (e) {
+    showToast('Network error');
+    return null;
+  }
+}
+
+// ── BOARD ─────────────────────────────────────────────────────────────────────
+function showTab(tab) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+  document.querySelectorAll('.tab-btn')[tab === 'test' ? 0 : 1].classList.add('active');
+  if (tab === 'board') renderBoard();
+}
+
+async function renderBoard() {
+  document.getElementById('week-label').textContent = getWeekLabel(viewWeekOffset);
+  const el = document.getElementById('board-list');
+  el.innerHTML = '<div class="lb-loading">Loading…</div>';
+
+  const entries = await apiFetch(`?action=reaction_week&week_key=${getMondayKey(viewWeekOffset)}`);
+  if (!entries || !entries.length) {
+    el.innerHTML = '<div class="lb-empty">No scores this week.</div>';
+    return;
+  }
+
+  const sorted = [...entries].sort((a, b) => a.avg_ms - b.avg_ms).slice(0, 10);
+  const rankClass = ['gold', 'silver', 'bronze'];
+  el.innerHTML = sorted.map((e, i) => {
+    const dateStr = new Date(e.created_at).toLocaleDateString(undefined,
+      { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return `<div class="lb-item">
+      <div class="lb-rank ${rankClass[i] || ''}">#${i + 1}</div>
+      <div>
+        <div class="lb-name">${escHtml(e.name)}</div>
+        <div class="lb-date">${dateStr}</div>
+      </div>
+      <div>
+        <div class="lb-score">${e.avg_ms}ms</div>
+        <div class="lb-score-label">avg</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function changeWeek(dir) {
+  viewWeekOffset += dir;
+  renderBoard();
+}
+
+async function clearBoard() {
+  if (!confirm('Clear all scores for this week?')) return;
+  const result = await apiFetch(
+    `?action=clear_reaction_week&week_key=${getMondayKey(viewWeekOffset)}`,
+    { method: 'DELETE' }
+  );
+  if (result?.success) { showToast('Week cleared'); renderBoard(); }
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.opacity = '1';
+  setTimeout(() => t.style.opacity = '0', 2800);
+}
+</script>
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+</body>
+</html>
