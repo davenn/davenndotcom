@@ -221,18 +221,19 @@ nav {
 @media (orientation: landscape) {
   .container {
     flex-direction: row;
-    align-items: center;
+    align-items: stretch;  /* let main-content fill full height */
     justify-content: center;
     gap: 2.5rem;
     padding: 0.75rem 2rem;
   }
 
-  /* Settings move to the left */
+  /* Settings move to the left, centered vertically */
   .settings {
     order: 1;
-    flex-direction: column;   /* stack Work / Short / Long vertically */
+    flex-direction: column;
     width: auto; max-width: none;
     gap: 8px;
+    align-self: center;
   }
 
   /* Each setting becomes a horizontal row */
@@ -247,17 +248,25 @@ nav {
   .setting-label { width: 34px; text-align: left; }
   .setting-unit  { width: 18px; }
 
-  /* Main content to the right */
+  /* Main content stretches full height */
   .main-content {
     order: 2;
     flex: 1; max-width: none;
+    height: 100%;
   }
 
-  /* Timer: constrain by height in landscape */
-  .timer { font-size: clamp(44px, 15vh, 110px); }
+  /* Main row grows to fill remaining height; establish container for cqh */
+  .main-row {
+    flex: 1;
+    min-height: 0;
+    container-type: size;
+    margin-bottom: 8px;
+  }
 
-  .phase-row { margin-bottom: 10px; }
-  .main-row  { margin-bottom: 10px; }
+  /* Timer fills the main-row height using container-query units */
+  .timer { font-size: clamp(44px, 78cqh, 600px); }
+
+  .phase-row { margin-bottom: 8px; }
 }
 </style>
 </head>
