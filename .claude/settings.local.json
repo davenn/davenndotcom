@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node generate-icons.js)",
+      "PowerShell(node --version)",
+      "PowerShell(python --version)",
+      "PowerShell(py --version)"
+    ]
+  }
+}

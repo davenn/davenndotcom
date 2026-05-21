@@ -8,6 +8,8 @@
   "theme_color": "#1a1916",
   "background_color": "#1a1916",
   "icons": [
-    { "src": "/icons/toolshare.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+    { "src": "/icons/toolshare.svg",     "sizes": "any",     "type": "image/svg+xml" },
+    { "src": "/icons/toolshare-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/toolshare-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }

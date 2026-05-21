@@ -1,0 +1,14 @@
+{
+  "name": "Reaction Test",
+  "short_name": "Reaction",
+  "description": "Benchmark your reaction time across 5 rounds",
+  "start_url": "/reactiontest.html",
+  "display": "standalone",
+  "theme_color": "#0a0a0a",
+  "background_color": "#0a0a0a",
+  "icons": [
+    { "src": "/icons/reactiontest.svg",     "sizes": "any",     "type": "image/svg+xml" },
+    { "src": "/icons/reactiontest-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/reactiontest-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
