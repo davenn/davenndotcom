@@ -604,6 +604,7 @@ async function saveScore() {
   });
 
   btn.textContent = 'Save';
+  btn.disabled = false;
   if (result?.success) {
     scoreSaved = true;
     document.getElementById('save-area').style.display = 'none';
