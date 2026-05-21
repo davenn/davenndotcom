@@ -3,6 +3,7 @@
   "short_name": "Pomodoro",
   "start_url": "/pomodoro.html",
   "display": "standalone",
+  "orientation": "any",
   "theme_color": "#0f0f0f",
   "background_color": "#0f0f0f",
   "icons": [
