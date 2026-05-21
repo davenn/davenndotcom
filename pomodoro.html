@@ -406,7 +406,16 @@ let castReq   = null;
 
 if ('presentation' in navigator) {
   castReq = new PresentationRequest(['/pomodoro-cast.html']);
-  castBtn.classList.add('available');
+  castReq.getAvailability().then(avail => {
+    castBtn.classList.toggle('available', avail.value);
+    avail.addEventListener('change', () => {
+      castBtn.classList.toggle('available', avail.value);
+      if (!avail.value && castConn) onCastEnd();
+    });
+  }).catch(() => {
+    // getAvailability unsupported — show button and let the picker decide
+    castBtn.classList.add('available');
+  });
 }
 
 async function toggleCast() {
