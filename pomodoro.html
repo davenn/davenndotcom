@@ -9,62 +9,73 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-touch-icon" href="/icons/pomodoro.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body {
   height: 100%; background: #0f0f0f; color: #fff;
   font-family: system-ui, -apple-system, sans-serif;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
   overflow: hidden; user-select: none; -webkit-user-select: none;
 }
+:root { --accent: #e05555; --nav-h: 52px; }
 
-:root { --accent: #e05555; }
-
-/* ── BACK LINK ── */
-.back-link {
-  position: fixed; top: 14px; left: 16px; z-index: 10;
-  font-family: monospace; font-size: 11px; color: rgba(255,255,255,0.2);
-  text-decoration: none; letter-spacing: 0.06em; text-transform: uppercase;
-  transition: color 0.15s;
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: var(--nav-h);
+  background: #111110;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 1.5rem; z-index: 200;
 }
-.back-link:hover { color: rgba(255,255,255,0.6); }
+.nav-logo { font-family: 'DM Mono', monospace; font-size: 13px; color: rgba(255,255,255,0.4); text-decoration: none; }
+.nav-logo strong { color: #fff; }
+.nav-back { font-family: 'DM Mono', monospace; font-size: 11px; color: rgba(255,255,255,0.45); text-decoration: none; letter-spacing: 0.05em; text-transform: uppercase; transition: color 0.15s; }
+.nav-back:hover { color: #fff; }
 
 /* ── CONTAINER ── */
 .container {
-  width: 100%; max-width: 560px;
-  padding: 0 1.75rem;
+  position: fixed;
+  top: var(--nav-h); left: 0; right: 0; bottom: 0;
+  display: flex;
+  flex-direction: column;   /* portrait: stack vertically */
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 1.25rem;
+  gap: 14px;
+}
+
+/* ── MAIN CONTENT (phase + timer + progress) ── */
+.main-content {
+  width: 100%; max-width: 480px;
   display: flex; flex-direction: column;
 }
 
 /* ── PHASE + DOTS ── */
 .phase-row {
   display: flex; align-items: center; gap: 12px;
-  margin-bottom: 28px;
+  margin-bottom: 18px;
 }
 .phase-label {
   font-family: monospace; font-size: 11px; letter-spacing: 0.14em;
   text-transform: uppercase; color: var(--accent); transition: color 0.4s;
 }
 .session-dots { display: flex; gap: 7px; }
-.dot {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: rgba(255,255,255,0.1); transition: background 0.3s;
-}
+.dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.1); transition: background 0.3s; }
 .dot.done { background: var(--accent); }
 
-/* ── MAIN ROW: controls left + timer right ── */
+/* ── MAIN ROW ── */
 .main-row {
   display: flex; align-items: center; gap: 20px;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 }
 
-/* ── CONTROLS (vertical stack) ── */
-.controls {
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
-  flex-shrink: 0;
-}
+/* ── CONTROLS ── */
+.controls { display: flex; flex-direction: column; align-items: center; gap: 10px; flex-shrink: 0; }
 .btn-play {
-  width: 58px; height: 58px; border-radius: 50%;
+  width: 56px; height: 56px; border-radius: 50%;
   background: var(--accent); border: none; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   transition: transform 0.1s, opacity 0.12s, background 0.4s;
@@ -72,7 +83,7 @@ html, body {
 .btn-play:active { transform: scale(0.91); opacity: 0.8; }
 .btn-play svg { width: 20px; height: 20px; fill: #fff; }
 .btn-skip {
-  width: 40px; height: 40px; border-radius: 50%;
+  width: 38px; height: 38px; border-radius: 50%;
   background: rgba(255,255,255,0.06); border: none; cursor: pointer;
   color: rgba(255,255,255,0.3); padding: 0;
   display: flex; align-items: center; justify-content: center;
@@ -85,10 +96,9 @@ html, body {
 /* ── TIMER ── */
 .timer {
   flex: 1;
-  font-size: clamp(72px, 21vw, 160px);
+  font-size: clamp(58px, 20vw, 140px);
   font-weight: 800; letter-spacing: -0.05em; line-height: 1;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
+  font-variant-numeric: tabular-nums; text-align: right;
 }
 
 /* ── PROGRESS BAR ── */
@@ -96,47 +106,45 @@ html, body {
   width: 100%; height: 2px;
   background: rgba(255,255,255,0.07);
   border-radius: 2px; overflow: hidden;
-  margin-bottom: 36px;
 }
 .progress-fill {
   height: 100%; background: var(--accent);
   border-radius: 2px; width: 0%; transition: background 0.4s;
 }
 
-/* ── SETTINGS ── */
+/* ── SETTINGS (portrait: 3 cards in a row below timer) ── */
 .settings {
-  display: flex; gap: 12px;
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  width: 100%; max-width: 480px;
 }
 .setting {
-  flex: 1; display: flex; flex-direction: column;
-  align-items: center; gap: 10px;
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 12px; padding: 14px 8px 12px;
+  border-radius: 10px; padding: 10px 6px 8px;
 }
 .setting-label {
   font-family: monospace; font-size: 9px; letter-spacing: 0.12em;
   text-transform: uppercase; color: rgba(255,255,255,0.25);
 }
-.setting-val-row {
-  display: flex; align-items: center; gap: 8px;
-}
+.setting-val-row { display: flex; align-items: center; gap: 6px; }
 .btn-adj {
-  width: 28px; height: 28px; border-radius: 6px;
+  width: 26px; height: 26px; border-radius: 6px;
   background: rgba(255,255,255,0.07); border: none; cursor: pointer;
-  color: rgba(255,255,255,0.4); font-size: 17px; line-height: 1;
+  color: rgba(255,255,255,0.4); font-size: 16px; line-height: 1;
   display: flex; align-items: center; justify-content: center;
-  transition: background 0.12s, color 0.12s;
-  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s; flex-shrink: 0;
 }
 .btn-adj:hover  { background: rgba(255,255,255,0.14); color: #fff; }
 .btn-adj:active { transform: scale(0.88); }
 .setting-input {
   background: none; border: none;
-  color: #fff; font-size: 26px; font-weight: 300;
-  width: 40px; text-align: center; padding: 0;
-  outline: none; font-variant-numeric: tabular-nums;
-  -moz-appearance: textfield;
+  color: #fff; font-size: 22px; font-weight: 300;
+  width: 34px; text-align: center; padding: 0; outline: none;
+  font-variant-numeric: tabular-nums; -moz-appearance: textfield;
   user-select: text; -webkit-user-select: text;
 }
 .setting-input::-webkit-inner-spin-button,
@@ -145,36 +153,84 @@ html, body {
   font-family: monospace; font-size: 9px; letter-spacing: 0.08em;
   color: rgba(255,255,255,0.2); text-transform: uppercase;
 }
+
+/* ── LANDSCAPE: settings left, timer right ── */
+@media (orientation: landscape) {
+  .container {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 2.5rem;
+    padding: 0.75rem 2rem;
+  }
+
+  /* Settings move to the left */
+  .settings {
+    order: 1;
+    flex-direction: column;   /* stack Work / Short / Long vertically */
+    width: auto; max-width: none;
+    gap: 8px;
+  }
+
+  /* Each setting becomes a horizontal row */
+  .setting {
+    flex: none;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    border-radius: 8px;
+  }
+  .setting-label { width: 34px; text-align: left; }
+  .setting-unit  { width: 18px; }
+
+  /* Main content to the right */
+  .main-content {
+    order: 2;
+    flex: 1; max-width: none;
+  }
+
+  /* Timer: constrain by height in landscape */
+  .timer { font-size: clamp(44px, 15vh, 110px); }
+
+  .phase-row { margin-bottom: 10px; }
+  .main-row  { margin-bottom: 10px; }
+}
 </style>
 </head>
 <body>
 
-<a class="back-link" href="index.html">← Home</a>
+<nav>
+  <a class="nav-logo" href="index.html"><strong>davenn</strong>dotcom</a>
+  <a class="nav-back" href="index.html">← Back</a>
+</nav>
 
 <div class="container">
 
-  <div class="phase-row">
-    <span class="phase-label" id="phase-label">Focus</span>
-    <div class="session-dots" id="dots"></div>
-  </div>
-
-  <div class="main-row">
-    <div class="controls">
-      <button class="btn-play" id="btn-play" aria-label="Start">
-        <svg id="icon-play"  viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-        <svg id="icon-pause" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-      </button>
-      <button class="btn-skip" id="btn-skip" aria-label="Skip">
-        <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-      </button>
+  <!-- Main content: phase + timer + progress (portrait: top, landscape: right) -->
+  <div class="main-content">
+    <div class="phase-row">
+      <span class="phase-label" id="phase-label">Focus</span>
+      <div class="session-dots" id="dots"></div>
     </div>
-    <div class="timer" id="timer">25:00</div>
+    <div class="main-row">
+      <div class="controls">
+        <button class="btn-play" id="btn-play" aria-label="Start">
+          <svg id="icon-play"  viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          <svg id="icon-pause" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+        </button>
+        <button class="btn-skip" id="btn-skip" aria-label="Skip">
+          <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+        </button>
+      </div>
+      <div class="timer" id="timer">25:00</div>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
   </div>
 
-  <div class="progress-track">
-    <div class="progress-fill" id="progress-fill"></div>
-  </div>
-
+  <!-- Settings: portrait=below timer, landscape=left column -->
   <div class="settings">
     <div class="setting">
       <span class="setting-label">Work</span>
@@ -208,31 +264,21 @@ html, body {
 </div>
 
 <script>
-// ── CONFIG ────────────────────────────────────────────────────
 const SESSIONS = 4;
 const COLORS = { work: '#e05555', shortBreak: '#27ae60', longBreak: '#2980b9' };
 const LABELS = { work: 'Focus', shortBreak: 'Short Break', longBreak: 'Long Break' };
 const INPUTS = { work: 'inp-work', shortBreak: 'inp-short', longBreak: 'inp-long' };
 const STORE  = { work: 'pom_work', shortBreak: 'pom_short', longBreak: 'pom_long' };
 
-// ── PERSISTED SETTINGS ────────────────────────────────────────
 const cfg = {
   work:       Math.max(1, parseInt(localStorage.getItem('pom_work'))  || 25),
   shortBreak: Math.max(1, parseInt(localStorage.getItem('pom_short')) || 5),
   longBreak:  Math.max(1, parseInt(localStorage.getItem('pom_long'))  || 15),
 };
 
-// ── STATE ─────────────────────────────────────────────────────
-let phase      = 'work';
-let workDone   = 0;
-let timeLeft   = 0;
-let totalTime  = 0;
-let running    = false;
-let ticker     = null;
-let startStamp = 0;
-let startLeft  = 0;
+let phase = 'work', workDone = 0, timeLeft = 0, totalTime = 0;
+let running = false, ticker = null, startStamp = 0, startLeft = 0;
 
-// ── ELEMENTS ──────────────────────────────────────────────────
 const timerEl   = document.getElementById('timer');
 const phaseEl   = document.getElementById('phase-label');
 const dotsEl    = document.getElementById('dots');
@@ -244,7 +290,6 @@ const inpWork   = document.getElementById('inp-work');
 const inpShort  = document.getElementById('inp-short');
 const inpLong   = document.getElementById('inp-long');
 
-// ── BOOT ──────────────────────────────────────────────────────
 inpWork.value  = cfg.work;
 inpShort.value = cfg.shortBreak;
 inpLong.value  = cfg.longBreak;
@@ -252,22 +297,18 @@ inpLong.value  = cfg.longBreak;
 document.getElementById('btn-play').addEventListener('click', togglePlay);
 document.getElementById('btn-skip').addEventListener('click', skip);
 
-// +/− buttons
 document.querySelectorAll('.btn-adj').forEach(btn => {
   btn.addEventListener('click', () => {
     const key = btn.dataset.key;
-    const d   = parseInt(btn.dataset.d);
     const el  = document.getElementById(INPUTS[key]);
-    applySetting(key, el, cfg[key] + d);
+    applySetting(key, el, cfg[key] + parseInt(btn.dataset.d));
   });
 });
 
-// Direct input editing
 inpWork.addEventListener('change',  () => applySetting('work',       inpWork,  parseInt(inpWork.value)));
 inpShort.addEventListener('change', () => applySetting('shortBreak', inpShort, parseInt(inpShort.value)));
 inpLong.addEventListener('change',  () => applySetting('longBreak',  inpLong,  parseInt(inpLong.value)));
 
-// Notification permission on first play
 btnPlay.addEventListener('click', () => {
   if ('Notification' in window && Notification.permission === 'default')
     Notification.requestPermission();
@@ -275,7 +316,6 @@ btnPlay.addEventListener('click', () => {
 
 loadPhase('work');
 
-// ── SETTINGS ──────────────────────────────────────────────────
 function applySetting(key, el, rawVal) {
   const v = Math.max(1, Math.min(99, rawVal || 1));
   el.value = v;
@@ -284,11 +324,8 @@ function applySetting(key, el, rawVal) {
   if (!running && phase === key) { loadPhase(phase); render(); }
 }
 
-// ── PHASE ─────────────────────────────────────────────────────
 function loadPhase(p) {
-  phase     = p;
-  totalTime = cfg[p] * 60;
-  timeLeft  = totalTime;
+  phase = p; totalTime = cfg[p] * 60; timeLeft = totalTime;
   document.documentElement.style.setProperty('--accent', COLORS[p]);
 }
 
@@ -302,28 +339,18 @@ function advance() {
   }
 }
 
-// ── CONTROLS ──────────────────────────────────────────────────
 function togglePlay() { running ? pause() : start(); }
 
 function start() {
-  running    = true;
-  startStamp = Date.now();
-  startLeft  = timeLeft;
-  ticker     = setInterval(tick, 250);
-  render();
+  running = true; startStamp = Date.now(); startLeft = timeLeft;
+  ticker = setInterval(tick, 250); render();
 }
 
 function pause() {
-  running = false;
-  clearInterval(ticker); ticker = null;
-  render();
+  running = false; clearInterval(ticker); ticker = null; render();
 }
 
-function skip() {
-  pause();
-  advance();
-  render();
-}
+function skip() { pause(); advance(); render(); }
 
 function tick() {
   const elapsed = Math.floor((Date.now() - startStamp) / 1000);
@@ -335,7 +362,6 @@ function tick() {
   render();
 }
 
-// ── NOTIFY + SOUND ────────────────────────────────────────────
 function notify() {
   if ('Notification' in window && Notification.permission === 'granted')
     new Notification(LABELS[phase] + ' complete!', {
@@ -346,9 +372,8 @@ function notify() {
 
 function beep() {
   try {
-    const ctx  = new (window.AudioContext || window.webkitAudioContext)();
-    const osc  = ctx.createOscillator();
-    const gain = ctx.createGain();
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
     osc.connect(gain); gain.connect(ctx.destination);
     osc.frequency.value = 740;
     gain.gain.setValueAtTime(0.25, ctx.currentTime);
@@ -357,26 +382,19 @@ function beep() {
   } catch {}
 }
 
-// ── RENDER ────────────────────────────────────────────────────
 function render() {
-  const m = Math.floor(timeLeft / 60);
-  const s = timeLeft % 60;
+  const m = Math.floor(timeLeft / 60), s = timeLeft % 60;
   const display = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-
   timerEl.textContent = display;
   phaseEl.textContent = LABELS[phase];
-  document.title      = `${display} — ${LABELS[phase]}`;
-
+  document.title = `${display} — ${LABELS[phase]}`;
   const pct = totalTime > 0 ? ((totalTime - timeLeft) / totalTime) * 100 : 0;
-  fillEl.style.width      = pct + '%';
+  fillEl.style.width = pct + '%';
   fillEl.style.transition = running ? 'width 0.25s linear, background 0.4s' : 'background 0.4s';
-
   iconPlay.style.display  = running ? 'none' : '';
   iconPause.style.display = running ? ''     : 'none';
-
   dotsEl.innerHTML = Array.from({ length: SESSIONS }, (_, i) =>
-    `<div class="dot${i < workDone ? ' done' : ''}"></div>`
-  ).join('');
+    `<div class="dot${i < workDone ? ' done' : ''}"></div>`).join('');
 }
 </script>
 <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
