@@ -470,15 +470,29 @@ function advance() {
   }
 }
 
+// ── WAKE LOCK ─────────────────────────────────────────────────────────────────
+let wakeLock = null;
+async function acquireWakeLock() {
+  if (!('wakeLock' in navigator) || wakeLock) return;
+  try { wakeLock = await navigator.wakeLock.request('screen'); } catch (_) {}
+}
+function releaseWakeLock() {
+  wakeLock?.release();
+  wakeLock = null;
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && running) acquireWakeLock();
+});
+
 function togglePlay() { running ? pause() : start(); }
 
 function start() {
   running = true; startStamp = Date.now(); startLeft = timeLeft;
-  ticker = setInterval(tick, 250); render();
+  ticker = setInterval(tick, 250); acquireWakeLock(); render();
 }
 
 function pause() {
-  running = false; clearInterval(ticker); ticker = null; render();
+  running = false; clearInterval(ticker); ticker = null; releaseWakeLock(); render();
 }
 
 function skip() { pause(); advance(); render(); }
@@ -488,7 +502,7 @@ function tick() {
   timeLeft = Math.max(0, startLeft - elapsed);
   if (timeLeft === 0) {
     clearInterval(ticker); ticker = null; running = false;
-    render(); beep(); notify(); advance();
+    releaseWakeLock(); render(); beep(); notify(); advance();
   }
   render();
 }
