@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
@@ -14,12 +14,53 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* ── DARK THEME (default) ── */
+:root,
+[data-theme="dark"] {
+  --bg:          #0f0f0f;
+  --text:        #ffffff;
+  --surface:     rgba(255,255,255,0.04);
+  --surface-border: rgba(255,255,255,0.07);
+  --muted:       rgba(255,255,255,0.25);
+  --muted2:      rgba(255,255,255,0.18);
+  --ctrl-bg:     rgba(255,255,255,0.07);
+  --ctrl-color:  rgba(255,255,255,0.4);
+  --ctrl-hover:  rgba(255,255,255,0.14);
+  --dot-empty:   rgba(255,255,255,0.1);
+  --progress-bg: rgba(255,255,255,0.07);
+  --skip-bg:     rgba(255,255,255,0.06);
+  --skip-color:  rgba(255,255,255,0.3);
+  --skip-hover:  rgba(255,255,255,0.1);
+  --accent: #e05555;
+  --nav-h: 52px;
+}
+
+/* ── LIGHT THEME ── */
+[data-theme="light"] {
+  --bg:          #f5f4f0;
+  --text:        #111110;
+  --surface:     #ffffff;
+  --surface-border: rgba(0,0,0,0.09);
+  --muted:       rgba(0,0,0,0.4);
+  --muted2:      rgba(0,0,0,0.28);
+  --ctrl-bg:     rgba(0,0,0,0.06);
+  --ctrl-color:  rgba(0,0,0,0.45);
+  --ctrl-hover:  rgba(0,0,0,0.12);
+  --dot-empty:   rgba(0,0,0,0.1);
+  --progress-bg: rgba(0,0,0,0.08);
+  --skip-bg:     rgba(0,0,0,0.05);
+  --skip-color:  rgba(0,0,0,0.3);
+  --skip-hover:  rgba(0,0,0,0.1);
+  --accent: #e05555;
+  --nav-h: 52px;
+}
+
 html, body {
-  height: 100%; background: #0f0f0f; color: #fff;
+  height: 100%; background: var(--bg); color: var(--text);
   font-family: system-ui, -apple-system, sans-serif;
   overflow: hidden; user-select: none; -webkit-user-select: none;
+  transition: background 0.2s, color 0.2s;
 }
-:root { --accent: #e05555; --nav-h: 52px; }
 
 /* ── NAV ── */
 nav {
@@ -32,8 +73,30 @@ nav {
 }
 .nav-logo { font-family: 'DM Mono', monospace; font-size: 13px; color: rgba(255,255,255,0.4); text-decoration: none; }
 .nav-logo strong { color: #fff; }
+.nav-right { display: flex; align-items: center; gap: 1.2rem; }
 .nav-back { font-family: 'DM Mono', monospace; font-size: 11px; color: rgba(255,255,255,0.45); text-decoration: none; letter-spacing: 0.05em; text-transform: uppercase; transition: color 0.15s; }
 .nav-back:hover { color: #fff; }
+
+/* ── THEME TOGGLE ── */
+.theme-toggle {
+  position: relative; width: 44px; height: 24px; cursor: pointer;
+  background: none; border: none; padding: 0;
+}
+.theme-toggle-track {
+  width: 44px; height: 24px; border-radius: 12px;
+  background: #333; border: 1px solid #555;
+  transition: background 0.2s, border-color 0.2s;
+  display: flex; align-items: center; padding: 0 3px;
+}
+[data-theme="light"] .theme-toggle-track { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); }
+.theme-toggle-thumb {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #888; transition: transform 0.2s, background 0.2s;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; line-height: 1;
+}
+[data-theme="light"] .theme-toggle-thumb { transform: translateX(20px); background: #fff; }
+[data-theme="dark"]  .theme-toggle-thumb { transform: translateX(0); background: #666; }
 
 /* ── CONTAINER ── */
 .container {
@@ -63,7 +126,7 @@ nav {
   text-transform: uppercase; color: var(--accent); transition: color 0.4s;
 }
 .session-dots { display: flex; gap: 7px; }
-.dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.1); transition: background 0.3s; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dot-empty); transition: background 0.3s; }
 .dot.done { background: var(--accent); }
 
 /* ── MAIN ROW ── */
@@ -84,12 +147,12 @@ nav {
 .btn-play svg { width: 20px; height: 20px; fill: #fff; }
 .btn-skip {
   width: 38px; height: 38px; border-radius: 50%;
-  background: rgba(255,255,255,0.06); border: none; cursor: pointer;
-  color: rgba(255,255,255,0.3); padding: 0;
+  background: var(--skip-bg); border: none; cursor: pointer;
+  color: var(--skip-color); padding: 0;
   display: flex; align-items: center; justify-content: center;
   transition: color 0.15s, background 0.15s;
 }
-.btn-skip:hover { color: rgba(255,255,255,0.7); background: rgba(255,255,255,0.1); }
+.btn-skip:hover { color: var(--text); background: var(--skip-hover); }
 .btn-skip:active { transform: scale(0.91); }
 .btn-skip svg { width: 18px; height: 18px; fill: currentColor; }
 
@@ -104,7 +167,7 @@ nav {
 /* ── PROGRESS BAR ── */
 .progress-track {
   width: 100%; height: 2px;
-  background: rgba(255,255,255,0.07);
+  background: var(--progress-bg);
   border-radius: 2px; overflow: hidden;
 }
 .progress-fill {
@@ -122,27 +185,27 @@ nav {
 .setting {
   flex: 1;
   display: flex; flex-direction: column; align-items: center; gap: 8px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.07);
+  background: var(--surface);
+  border: 1px solid var(--surface-border);
   border-radius: 10px; padding: 10px 6px 8px;
 }
 .setting-label {
   font-family: monospace; font-size: 9px; letter-spacing: 0.12em;
-  text-transform: uppercase; color: rgba(255,255,255,0.25);
+  text-transform: uppercase; color: var(--muted);
 }
 .setting-val-row { display: flex; align-items: center; gap: 6px; }
 .btn-adj {
   width: 26px; height: 26px; border-radius: 6px;
-  background: rgba(255,255,255,0.07); border: none; cursor: pointer;
-  color: rgba(255,255,255,0.4); font-size: 16px; line-height: 1;
+  background: var(--ctrl-bg); border: none; cursor: pointer;
+  color: var(--ctrl-color); font-size: 16px; line-height: 1;
   display: flex; align-items: center; justify-content: center;
   transition: background 0.12s, color 0.12s; flex-shrink: 0;
 }
-.btn-adj:hover  { background: rgba(255,255,255,0.14); color: #fff; }
+.btn-adj:hover  { background: var(--ctrl-hover); color: var(--text); }
 .btn-adj:active { transform: scale(0.88); }
 .setting-input {
   background: none; border: none;
-  color: #fff; font-size: 22px; font-weight: 300;
+  color: var(--text); font-size: 22px; font-weight: 300;
   width: 34px; text-align: center; padding: 0; outline: none;
   font-variant-numeric: tabular-nums; -moz-appearance: textfield;
   user-select: text; -webkit-user-select: text;
@@ -151,7 +214,7 @@ nav {
 .setting-input::-webkit-outer-spin-button { -webkit-appearance: none; }
 .setting-unit {
   font-family: monospace; font-size: 9px; letter-spacing: 0.08em;
-  color: rgba(255,255,255,0.2); text-transform: uppercase;
+  color: var(--muted2); text-transform: uppercase;
 }
 
 /* ── LANDSCAPE: settings left, timer right ── */
@@ -202,7 +265,14 @@ nav {
 
 <nav>
   <a class="nav-logo" href="index.html"><strong>davenn</strong>dotcom</a>
-  <a class="nav-back" href="index.html">← Back</a>
+  <div class="nav-right">
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode" aria-label="Toggle theme">
+      <div class="theme-toggle-track">
+        <div class="theme-toggle-thumb" id="toggle-icon">🌙</div>
+      </div>
+    </button>
+    <a class="nav-back" href="index.html">← Back</a>
+  </div>
 </nav>
 
 <div class="container">
@@ -313,6 +383,16 @@ btnPlay.addEventListener('click', () => {
   if ('Notification' in window && Notification.permission === 'default')
     Notification.requestPermission();
 }, { once: true });
+
+// ── THEME ─────────────────────────────────────────────────────────────────────
+function getTheme() { return localStorage.getItem('pom_theme') || 'dark'; }
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('toggle-icon').textContent = theme === 'dark' ? '🌙' : '☀️';
+  localStorage.setItem('pom_theme', theme);
+}
+function toggleTheme() { applyTheme(getTheme() === 'dark' ? 'light' : 'dark'); }
+applyTheme(getTheme());
 
 loadPhase('work');
 
