@@ -246,7 +246,7 @@ nav {
   /* Main content stretches full height */
   .main-content {
     order: 2;
-    flex: 1; max-width: none;
+    flex: 1; max-width: none; min-width: 0;
     height: 100%;
   }
 
@@ -258,8 +258,8 @@ nav {
     margin-bottom: 8px;
   }
 
-  /* Timer fills the main-row height using container-query units */
-  .timer { font-size: clamp(44px, 90cqh, 600px); }
+  /* Timer fills available space — min() prevents horizontal overflow */
+  .timer { font-size: clamp(44px, min(90cqh, 32cqw), 600px); }
 
   .phase-row { margin-bottom: 8px; }
 }
