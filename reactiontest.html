@@ -17,7 +17,6 @@
   --border:    #2a2a2a;
   --border2:   #333;
   --accent:    #e8ff47;
-  --accent2:   #ff6b35;
   --text:      #f0f0f0;
   --text2:     #888;
   --text3:     #555;
@@ -38,7 +37,6 @@
   --border:    #e0ddd4;
   --border2:   #d0cdc3;
   --accent:    #111110;
-  --accent2:   #d95f28;
   --text:      #111110;
   --text2:     #555;
   --text3:     #aaa;
@@ -48,14 +46,12 @@
   --nav-border: rgba(255,255,255,0.08);
 }
 
-html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-disp); transition: background 0.2s, color 0.2s; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-disp); transition: background 0.2s, color 0.2s; overflow: hidden; }
 
 /* ── NAV ── */
 nav {
-  position: fixed; top: 0; left: 0; right: 0;
-  height: var(--nav-h);
-  background: var(--nav-bg);
-  border-bottom: 1px solid var(--nav-border);
+  position: fixed; top: 0; left: 0; right: 0; height: var(--nav-h);
+  background: var(--nav-bg); border-bottom: 1px solid var(--nav-border);
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 1.5rem; z-index: 200;
 }
@@ -66,12 +62,12 @@ nav {
 .nav-back:hover { color: #fff; }
 
 /* ── THEME TOGGLE ── */
-.theme-toggle { position: relative; width: 44px; height: 24px; cursor: pointer; background: none; border: none; padding: 0; }
-.theme-toggle-track { width: 44px; height: 24px; border-radius: 12px; background: #333; border: 1px solid #555; transition: background 0.2s, border-color 0.2s; display: flex; align-items: center; padding: 0 3px; }
+.theme-toggle { width: 44px; height: 24px; cursor: pointer; background: none; border: none; padding: 0; }
+.theme-toggle-track { width: 44px; height: 24px; border-radius: 12px; background: #333; border: 1px solid #555; display: flex; align-items: center; padding: 0 3px; transition: background 0.2s; }
 [data-theme="light"] .theme-toggle-track { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); }
-.theme-toggle-thumb { width: 18px; height: 18px; border-radius: 50%; background: #888; transition: transform 0.2s, background 0.2s; display: flex; align-items: center; justify-content: center; font-size: 10px; line-height: 1; }
-[data-theme="light"]  .theme-toggle-thumb { transform: translateX(20px); background: #fff; }
-[data-theme="dark"]   .theme-toggle-thumb { transform: translateX(0);    background: #666; }
+.theme-toggle-thumb { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; transition: transform 0.2s, background 0.2s; }
+[data-theme="light"] .theme-toggle-thumb { transform: translateX(20px); background: #fff; }
+[data-theme="dark"]  .theme-toggle-thumb { transform: translateX(0);    background: #666; }
 
 /* ── TABS ── */
 .tab-bar {
@@ -80,7 +76,7 @@ nav {
   display: flex; z-index: 190;
 }
 .tab-btn {
-  flex: 1; padding: 0 1rem; height: var(--tab-h);
+  flex: 1; height: var(--tab-h); padding: 0 1rem;
   font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
   color: rgba(255,255,255,0.35); background: none; border: none; cursor: pointer;
   border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s;
@@ -88,64 +84,75 @@ nav {
 .tab-btn.active { color: #e8ff47; border-bottom-color: #e8ff47; }
 
 /* ── PANELS ── */
-.panel { display: none; padding-top: calc(var(--nav-h) + var(--tab-h)); min-height: 100vh; }
-.panel.active { display: flex; flex-direction: column; }
+.panel { display: none; }
+.panel.active { display: block; }
 
-/* ── TEST PANEL ── */
-.test-wrap {
-  flex: 1; display: flex; flex-direction: column; align-items: center;
-  justify-content: center; padding: 2rem 1rem; gap: 1.5rem;
+/* ── TEST PANEL: full-height play area ── */
+#panel-test {
+  position: fixed;
+  top: calc(var(--nav-h) + var(--tab-h));
+  left: 0; right: 0; bottom: 0;
 }
 
-.round-info {
-  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
-  color: var(--text3); height: 16px; text-align: center;
+.play-area {
+  position: absolute; inset: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
 }
 
 /* ── CIRCLE ── */
 .circle-wrap {
-  width: clamp(200px, 45vw, 280px);
-  height: clamp(200px, 45vw, 280px);
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width:  clamp(110px, 28vw, 170px);
+  height: clamp(110px, 28vw, 170px);
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  cursor: pointer;
-  transition: background 0.12s, box-shadow 0.12s, transform 0.08s;
-  user-select: none;
+  transition: background 0.1s, box-shadow 0.1s, opacity 0.06s;
   -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
 }
-.circle-wrap:active { transform: scale(0.96); }
 
-.circle-wrap.state-idle   { background: var(--surface2); }
-.circle-wrap.state-wait   { background: var(--surface2); cursor: default; }
-.circle-wrap.state-ready  { background: var(--accent);   box-shadow: 0 0 80px rgba(232,255,71,0.25); }
+.circle-wrap.state-idle   { background: var(--surface2); opacity: 1; }
+.circle-wrap.state-wait   { background: var(--surface2); opacity: 0; pointer-events: none; }
+.circle-wrap.state-ready  { background: var(--accent);   opacity: 1; box-shadow: 0 0 80px rgba(232,255,71,0.3); }
 [data-theme="light"] .circle-wrap.state-ready { box-shadow: 0 0 60px rgba(0,0,0,0.15); }
-.circle-wrap.state-early  { background: var(--danger);   box-shadow: 0 0 60px rgba(255,68,68,0.25); cursor: default; }
-.circle-wrap.state-result { background: var(--surface2); cursor: pointer; }
-.circle-wrap.state-done   { background: var(--surface2); cursor: default; }
+.circle-wrap.state-result { background: var(--surface2); opacity: 1; }
+.circle-wrap.state-lost   { background: var(--danger);   opacity: 1; box-shadow: 0 0 60px rgba(255,68,68,0.25); }
+.circle-wrap.state-done   { opacity: 0; pointer-events: none; }
 
-.circle-label {
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
-  pointer-events: none; text-align: center;
-}
+.circle-label { display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none; text-align: center; }
 .circle-main {
-  font-family: var(--font-disp); font-size: clamp(1.6rem, 6vw, 2.4rem);
+  font-family: var(--font-disp); font-size: clamp(1.2rem, 5vw, 2rem);
   font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text);
 }
 .circle-sub {
-  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--text3);
 }
-
-.state-ready .circle-main  { color: #000; }
-.state-ready .circle-sub   { color: rgba(0,0,0,0.45); }
+.state-ready .circle-main { color: #000; }
+.state-ready .circle-sub  { color: rgba(0,0,0,0.4); }
 [data-theme="light"] .state-ready .circle-main { color: #fff; }
-[data-theme="light"] .state-ready .circle-sub  { color: rgba(255,255,255,0.55); }
-.state-early .circle-main  { color: #fff; }
-.state-early .circle-sub   { color: rgba(255,255,255,0.55); }
+.state-lost .circle-main  { color: #fff; }
+.state-lost .circle-sub   { color: rgba(255,255,255,0.5); }
 
-/* ── TIMES CHIPS ── */
-.times-list { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; min-height: 28px; }
+/* ── HUD ── */
+.hud-top {
+  position: absolute; top: 1rem; left: 50%; transform: translateX(-50%);
+  pointer-events: none; z-index: 10; text-align: center; white-space: nowrap;
+}
+.hud-round { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text3); }
+.hud-hint  { font-family: var(--font-mono); font-size: 10px; color: var(--text3); opacity: 0.7; margin-top: 4px; letter-spacing: 0.06em; }
+
+.hud-bottom {
+  position: absolute; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+  pointer-events: none; z-index: 10;
+  display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+  max-width: 90vw;
+}
+
 .time-chip {
   font-family: var(--font-mono); font-size: 12px;
   background: var(--surface); border: 1px solid var(--border2);
@@ -154,14 +161,30 @@ nav {
 .time-chip.best  { border-color: var(--success); color: var(--success); }
 .time-chip.worst { border-color: var(--danger);  color: var(--danger);  }
 
-/* ── RESULTS CARD ── */
+/* ── CARD OVERLAYS ── */
+.card-overlay {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  z-index: 30; width: 90%; max-width: 360px;
+}
+
 .results-card {
   background: var(--surface); border: 1px solid var(--border2);
-  border-radius: 8px; padding: 1.5rem 1.5rem 1.25rem;
-  width: 100%; max-width: 360px; text-align: center;
+  border-radius: 8px; padding: 1.5rem 1.5rem 1.25rem; text-align: center;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.4);
 }
+
+.go-title {
+  font-family: var(--font-disp); font-size: 2.2rem; font-weight: 800;
+  letter-spacing: 0.04em; text-transform: uppercase; color: var(--danger); line-height: 1;
+}
+.go-sub {
+  font-family: var(--font-mono); font-size: 12px; color: var(--text3);
+  letter-spacing: 0.06em; margin-top: 8px; margin-bottom: 1rem;
+}
+.go-times { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 1rem; }
+
 .results-avg {
-  font-family: var(--font-mono); font-size: clamp(3rem, 12vw, 5rem);
+  font-family: var(--font-mono); font-size: clamp(3rem, 14vw, 5rem);
   font-weight: 500; color: var(--accent); line-height: 1;
 }
 [data-theme="light"] .results-avg { color: var(--text); }
@@ -177,10 +200,9 @@ nav {
 
 .save-row { display: flex; gap: 8px; margin-top: 1rem; }
 .save-row input {
-  flex: 1; background: var(--surface2); border: 1px solid var(--border2);
+  flex: 1; min-width: 0; background: var(--surface2); border: 1px solid var(--border2);
   color: var(--text); font-family: var(--font-mono); font-size: 13px;
   padding: 9px 12px; border-radius: 4px; outline: none; transition: border-color 0.15s;
-  min-width: 0;
 }
 .save-row input::placeholder { color: var(--text3); }
 .save-row input:focus { border-color: var(--accent); }
@@ -191,7 +213,6 @@ nav {
   padding: 10px 18px; cursor: pointer; white-space: nowrap; transition: opacity 0.15s;
 }
 [data-theme="light"] .btn-save-score { background: #111110; color: #fff; }
-.btn-save-score:hover { opacity: 0.85; }
 .btn-save-score:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .btn-play-again {
@@ -205,7 +226,10 @@ nav {
 .btn-play-again:hover { color: var(--text); border-color: var(--text2); }
 
 /* ── BOARD PANEL ── */
-#panel-board { padding-bottom: 60px; }
+#panel-board {
+  position: fixed; top: calc(var(--nav-h) + var(--tab-h)); left: 0; right: 0; bottom: 0;
+  overflow-y: auto;
+}
 .board-wrap { max-width: 600px; margin: 0 auto; padding: 1.5rem; }
 .board-top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
 .board-top-bar h2 { font-size: 22px; font-weight: 700; letter-spacing: 0.04em; }
@@ -214,7 +238,7 @@ nav {
 .week-nav-btn {
   font-family: var(--font-mono); font-size: 11px; color: var(--text2);
   background: var(--surface2); border: 1px solid var(--border2);
-  border-radius: 4px; padding: 6px 14px; cursor: pointer; transition: color 0.15s; white-space: nowrap;
+  border-radius: 4px; padding: 6px 14px; cursor: pointer; white-space: nowrap; transition: color 0.15s;
 }
 .week-nav-btn:hover { color: var(--text); }
 .week-label { font-family: var(--font-mono); font-size: 12px; color: var(--text2); flex: 1; text-align: center; }
@@ -229,13 +253,12 @@ nav {
 .lb-rank.gold   { color: #f9ab00; }
 .lb-rank.silver { color: #80868b; }
 .lb-rank.bronze { color: #c07c49; }
-.lb-name { font-size: 17px; font-weight: 700; letter-spacing: 0.02em; }
-.lb-date { font-family: var(--font-mono); font-size: 11px; color: var(--text3); margin-top: 2px; }
+.lb-name  { font-size: 17px; font-weight: 700; letter-spacing: 0.02em; }
+.lb-date  { font-family: var(--font-mono); font-size: 11px; color: var(--text3); margin-top: 2px; }
 .lb-score { font-family: var(--font-mono); font-size: 20px; font-weight: 500; color: var(--accent); text-align: right; }
 [data-theme="light"] .lb-score { color: var(--text); }
 .lb-score-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text3); text-align: right; }
-
-.lb-empty { text-align: center; padding: 4rem 1rem; font-family: var(--font-mono); font-size: 12px; color: var(--text3); letter-spacing: 0.05em; }
+.lb-empty   { text-align: center; padding: 4rem 1rem; font-family: var(--font-mono); font-size: 12px; color: var(--text3); letter-spacing: 0.05em; }
 .lb-loading { text-align: center; padding: 3rem; font-family: var(--font-mono); font-size: 12px; color: var(--text3); }
 
 /* ── TOAST ── */
@@ -270,31 +293,47 @@ nav {
 
 <!-- ═══════════ TEST PANEL ═══════════ -->
 <div id="panel-test" class="panel active">
-  <div class="test-wrap">
+  <div class="play-area" id="play-area" onclick="handleAreaClick(event)">
 
-    <div class="round-info" id="round-info"></div>
-
-    <div class="circle-wrap state-idle" id="circle" onclick="handleClick()">
+    <!-- The circle -->
+    <div class="circle-wrap state-idle" id="circle">
       <div class="circle-label">
         <div class="circle-main" id="circle-main">Tap to start</div>
         <div class="circle-sub"  id="circle-sub">5 rounds</div>
       </div>
     </div>
 
-    <div class="times-list" id="times-list"></div>
+    <!-- Top HUD: round counter + hint -->
+    <div class="hud-top" id="hud-top"></div>
 
-    <div class="results-card" id="results-card" style="display:none">
-      <div class="results-avg" id="results-avg"></div>
-      <div class="results-avg-label">avg reaction time</div>
-      <div class="results-rank" id="results-rank">Checking leaderboard…</div>
-      <div id="save-area" style="display:none">
-        <div class="save-row">
-          <input type="text" id="player-name" placeholder="Your name" maxlength="30"
-            onkeydown="if(event.key==='Enter') saveScore()">
-          <button class="btn-save-score" id="btn-save-score" onclick="saveScore()">Save</button>
-        </div>
+    <!-- Bottom HUD: time chips -->
+    <div class="hud-bottom" id="hud-bottom"></div>
+
+    <!-- Game Over overlay (stopPropagation so its clicks don't reach play-area) -->
+    <div class="card-overlay" id="gameover-card" style="display:none" onclick="event.stopPropagation()">
+      <div class="results-card">
+        <div class="go-title">Game Over</div>
+        <div class="go-sub" id="go-sub"></div>
+        <div class="go-times" id="go-times"></div>
+        <button class="btn-play-again" onclick="resetGame()">Play Again</button>
       </div>
-      <button class="btn-play-again" onclick="resetGame()">Play Again</button>
+    </div>
+
+    <!-- Results overlay -->
+    <div class="card-overlay" id="results-overlay" style="display:none" onclick="event.stopPropagation()">
+      <div class="results-card">
+        <div class="results-avg" id="results-avg"></div>
+        <div class="results-avg-label">avg reaction time</div>
+        <div class="results-rank" id="results-rank"></div>
+        <div id="save-area" style="display:none">
+          <div class="save-row">
+            <input type="text" id="player-name" placeholder="Your name" maxlength="30"
+              onkeydown="if(event.key==='Enter') saveScore()">
+            <button class="btn-save-score" id="btn-save-score" onclick="saveScore()">Save</button>
+          </div>
+        </div>
+        <button class="btn-play-again" onclick="resetGame()">Play Again</button>
+      </div>
     </div>
 
   </div>
@@ -334,55 +373,69 @@ function applyTheme(t) {
 function toggleTheme() { applyTheme(getTheme() === 'dark' ? 'light' : 'dark'); }
 applyTheme(getTheme());
 
-// ── GAME STATE ────────────────────────────────────────────────────────────────
-// states: idle | wait | ready | early | result | done
+// ── STATE ─────────────────────────────────────────────────────────────────────
+// idle → wait → ready → result → (repeat) → done
+// any tap in wrong place/time → lost
 let state      = 'idle';
 let round      = 0;
 let times      = [];
 let waitTimer  = null;
 let shownAt    = 0;
-let gameGen    = 0; // incremented on reset to cancel in-flight async ops
+let gameGen    = 0;
 let scoreSaved = false;
 
-const $circle     = document.getElementById('circle');
-const $main       = document.getElementById('circle-main');
-const $sub        = document.getElementById('circle-sub');
-const $roundInfo  = document.getElementById('round-info');
-const $timesList  = document.getElementById('times-list');
-const $resultsCard = document.getElementById('results-card');
+const $playArea = document.getElementById('play-area');
+const $circle   = document.getElementById('circle');
+const $main     = document.getElementById('circle-main');
+const $sub      = document.getElementById('circle-sub');
+const $hudTop   = document.getElementById('hud-top');
+const $hudBot   = document.getElementById('hud-bottom');
 
 function setCircleState(s) {
   state = s;
   $circle.className = 'circle-wrap state-' + s;
 }
 
-function handleClick() {
-  if (state === 'idle')   { beginRound(); return; }
-  if (state === 'early')  { beginRound(); return; }
-  if (state === 'wait')   { tooEarly();   return; }
-  if (state === 'result') { round < ROUNDS ? beginRound() : showResults(); return; }
-  if (state === 'ready')  { recordHit();  return; }
+// ── CLICK HANDLER ─────────────────────────────────────────────────────────────
+function handleAreaClick(event) {
+  if (state === 'done' || state === 'lost' || state === 'result') return;
+
+  if (state === 'idle') {
+    beginRound();
+    return;
+  }
+
+  if (state === 'wait') {
+    lose('early');
+    return;
+  }
+
+  if (state === 'ready') {
+    if (event.target.closest('#circle')) {
+      recordHit();
+    } else {
+      lose('missed');
+    }
+    return;
+  }
 }
 
+// ── GAME FLOW ─────────────────────────────────────────────────────────────────
 function beginRound() {
+  randomizePosition();
   setCircleState('wait');
-  $main.textContent = 'Wait…';
+  $main.textContent = '';
   $sub.textContent  = '';
-  $roundInfo.textContent = `Round ${round + 1} of ${ROUNDS}`;
+  updateHUD();
+
   const delay = MIN_DELAY + Math.random() * (MAX_DELAY - MIN_DELAY);
   waitTimer = setTimeout(() => {
     setCircleState('ready');
     $main.textContent = 'Tap!';
     $sub.textContent  = '';
     shownAt = performance.now();
+    updateHUD();
   }, delay);
-}
-
-function tooEarly() {
-  clearTimeout(waitTimer);
-  setCircleState('early');
-  $main.textContent = 'Too early!';
-  $sub.textContent  = 'Tap to retry';
 }
 
 function recordHit() {
@@ -391,59 +444,150 @@ function recordHit() {
   round++;
   setCircleState('result');
   $main.textContent = rt + 'ms';
-  $sub.textContent  = round < ROUNDS ? 'Tap for next round' : 'Tap to see results';
-  $roundInfo.textContent = `Round ${round} of ${ROUNDS}`;
+  $sub.textContent  = '';
   renderChips();
+  updateHUD();
+
+  const gen = gameGen;
+  setTimeout(() => {
+    if (gen !== gameGen) return;
+    if (round < ROUNDS) beginRound();
+    else finishGame();
+  }, 1400);
 }
 
-function renderChips() {
-  if (!times.length) { $timesList.innerHTML = ''; return; }
-  const mn = Math.min(...times), mx = Math.max(...times);
-  $timesList.innerHTML = times.map((t, i) => {
+function lose(reason) {
+  clearTimeout(waitTimer);
+  setCircleState('lost');
+  $main.textContent = reason === 'early' ? 'Too early!' : 'Missed!';
+  $sub.textContent  = '';
+  $hudTop.innerHTML = '';
+
+  const goSub  = document.getElementById('go-sub');
+  const goTimes = document.getElementById('go-times');
+  goSub.textContent = round > 0
+    ? `Got ${round} of ${ROUNDS} rounds`
+    : `Tap the circle — not the screen`;
+
+  const mn = times.length ? Math.min(...times) : 0;
+  const mx = times.length ? Math.max(...times) : 0;
+  goTimes.innerHTML = times.map((t, i) => {
     const cls = times.length > 1 ? (t === mn ? 'best' : t === mx ? 'worst' : '') : '';
     return `<div class="time-chip ${cls}">R${i + 1}: ${t}ms</div>`;
   }).join('');
+
+  document.getElementById('gameover-card').style.display = 'block';
 }
 
-async function showResults() {
+async function finishGame() {
   const gen = gameGen;
   setCircleState('done');
-  $main.textContent = '';
-  $sub.textContent  = '';
-  $roundInfo.textContent = '';
+  $hudTop.innerHTML = '';
+  $hudBot.innerHTML = '';
 
   const avg = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
   document.getElementById('results-avg').textContent = avg + 'ms';
-  $resultsCard.style.display = 'block';
 
   const rankEl   = document.getElementById('results-rank');
   const saveArea = document.getElementById('save-area');
   rankEl.textContent  = 'Checking leaderboard…';
   rankEl.className    = 'results-rank';
   saveArea.style.display = 'none';
+  scoreSaved = false;
 
-  const entries = await apiFetch(`?action=reaction_week&week_key=${getMondayKey(0)}`);
-  if (gen !== gameGen) return; // game was reset while awaiting
+  document.getElementById('results-overlay').style.display = 'block';
 
-  if (!entries) {
+  try {
+    const entries = await apiFetch(`?action=reaction_week&week_key=${getMondayKey(0)}`);
+    if (gen !== gameGen) return;
+
+    if (!entries || !Array.isArray(entries)) {
+      rankEl.textContent = 'Could not reach leaderboard.';
+      return;
+    }
+
+    const sorted    = [...entries].sort((a, b) => a.avg_ms - b.avg_ms);
+    const userRank  = sorted.filter(e => e.avg_ms < avg).length + 1;
+    const qualifies = sorted.length < 10 || avg < sorted[9].avg_ms;
+
+    if (qualifies) {
+      rankEl.textContent = `You're #${userRank} this week!`;
+      rankEl.className   = 'results-rank qualified';
+      saveArea.style.display = 'block';
+      document.getElementById('player-name').focus();
+    } else {
+      rankEl.textContent = `You ranked #${userRank} — just outside the top 10.`;
+    }
+  } catch {
+    if (gen !== gameGen) return;
     rankEl.textContent = 'Could not reach leaderboard.';
-    return;
-  }
-
-  const sorted   = [...entries].sort((a, b) => a.avg_ms - b.avg_ms);
-  const userRank = sorted.filter(e => e.avg_ms < avg).length + 1;
-  const qualifies = sorted.length < 10 || avg < sorted[9].avg_ms;
-
-  if (qualifies) {
-    rankEl.textContent = `You're #${userRank} this week!`;
-    rankEl.className   = 'results-rank qualified';
-    saveArea.style.display = 'block';
-    document.getElementById('player-name').focus();
-  } else {
-    rankEl.textContent = `You ranked #${userRank} — just outside the top 10.`;
   }
 }
 
+function resetGame() {
+  gameGen++;
+  clearTimeout(waitTimer);
+  state  = 'idle';
+  round  = 0;
+  times  = [];
+  scoreSaved = false;
+
+  $circle.style.left      = '50%';
+  $circle.style.top       = '50%';
+  $circle.style.transform = 'translate(-50%, -50%)';
+  setCircleState('idle');
+  $main.textContent = 'Tap to start';
+  $sub.textContent  = `${ROUNDS} rounds`;
+  $hudTop.innerHTML = '';
+  $hudBot.innerHTML = '';
+
+  document.getElementById('gameover-card').style.display  = 'none';
+  document.getElementById('results-overlay').style.display = 'none';
+  document.getElementById('player-name').value = '';
+}
+
+// ── POSITION ──────────────────────────────────────────────────────────────────
+function randomizePosition() {
+  const size = $circle.offsetWidth;
+  const areaW = $playArea.offsetWidth;
+  const areaH = $playArea.offsetHeight;
+  const padX   = 20;
+  const padTop = 60;
+  const padBot = 80;
+
+  const minX = padX,              maxX = areaW - size - padX;
+  const minY = padTop,            maxY = areaH - size - padBot;
+
+  const x = minX + Math.random() * Math.max(0, maxX - minX);
+  const y = minY + Math.random() * Math.max(0, maxY - minY);
+
+  $circle.style.left      = x + 'px';
+  $circle.style.top       = y + 'px';
+  $circle.style.transform = 'none';
+}
+
+// ── HUD ───────────────────────────────────────────────────────────────────────
+function updateHUD() {
+  if (state === 'wait') {
+    $hudTop.innerHTML = `<div class="hud-round">Round ${round + 1} of ${ROUNDS}</div><div class="hud-hint">Wait for it…</div>`;
+  } else if (state === 'ready') {
+    $hudTop.innerHTML = `<div class="hud-round">Round ${round + 1} of ${ROUNDS}</div>`;
+  } else if (state === 'result') {
+    $hudTop.innerHTML = `<div class="hud-round">Round ${round} of ${ROUNDS}</div>`;
+  } else {
+    $hudTop.innerHTML = '';
+  }
+}
+
+function renderChips() {
+  const mn = Math.min(...times), mx = Math.max(...times);
+  $hudBot.innerHTML = times.map((t, i) => {
+    const cls = times.length > 1 ? (t === mn ? 'best' : t === mx ? 'worst' : '') : '';
+    return `<div class="time-chip ${cls}">R${i + 1}: ${t}ms</div>`;
+  }).join('');
+}
+
+// ── SAVE ──────────────────────────────────────────────────────────────────────
 async function saveScore() {
   if (scoreSaved) return;
   const name = document.getElementById('player-name').value.trim();
@@ -471,28 +615,20 @@ async function saveScore() {
   }
 }
 
-function resetGame() {
-  gameGen++;
-  clearTimeout(waitTimer);
-  state  = 'idle';
-  round  = 0;
-  times  = [];
-  scoreSaved = false;
-  setCircleState('idle');
-  $main.textContent = 'Tap to start';
-  $sub.textContent  = `${ROUNDS} rounds`;
-  $roundInfo.textContent = '';
-  $timesList.innerHTML   = '';
-  $resultsCard.style.display = 'none';
-  document.getElementById('player-name').value = '';
+// ── TABS ──────────────────────────────────────────────────────────────────────
+function showTab(tab) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+  document.querySelectorAll('.tab-btn')[tab === 'test' ? 0 : 1].classList.add('active');
+  if (tab === 'board') renderBoard();
 }
 
 // ── WEEK HELPERS ──────────────────────────────────────────────────────────────
 let viewWeekOffset = 0;
 
 function getMondayKey(offset) {
-  const now = new Date();
-  const day = now.getDay();
+  const now = new Date(), day = now.getDay();
   const mon = new Date(now);
   mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + offset * 7);
   mon.setHours(0, 0, 0, 0);
@@ -500,12 +636,10 @@ function getMondayKey(offset) {
 }
 
 function getWeekLabel(offset) {
-  const now = new Date();
-  const day = now.getDay();
+  const now = new Date(), day = now.getDay();
   const mon = new Date(now);
   mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + offset * 7);
-  const sun = new Date(mon);
-  sun.setDate(mon.getDate() + 6);
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
   const fmt = d => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   return `${fmt(mon)} – ${fmt(sun)}`;
 }
@@ -516,28 +650,20 @@ async function apiFetch(path, options = {}) {
   try {
     const res = await fetch(API_URL + path, options);
     return await res.json();
-  } catch (e) {
+  } catch {
     showToast('Network error');
     return null;
   }
 }
 
 // ── BOARD ─────────────────────────────────────────────────────────────────────
-function showTab(tab) {
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('panel-' + tab).classList.add('active');
-  document.querySelectorAll('.tab-btn')[tab === 'test' ? 0 : 1].classList.add('active');
-  if (tab === 'board') renderBoard();
-}
-
 async function renderBoard() {
   document.getElementById('week-label').textContent = getWeekLabel(viewWeekOffset);
   const el = document.getElementById('board-list');
   el.innerHTML = '<div class="lb-loading">Loading…</div>';
 
   const entries = await apiFetch(`?action=reaction_week&week_key=${getMondayKey(viewWeekOffset)}`);
-  if (!entries || !entries.length) {
+  if (!entries || !Array.isArray(entries) || !entries.length) {
     el.innerHTML = '<div class="lb-empty">No scores this week.</div>';
     return;
   }
@@ -561,10 +687,7 @@ async function renderBoard() {
   }).join('');
 }
 
-function changeWeek(dir) {
-  viewWeekOffset += dir;
-  renderBoard();
-}
+function changeWeek(dir) { viewWeekOffset += dir; renderBoard(); }
 
 async function clearBoard() {
   if (!confirm('Clear all scores for this week?')) return;
@@ -579,7 +702,6 @@ async function clearBoard() {
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.style.opacity = '1';
