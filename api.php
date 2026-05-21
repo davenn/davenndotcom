@@ -109,6 +109,15 @@ try { $pdo->exec("ALTER TABLE tb_users ADD COLUMN invite_code VARCHAR(16) UNIQUE
 // Expand category to TEXT to support multiple comma-separated tags
 try { $pdo->exec("ALTER TABLE tb_tools MODIFY COLUMN category TEXT DEFAULT NULL"); } catch(PDOException $e) {}
 
+$pdo->exec("CREATE TABLE IF NOT EXISTS reaction_scores (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    name       VARCHAR(60)  NOT NULL,
+    avg_ms     INT          NOT NULL,
+    week_key   DATE         NOT NULL,
+    created_at DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_week (week_key, avg_ms)
+)");
+
 $pdo->exec("CREATE TABLE IF NOT EXISTS fb_scores (
     id         INT AUTO_INCREMENT PRIMARY KEY,
     name       VARCHAR(32)  NOT NULL,
@@ -810,6 +819,50 @@ if ($method === 'POST' && $action === 'fb_save_score') {
     $pdo->prepare("INSERT INTO fb_scores (name, score, week_start) VALUES (?, ?, ?)")
         ->execute([$name, $score, $weekStart]);
     echo json_encode(['success' => true, 'rank' => $above + 1]); exit;
+}
+
+// ══════════════════════════════════════════════════════════════
+// REACTION TEST — LEADERBOARD
+// ══════════════════════════════════════════════════════════════
+
+if ($method === 'GET' && $action === 'reaction_week') {
+    $week_key = $_GET['week_key'] ?? '';
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $week_key)) {
+        http_response_code(400); echo json_encode(['error' => 'Invalid week_key.']); exit;
+    }
+    $stmt = $pdo->prepare("SELECT id, name, avg_ms, created_at FROM reaction_scores WHERE week_key = ? ORDER BY avg_ms ASC LIMIT 10");
+    $stmt->execute([$week_key]);
+    echo json_encode($stmt->fetchAll()); exit;
+}
+
+if ($method === 'POST' && $action === 'save_reaction') {
+    $body     = json_decode(file_get_contents('php://input'), true);
+    $name     = mb_substr(strip_tags(trim($body['name'] ?? '')), 0, 60);
+    $avg_ms   = intval($body['avg_ms']   ?? 0);
+    $week_key = trim($body['week_key'] ?? '');
+    if (!$name || $avg_ms <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $week_key)) {
+        http_response_code(400); echo json_encode(['error' => 'Missing or invalid fields.']); exit;
+    }
+    // Only allow save if score is top 10 for the week
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM reaction_scores WHERE week_key = ? AND avg_ms < ?");
+    $stmt->execute([$week_key, $avg_ms]);
+    $above = (int)$stmt->fetchColumn();
+    if ($above >= 10) {
+        echo json_encode(['success' => false, 'message' => 'Score did not make top 10.']); exit;
+    }
+    $pdo->prepare("INSERT INTO reaction_scores (name, avg_ms, week_key) VALUES (?, ?, ?)")
+        ->execute([$name, $avg_ms, $week_key]);
+    echo json_encode(['success' => true, 'id' => $pdo->lastInsertId()]); exit;
+}
+
+if ($method === 'DELETE' && $action === 'clear_reaction_week') {
+    $week_key = $_GET['week_key'] ?? '';
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $week_key)) {
+        http_response_code(400); echo json_encode(['error' => 'Invalid week_key.']); exit;
+    }
+    $stmt = $pdo->prepare("DELETE FROM reaction_scores WHERE week_key = ?");
+    $stmt->execute([$week_key]);
+    echo json_encode(['success' => true, 'deleted' => $stmt->rowCount()]); exit;
 }
 
 // =============================================================
