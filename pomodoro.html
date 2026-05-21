@@ -212,10 +212,6 @@ nav {
 }
 .setting-input::-webkit-inner-spin-button,
 .setting-input::-webkit-outer-spin-button { -webkit-appearance: none; }
-.setting-unit {
-  font-family: monospace; font-size: 9px; letter-spacing: 0.08em;
-  color: var(--muted2); text-transform: uppercase;
-}
 
 /* ── LANDSCAPE: settings left, timer right ── */
 @media (orientation: landscape) {
@@ -246,7 +242,6 @@ nav {
     border-radius: 8px;
   }
   .setting-label { width: 34px; text-align: left; }
-  .setting-unit  { width: 18px; }
 
   /* Main content stretches full height */
   .main-content {
@@ -264,7 +259,7 @@ nav {
   }
 
   /* Timer fills the main-row height using container-query units */
-  .timer { font-size: clamp(44px, 78cqh, 600px); }
+  .timer { font-size: clamp(44px, 90cqh, 600px); }
 
   .phase-row { margin-bottom: 8px; }
 }
@@ -318,7 +313,6 @@ nav {
         <input class="setting-input" id="inp-work" type="number" min="1" max="99">
         <button class="btn-adj" data-key="work" data-d="1">+</button>
       </div>
-      <span class="setting-unit">min</span>
     </div>
     <div class="setting">
       <span class="setting-label">Short</span>
@@ -327,7 +321,6 @@ nav {
         <input class="setting-input" id="inp-short" type="number" min="1" max="99">
         <button class="btn-adj" data-key="shortBreak" data-d="1">+</button>
       </div>
-      <span class="setting-unit">min</span>
     </div>
     <div class="setting">
       <span class="setting-label">Long</span>
@@ -336,7 +329,6 @@ nav {
         <input class="setting-input" id="inp-long" type="number" min="1" max="99">
         <button class="btn-adj" data-key="longBreak" data-d="1">+</button>
       </div>
-      <span class="setting-unit">min</span>
     </div>
   </div>
 
