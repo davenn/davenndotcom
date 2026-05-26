@@ -865,6 +865,133 @@ if ($method === 'DELETE' && $action === 'clear_reaction_week') {
     echo json_encode(['success' => true, 'deleted' => $stmt->rowCount()]); exit;
 }
 
+// ══════════════════════════════════════════════════════════════
+// FLIGHT TRACKER
+// ══════════════════════════════════════════════════════════════
+
+$pdo->exec("CREATE TABLE IF NOT EXISTS ft_users (
+    id            INT AUTO_INCREMENT PRIMARY KEY,
+    username      VARCHAR(60)  NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    display_name  VARCHAR(80)  NOT NULL,
+    token         VARCHAR(64)  DEFAULT NULL,
+    created_at    DATETIME     DEFAULT CURRENT_TIMESTAMP
+)");
+
+$pdo->exec("CREATE TABLE IF NOT EXISTS ft_flights (
+    id             INT AUTO_INCREMENT PRIMARY KEY,
+    user_id        INT          NOT NULL,
+    from_code      VARCHAR(4)   NOT NULL,
+    to_code        VARCHAR(4)   NOT NULL,
+    from_city      VARCHAR(100) NOT NULL,
+    to_city        VARCHAR(100) NOT NULL,
+    flight_date    DATE         NOT NULL,
+    airline        VARCHAR(80)  DEFAULT NULL,
+    seat_class     VARCHAR(30)  DEFAULT NULL,
+    flight_number  VARCHAR(20)  DEFAULT NULL,
+    created_at     DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES ft_users(id) ON DELETE CASCADE
+)");
+
+function ftAuthUser(PDO $pdo): ?array {
+    $token = $_SERVER['HTTP_X_AUTH_TOKEN'] ?? '';
+    if (!$token) return null;
+    $stmt = $pdo->prepare("SELECT * FROM ft_users WHERE token = ?");
+    $stmt->execute([trim($token)]);
+    return $stmt->fetch() ?: null;
+}
+
+function ftRequireAuth(PDO $pdo): array {
+    $user = ftAuthUser($pdo);
+    if (!$user) { http_response_code(401); echo json_encode(['error' => 'Unauthorized']); exit; }
+    return $user;
+}
+
+if ($method === 'POST' && $action === 'ft_register') {
+    $body  = json_decode(file_get_contents('php://input'), true);
+    $uname = trim($body['username']     ?? '');
+    $dname = trim($body['display_name'] ?? '');
+    $pw    = $body['password'] ?? '';
+    if (!$uname || !$dname || !$pw) {
+        http_response_code(400); echo json_encode(['error' => 'All fields required.']); exit;
+    }
+    if (strlen($pw) < 6) {
+        http_response_code(400); echo json_encode(['error' => 'Password must be at least 6 characters.']); exit;
+    }
+    $hash  = password_hash($pw, PASSWORD_DEFAULT);
+    $token = bin2hex(random_bytes(32));
+    try {
+        $stmt = $pdo->prepare("INSERT INTO ft_users (username, password_hash, display_name, token) VALUES (?,?,?,?)");
+        $stmt->execute([$uname, $hash, $dname, $token]);
+        $id = $pdo->lastInsertId();
+        echo json_encode(['success' => true, 'token' => $token, 'user' => ['id' => $id, 'username' => $uname, 'display_name' => $dname]]);
+    } catch (PDOException $e) {
+        http_response_code(409); echo json_encode(['error' => 'Username already taken.']);
+    }
+    exit;
+}
+
+if ($method === 'POST' && $action === 'ft_login') {
+    $body  = json_decode(file_get_contents('php://input'), true);
+    $uname = trim($body['username'] ?? '');
+    $pw    = $body['password'] ?? '';
+    $stmt  = $pdo->prepare("SELECT * FROM ft_users WHERE username = ?");
+    $stmt->execute([$uname]);
+    $u = $stmt->fetch();
+    if (!$u || !password_verify($pw, $u['password_hash'])) {
+        http_response_code(401); echo json_encode(['error' => 'Invalid username or password.']); exit;
+    }
+    $token = bin2hex(random_bytes(32));
+    $pdo->prepare("UPDATE ft_users SET token = ? WHERE id = ?")->execute([$token, $u['id']]);
+    echo json_encode(['success' => true, 'token' => $token, 'user' => ['id' => $u['id'], 'username' => $u['username'], 'display_name' => $u['display_name']]]);
+    exit;
+}
+
+if ($method === 'POST' && $action === 'ft_logout') {
+    $user = ftRequireAuth($pdo);
+    $pdo->prepare("UPDATE ft_users SET token = NULL WHERE id = ?")->execute([$user['id']]);
+    echo json_encode(['success' => true]); exit;
+}
+
+if ($method === 'GET' && $action === 'ft_flights') {
+    $me   = ftRequireAuth($pdo);
+    $stmt = $pdo->prepare("SELECT * FROM ft_flights WHERE user_id = ? ORDER BY flight_date DESC, created_at DESC");
+    $stmt->execute([$me['id']]);
+    echo json_encode(['success' => true, 'flights' => $stmt->fetchAll()]); exit;
+}
+
+if ($method === 'POST' && $action === 'ft_add_flight') {
+    $me   = ftRequireAuth($pdo);
+    $body = json_decode(file_get_contents('php://input'), true);
+    $from_code = strtoupper(trim($body['from_code'] ?? ''));
+    $to_code   = strtoupper(trim($body['to_code']   ?? ''));
+    $from_city = trim($body['from_city'] ?? '');
+    $to_city   = trim($body['to_city']   ?? '');
+    $date      = trim($body['flight_date'] ?? '');
+    if (!$from_code || !$to_code || !$date || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+        http_response_code(400); echo json_encode(['error' => 'Missing required fields.']); exit;
+    }
+    if ($from_code === $to_code) {
+        http_response_code(400); echo json_encode(['error' => 'Departure and arrival must differ.']); exit;
+    }
+    $airline       = trim($body['airline']       ?? '') ?: null;
+    $seat_class    = trim($body['seat_class']    ?? '') ?: null;
+    $flight_number = trim($body['flight_number'] ?? '') ?: null;
+    $stmt = $pdo->prepare("INSERT INTO ft_flights (user_id,from_code,to_code,from_city,to_city,flight_date,airline,seat_class,flight_number) VALUES (?,?,?,?,?,?,?,?,?)");
+    $stmt->execute([$me['id'],$from_code,$to_code,$from_city,$to_city,$date,$airline,$seat_class,$flight_number]);
+    echo json_encode(['success' => true, 'id' => $pdo->lastInsertId()]); exit;
+}
+
+if ($method === 'DELETE' && $action === 'ft_delete_flight') {
+    $me = ftRequireAuth($pdo);
+    $id = intval($_GET['id'] ?? 0);
+    if (!$id) { http_response_code(400); echo json_encode(['error' => 'Missing id.']); exit; }
+    $stmt = $pdo->prepare("DELETE FROM ft_flights WHERE id = ? AND user_id = ?");
+    $stmt->execute([$id, $me['id']]);
+    if (!$stmt->rowCount()) { http_response_code(404); echo json_encode(['error' => 'Not found.']); exit; }
+    echo json_encode(['success' => true]); exit;
+}
+
 // =============================================================
 http_response_code(404);
 echo json_encode(['error' => 'Unknown action.']);

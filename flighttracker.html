@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flights</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0a0a0a; --surface: #111; --surface2: #191919;
+  --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.12);
+  --text: #f0f0f0; --muted: rgba(255,255,255,0.4); --muted2: rgba(255,255,255,0.22);
+  --accent: #3b82f6; --accent-dim: rgba(59,130,246,0.15); --danger: #ef4444;
+  --nav-h: 52px;
+}
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; overflow: hidden; }
+
+/* AUTH */
+.auth-overlay { position: fixed; inset: 0; z-index: 100; background: var(--bg); display: flex; align-items: center; justify-content: center; }
+.auth-overlay.hidden { display: none; }
+.auth-card { background: var(--surface); border: 1px solid var(--border2); border-radius: 16px; padding: 40px; width: min(420px, 90vw); }
+.auth-logo { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 28px; }
+.auth-title { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 6px; }
+.auth-sub { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); margin-bottom: 28px; }
+.auth-field { margin-bottom: 16px; }
+.auth-field label { display: block; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 6px; }
+.auth-field input { width: 100%; background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; padding: 10px 14px; color: var(--text); font-size: 14px; outline: none; transition: border-color 0.15s; }
+.auth-field input:focus { border-color: var(--accent); }
+.btn-auth { width: 100%; background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px; transition: opacity 0.15s; }
+.btn-auth:hover { opacity: 0.88; }
+.auth-switch { margin-top: 20px; text-align: center; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); }
+.auth-switch a { color: var(--accent); cursor: pointer; }
+.auth-err { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--danger); margin-top: 10px; min-height: 18px; }
+
+/* LAYOUT */
+.app { height: 100vh; display: flex; flex-direction: column; }
+.app.hidden { display: none; }
+nav.main-nav { height: var(--nav-h); min-height: var(--nav-h); background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 16px; gap: 12px; flex-shrink: 0; }
+.nav-brand { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); letter-spacing: 0.08em; white-space: nowrap; }
+.nav-tabs { display: flex; gap: 4px; }
+.nav-tab { background: none; border: none; border-radius: 6px; padding: 6px 14px; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); cursor: pointer; letter-spacing: 0.04em; transition: background 0.15s, color 0.15s; }
+.nav-tab:hover { background: var(--surface2); color: var(--text); }
+.nav-tab.active { background: var(--accent-dim); color: var(--accent); }
+.nav-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.nav-user { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted2); white-space: nowrap; }
+.btn-nav { background: var(--surface2); border: 1px solid var(--border2); border-radius: 7px; padding: 6px 12px; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text); cursor: pointer; transition: background 0.15s; white-space: nowrap; }
+.btn-nav:hover { background: var(--border); }
+.btn-nav.accent { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-nav.accent:hover { opacity: 0.88; }
+.tab-content { flex: 1; overflow: hidden; position: relative; }
+.tab-pane { position: absolute; inset: 0; overflow-y: auto; display: none; }
+.tab-pane.active { display: block; }
+#tab-map { overflow: hidden; }
+
+/* MAP */
+.map-wrap { width: 100%; height: 100%; position: relative; background: #0d1520; }
+.map-wrap svg { width: 100%; height: 100%; display: block; cursor: grab; }
+.map-wrap svg:active { cursor: grabbing; }
+.country { fill: #1a2535; stroke: #0d1520; stroke-width: 0.5; }
+.flight-arc { fill: none; stroke: var(--accent); stroke-width: 1.2; opacity: 0.5; transition: opacity 0.15s, stroke-width 0.15s; }
+.flight-arc:hover { opacity: 1; stroke-width: 2; cursor: pointer; }
+.airport-dot { fill: var(--accent); opacity: 0.75; }
+.map-tooltip { position: absolute; background: var(--surface); border: 1px solid var(--border2); border-radius: 8px; padding: 8px 12px; font-family: 'DM Mono', monospace; font-size: 12px; pointer-events: none; opacity: 0; transition: opacity 0.1s; white-space: nowrap; z-index: 10; }
+.map-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; pointer-events: none; }
+.map-empty p { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--muted); }
+.map-empty button { pointer-events: all; }
+
+/* STATS */
+.stats-wrap { padding: 28px; max-width: 860px; margin: 0 auto; }
+.stats-title { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 20px; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; margin-bottom: 28px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+.stat-card.accent { border-color: rgba(59,130,246,0.3); }
+.stat-card.accent .stat-value { color: var(--accent); }
+.stat-label { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; }
+.stat-value { font-size: 28px; font-weight: 800; letter-spacing: -0.03em; }
+.stat-sub { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted2); margin-top: 4px; }
+.top-section-title { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 12px; }
+.top-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 28px; }
+.top-item { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+.top-rank { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); width: 20px; text-align: right; }
+.top-name { flex: 1; font-size: 14px; font-weight: 600; }
+.top-count { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); }
+.stats-empty { padding: 60px 0; text-align: center; }
+.stats-empty p { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--muted); }
+
+/* TIMELINE */
+.timeline-wrap { padding: 28px; max-width: 760px; margin: 0 auto; }
+.timeline-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.timeline-title { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+.timeline-list { display: flex; flex-direction: column; gap: 10px; }
+.flight-row { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; display: flex; align-items: center; gap: 14px; }
+.flight-row:hover { border-color: var(--border2); }
+.flight-route { font-size: 16px; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap; }
+.flight-route .sep { color: var(--muted); margin: 0 3px; }
+.flight-meta { flex: 1; min-width: 0; }
+.flight-cities { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.flight-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 4px; }
+.flight-tag { font-family: 'DM Mono', monospace; font-size: 10px; background: var(--surface2); border-radius: 4px; padding: 2px 7px; color: var(--muted); }
+.flight-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.flight-date { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+.flight-dist { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted2); }
+.btn-delete-flight { background: none; border: 1px solid transparent; border-radius: 6px; padding: 4px 8px; cursor: pointer; color: var(--muted2); transition: background 0.15s, color 0.15s, border-color 0.15s; font-size: 16px; flex-shrink: 0; line-height: 1; }
+.btn-delete-flight:hover { background: rgba(239,68,68,0.1); color: var(--danger); border-color: rgba(239,68,68,0.3); }
+.timeline-empty { padding: 60px 0; text-align: center; }
+.timeline-empty p { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+
+/* MODAL */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 50; display: flex; align-items: center; justify-content: center; }
+.modal-overlay.hidden { display: none; }
+.modal-card { background: var(--surface); border: 1px solid var(--border2); border-radius: 16px; padding: 32px; width: min(520px, 94vw); max-height: 90vh; overflow-y: auto; }
+.modal-title { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 24px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.form-field { position: relative; }
+.form-field label { display: block; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 6px; }
+.form-field input, .form-field select { width: 100%; background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; padding: 10px 14px; color: var(--text); font-size: 14px; outline: none; transition: border-color 0.15s; }
+.form-field input:focus, .form-field select:focus { border-color: var(--accent); }
+.form-field select { appearance: none; }
+.ac-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; z-index: 20; max-height: 200px; overflow-y: auto; }
+.ac-list.hidden { display: none; }
+.ac-item { padding: 9px 14px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 10px; }
+.ac-item:hover { background: var(--accent-dim); }
+.ac-code { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--accent); font-weight: 600; width: 36px; flex-shrink: 0; }
+.ac-city { flex: 1; }
+.ac-country { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+.btn-cancel { background: var(--surface2); border: 1px solid var(--border2); border-radius: 8px; padding: 10px 20px; color: var(--muted); font-size: 14px; cursor: pointer; transition: background 0.15s; }
+.btn-cancel:hover { background: var(--border); }
+.btn-save { background: var(--accent); border: none; border-radius: 8px; padding: 10px 24px; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+.btn-save:hover { opacity: 0.88; }
+.form-err { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--danger); margin-top: 10px; min-height: 18px; }
+</style>
+</head>
+<body>
+
+<div class="auth-overlay" id="auth-overlay">
+  <div class="auth-card">
+    <div class="auth-logo">davenn.com / flights</div>
+    <div id="auth-login">
+      <div class="auth-title">Welcome back</div>
+      <div class="auth-sub">Sign in to your flight log</div>
+      <div class="auth-field"><label>Username</label><input id="login-user" type="text" autocomplete="username"></div>
+      <div class="auth-field"><label>Password</label><input id="login-pass" type="password" autocomplete="current-password"></div>
+      <button class="btn-auth" onclick="doLogin()">Sign in</button>
+      <div class="auth-err" id="login-err"></div>
+      <div class="auth-switch">No account? <a onclick="showRegister()">Create one</a></div>
+    </div>
+    <div id="auth-register" style="display:none">
+      <div class="auth-title">Create account</div>
+      <div class="auth-sub">Start your flight log</div>
+      <div class="auth-field"><label>Username</label><input id="reg-user" type="text" autocomplete="username"></div>
+      <div class="auth-field"><label>Display name</label><input id="reg-name" type="text" autocomplete="name"></div>
+      <div class="auth-field"><label>Password</label><input id="reg-pass" type="password" autocomplete="new-password"></div>
+      <button class="btn-auth" onclick="doRegister()">Create account</button>
+      <div class="auth-err" id="reg-err"></div>
+      <div class="auth-switch">Have an account? <a onclick="showLogin()">Sign in</a></div>
+    </div>
+  </div>
+</div>
+
+<div class="app hidden" id="app">
+  <nav class="main-nav">
+    <span class="nav-brand">✈ flights</span>
+    <div class="nav-tabs">
+      <button class="nav-tab active" data-tab="map" onclick="showTab('map')">Map</button>
+      <button class="nav-tab" data-tab="stats" onclick="showTab('stats')">Stats</button>
+      <button class="nav-tab" data-tab="timeline" onclick="showTab('timeline')">Timeline</button>
+    </div>
+    <div class="nav-right">
+      <span class="nav-user" id="nav-user"></span>
+      <button class="btn-nav accent" onclick="openModal()">+ Add Flight</button>
+      <button class="btn-nav" onclick="doLogout()">Log out</button>
+    </div>
+  </nav>
+  <div class="tab-content">
+    <div class="tab-pane active" id="tab-map">
+      <div class="map-wrap" id="map-wrap">
+        <div class="map-tooltip" id="map-tooltip"></div>
+        <div class="map-empty hidden" id="map-empty">
+          <p>No flights yet.</p>
+          <button class="btn-nav accent" onclick="openModal()">+ Add your first flight</button>
+        </div>
+      </div>
+    </div>
+    <div class="tab-pane" id="tab-stats">
+      <div class="stats-wrap" id="stats-wrap"></div>
+    </div>
+    <div class="tab-pane" id="tab-timeline">
+      <div class="timeline-wrap">
+        <div class="timeline-header">
+          <div class="timeline-title">All Flights</div>
+        </div>
+        <div class="timeline-list" id="timeline-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="add-modal">
+  <div class="modal-card">
+    <div class="modal-title">Add Flight</div>
+    <div class="form-row">
+      <div class="form-field">
+        <label>From</label>
+        <input id="from-input" type="text" placeholder="JFK or New York" autocomplete="off">
+        <div class="ac-list hidden" id="from-list"></div>
+      </div>
+      <div class="form-field">
+        <label>To</label>
+        <input id="to-input" type="text" placeholder="LAX or Los Angeles" autocomplete="off">
+        <div class="ac-list hidden" id="to-list"></div>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label>Date</label>
+        <input id="flight-date" type="date">
+      </div>
+      <div class="form-field">
+        <label>Airline (optional)</label>
+        <input id="flight-airline" type="text" placeholder="Delta, United…">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-field">
+        <label>Seat Class</label>
+        <select id="flight-class">
+          <option value="">—</option>
+          <option value="Economy">Economy</option>
+          <option value="Premium Economy">Premium Economy</option>
+          <option value="Business">Business</option>
+          <option value="First">First</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Flight # (optional)</label>
+        <input id="flight-num" type="text" placeholder="DL 404">
+      </div>
+    </div>
+    <div class="form-err" id="modal-err"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" onclick="saveFlight()">Save Flight</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+<script>
+const API = '/api.php';
+let token = localStorage.getItem('ft_token') || '';
+let currentUser = JSON.parse(localStorage.getItem('ft_user') || 'null');
+let flights = [];
+let mapSvg = null, mapProjection = null;
+let fromSelected = null, toSelected = null;
+
+// ── AIRPORTS ──────────────────────────────────────────────────────────────
+const AP = {};
+[
+  ['ATL','Atlanta','US',33.6407,-84.4277],['LAX','Los Angeles','US',33.9425,-118.408],
+  ['ORD','Chicago O\'Hare','US',41.9742,-87.9073],['DFW','Dallas–Fort Worth','US',32.8998,-97.0403],
+  ['DEN','Denver','US',39.8561,-104.6737],['JFK','New York JFK','US',40.6413,-73.7781],
+  ['SFO','San Francisco','US',37.6213,-122.379],['SEA','Seattle','US',47.4502,-122.3088],
+  ['LAS','Las Vegas','US',36.084,-115.1537],['MCO','Orlando','US',28.4294,-81.3089],
+  ['EWR','Newark','US',40.6895,-74.1745],['CLT','Charlotte','US',35.214,-80.9431],
+  ['PHX','Phoenix','US',33.4373,-112.0078],['IAH','Houston IAH','US',29.9902,-95.3368],
+  ['MIA','Miami','US',25.7959,-80.287],['BOS','Boston','US',42.3656,-71.0096],
+  ['MSP','Minneapolis','US',44.8848,-93.2223],['FLL','Fort Lauderdale','US',26.0726,-80.1527],
+  ['DTW','Detroit','US',42.2124,-83.3534],['PHL','Philadelphia','US',39.8744,-75.2424],
+  ['LGA','New York LGA','US',40.7772,-73.8726],['BWI','Baltimore','US',39.1754,-76.6683],
+  ['SLC','Salt Lake City','US',40.7899,-111.9791],['SAN','San Diego','US',32.7338,-117.1933],
+  ['IAD','Washington Dulles','US',38.9531,-77.4565],['DCA','Washington Reagan','US',38.8512,-77.0402],
+  ['MDW','Chicago Midway','US',41.7868,-87.7522],['HNL','Honolulu','US',21.3187,-157.9222],
+  ['AUS','Austin','US',30.1975,-97.6664],['STL','St. Louis','US',38.7487,-90.37],
+  ['BNA','Nashville','US',36.1245,-86.6782],['RDU','Raleigh-Durham','US',35.8776,-78.7875],
+  ['PDX','Portland','US',45.5887,-122.5975],['SJC','San Jose','US',37.3626,-121.929],
+  ['MCI','Kansas City','US',39.2976,-94.7139],['MSY','New Orleans','US',29.9934,-90.258],
+  ['CLE','Cleveland','US',41.4117,-81.8498],['PIT','Pittsburgh','US',40.4915,-80.2329],
+  ['IND','Indianapolis','US',39.7173,-86.2944],['CMH','Columbus','US',39.998,-82.8919],
+  ['RSW','Fort Myers','US',26.5362,-81.7552],['SAT','San Antonio','US',29.5337,-98.4698],
+  ['TPA','Tampa','US',27.9755,-82.5332],['OAK','Oakland','US',37.7213,-122.2208],
+  ['MEM','Memphis','US',35.0424,-89.9767],['BUF','Buffalo','US',42.9405,-78.7322],
+  ['JAX','Jacksonville','US',30.4941,-81.6879],['ABQ','Albuquerque','US',35.0402,-106.609],
+  ['BOI','Boise','US',43.5644,-116.2228],['OMA','Omaha','US',41.3032,-95.894],
+  ['TUL','Tulsa','US',36.1984,-95.8881],['OKC','Oklahoma City','US',35.3931,-97.6007],
+  ['PBI','Palm Beach','US',26.6832,-80.0956],['SNA','Orange County','US',33.6757,-117.8676],
+  ['SMF','Sacramento','US',38.6954,-121.5908],['SDF','Louisville','US',38.1744,-85.736],
+  ['CVG','Cincinnati','US',39.0488,-84.6678],['MKE','Milwaukee','US',42.9472,-87.8966],
+  ['BHM','Birmingham','US',33.5629,-86.7535],['CHS','Charleston','US',32.8987,-80.0405],
+  ['SAV','Savannah','US',32.1276,-81.2021],['MYR','Myrtle Beach','US',33.6797,-78.9283],
+  ['TYS','Knoxville','US',35.811,-83.994],['CHA','Chattanooga','US',35.0353,-85.2038],
+  ['GSP','Greenville','US',34.8957,-82.2189],['PNS','Pensacola','US',30.4734,-87.1866],
+  ['MOB','Mobile','US',30.6912,-88.2428],['GNV','Gainesville','US',29.69,-82.2717],
+  ['DAY','Dayton','US',39.9024,-84.2194],['LEX','Lexington','US',38.0365,-84.6059],
+  ['ELP','El Paso','US',31.8072,-106.3779],['TUS','Tucson','US',32.1161,-110.941],
+  ['FAT','Fresno','US',36.7762,-119.7181],['GEG','Spokane','US',47.6199,-117.5338],
+  ['BZN','Bozeman','US',45.7775,-111.153],['MSO','Missoula','US',46.9163,-114.0906],
+  ['FAR','Fargo','US',46.9207,-96.8158],['RAP','Rapid City','US',44.0453,-103.0574],
+  ['DSM','Des Moines','US',41.534,-93.6631],['ORF','Norfolk','US',36.8976,-76.0177],
+  ['RIC','Richmond','US',37.5052,-77.3197],['MHT','Manchester','US',42.9326,-71.4357],
+  ['PVD','Providence','US',41.7272,-71.4286],['PWM','Portland ME','US',43.6462,-70.3093],
+  ['BTV','Burlington','US',44.472,-73.1533],['ALB','Albany','US',42.7483,-73.8017],
+  ['SWF','Newburgh','US',41.5041,-74.1048],['ACY','Atlantic City','US',39.4578,-74.5772],
+  ['ILM','Wilmington NC','US',34.2706,-77.9026],['OAJ','Jacksonville NC','US',34.8292,-77.6121],
+  ['AGS','Augusta','US',33.3699,-81.9645],['VLD','Valdosta','US',30.7825,-83.2767],
+  // Canada
+  ['YYZ','Toronto','CA',43.6772,-79.6306],['YVR','Vancouver','CA',49.1947,-123.1839],
+  ['YUL','Montreal','CA',45.4706,-73.7408],['YYC','Calgary','CA',51.1315,-114.0106],
+  ['YOW','Ottawa','CA',45.3225,-75.6692],['YEG','Edmonton','CA',53.3097,-113.5797],
+  ['YWG','Winnipeg','CA',49.91,-97.2398],['YHZ','Halifax','CA',44.8808,-63.5086],
+  ['YQB','Quebec City','CA',46.7911,-71.3933],['YYT','St. John\'s','CA',47.6187,-52.7519],
+  ['YXE','Saskatoon','CA',52.1708,-106.6996],['YQR','Regina','CA',50.4319,-104.6658],
+  ['YLW','Kelowna','CA',49.9561,-119.3778],['YKF','Waterloo','CA',43.4608,-80.3786],
+  // Mexico
+  ['MEX','Mexico City','MX',19.4363,-99.0721],['GDL','Guadalajara','MX',20.5218,-103.3106],
+  ['MTY','Monterrey','MX',25.7785,-100.1107],['CUN','Cancun','MX',21.0365,-86.8771],
+  ['SJD','Los Cabos','MX',23.1518,-109.721],['PVR','Puerto Vallarta','MX',20.6801,-105.2544],
+  ['TIJ','Tijuana','MX',32.5411,-116.9701],['HMO','Hermosillo','MX',29.0959,-111.0479],
+  ['BJX','Leon','MX',20.9935,-101.4809],['OAX','Oaxaca','MX',16.9999,-96.7261],
+  ['MID','Merida','MX',20.937,-89.6577],['VER','Veracruz','MX',19.1459,-96.1873],
+  // Central America & Caribbean
+  ['SJO','San Jose','CR',9.9939,-84.2088],['PTY','Panama City','PA',9.0714,-79.3835],
+  ['GUA','Guatemala City','GT',14.5833,-90.5275],['SAL','San Salvador','SV',13.4409,-89.0557],
+  ['MGA','Managua','NI',12.1415,-86.1682],['BZE','Belize City','BZ',17.5391,-88.3082],
+  ['NAS','Nassau','BS',25.0379,-77.4665],['MBJ','Montego Bay','JM',18.5037,-77.9134],
+  ['KIN','Kingston','JM',17.9357,-76.7875],['SJU','San Juan','PR',18.4394,-66.0018],
+  ['BGI','Bridgetown','BB',13.0746,-59.4925],['POS','Port of Spain','TT',10.5954,-61.3372],
+  ['SDQ','Santo Domingo','DO',18.4297,-69.6689],['PUJ','Punta Cana','DO',18.5674,-68.3634],
+  ['HAV','Havana','CU',22.9892,-82.4091],['SXM','St. Maarten','SX',18.041,-63.1089],
+  ['STT','St. Thomas','VI',18.3373,-64.9734],['ANU','St. John\'s','AG',17.1367,-61.7927],
+  // South America
+  ['GRU','São Paulo GRU','BR',-23.4356,-46.4731],['GIG','Rio de Janeiro','BR',-22.8099,-43.2505],
+  ['BSB','Brasilia','BR',-15.8711,-47.9186],['SSA','Salvador','BR',-12.9086,-38.3225],
+  ['FOR','Fortaleza','BR',-3.7762,-38.5326],['REC','Recife','BR',-8.1265,-34.9231],
+  ['MAO','Manaus','BR',-3.0386,-60.0497],['CWB','Curitiba','BR',-25.5285,-49.1758],
+  ['POA','Porto Alegre','BR',-29.9944,-51.1714],['VCP','Campinas','BR',-23.0074,-47.1345],
+  ['EZE','Buenos Aires EZE','AR',-34.8222,-58.5358],['AEP','Buenos Aires AEP','AR',-34.5592,-58.4156],
+  ['COR','Cordoba','AR',-31.3236,-64.208],['MDZ','Mendoza','AR',-32.8317,-68.7928],
+  ['IGR','Iguazu','AR',-25.7373,-54.4734],['SCL','Santiago','CL',-33.393,-70.7858],
+  ['LIM','Lima','PE',-12.0219,-77.1143],['CUZ','Cusco','PE',-13.5357,-71.9388],
+  ['UIO','Quito','EC',-0.1292,-78.3575],['GYE','Guayaquil','EC',-2.1574,-79.8836],
+  ['BOG','Bogota','CO',4.7016,-74.1469],['MDE','Medellin','CO',6.1645,-75.4231],
+  ['CTG','Cartagena','CO',10.4424,-75.513],['CCS','Caracas','VE',10.6031,-66.9906],
+  ['MVD','Montevideo','UY',-34.8384,-56.0308],['ASU','Asuncion','PY',-25.2399,-57.5192],
+  ['VVI','Santa Cruz','BO',-17.6448,-63.1354],['LPB','La Paz','BO',-16.513,-68.1922],
+  // Europe
+  ['LHR','London Heathrow','GB',51.4775,-0.4614],['LGW','London Gatwick','GB',51.1481,-0.1903],
+  ['STN','London Stansted','GB',51.885,0.235],['LCY','London City','GB',51.5053,0.0553],
+  ['MAN','Manchester','GB',53.3537,-2.275],['EDI','Edinburgh','GB',55.95,-3.3725],
+  ['GLA','Glasgow','GB',55.8719,-4.4331],['BHX','Birmingham','GB',52.4539,-1.748],
+  ['BRS','Bristol','GB',51.3827,-2.7191],['NCL','Newcastle','GB',55.0375,-1.6917],
+  ['CDG','Paris CDG','FR',49.0097,2.5479],['ORY','Paris Orly','FR',48.7233,2.3794],
+  ['NCE','Nice','FR',43.6584,7.2159],['LYS','Lyon','FR',45.7256,5.0811],
+  ['MRS','Marseille','FR',43.4393,5.2214],['BOD','Bordeaux','FR',44.8283,-0.7156],
+  ['TLS','Toulouse','FR',43.6293,1.3638],['NTE','Nantes','FR',47.1531,-1.6108],
+  ['FRA','Frankfurt','DE',50.0379,8.5622],['MUC','Munich','DE',48.3537,11.775],
+  ['DUS','Dusseldorf','DE',51.2895,6.7668],['BER','Berlin','DE',52.3667,13.5033],
+  ['HAM','Hamburg','DE',53.6304,9.9882],['CGN','Cologne','DE',50.8659,7.1427],
+  ['STR','Stuttgart','DE',48.69,9.222],['NUE','Nuremberg','DE',49.4987,11.0669],
+  ['AMS','Amsterdam','NL',52.3086,4.7639],['EIN','Eindhoven','NL',51.4501,5.3746],
+  ['BRU','Brussels','BE',50.9014,4.4844],['ZRH','Zurich','CH',47.4647,8.5492],
+  ['GVA','Geneva','CH',46.2381,6.1089],['BSL','Basel','CH',47.5896,7.5299],
+  ['VIE','Vienna','AT',48.1103,16.5697],['GRZ','Graz','AT',46.9911,15.4396],
+  ['SZG','Salzburg','AT',47.7933,13.0043],['CPH','Copenhagen','DK',55.6179,12.6561],
+  ['ARN','Stockholm','SE',59.6519,17.9186],['GOT','Gothenburg','SE',57.6628,12.2798],
+  ['OSL','Oslo','NO',60.1939,11.1004],['BGO','Bergen','NO',60.2934,5.2181],
+  ['HEL','Helsinki','FI',60.3172,24.9633],['OUL','Oulu','FI',64.9301,25.3546],
+  ['RVN','Rovaniemi','FI',66.5648,25.8304],['LIS','Lisbon','PT',38.7813,-9.1359],
+  ['OPO','Porto','PT',41.2481,-8.6814],['FAO','Faro','PT',37.0144,-7.9659],
+  ['MAD','Madrid','ES',40.4936,-3.5668],['BCN','Barcelona','ES',41.2971,2.0785],
+  ['AGP','Malaga','ES',36.6749,-4.4991],['PMI','Palma de Mallorca','ES',39.5517,2.7388],
+  ['VLC','Valencia','ES',39.4893,-0.4816],['SVQ','Seville','ES',37.418,-5.8931],
+  ['IBZ','Ibiza','ES',38.8729,1.3731],['TFS','Tenerife South','ES',28.0445,-16.5725],
+  ['LPA','Gran Canaria','ES',27.9319,-15.3866],['FCO','Rome Fiumicino','IT',41.8003,12.2389],
+  ['MXP','Milan Malpensa','IT',45.6306,8.7281],['BGY','Bergamo','IT',45.6739,9.704],
+  ['VCE','Venice','IT',45.5053,12.3519],['BLQ','Bologna','IT',44.5354,11.2887],
+  ['FLR','Florence','IT',43.781,11.2051],['NAP','Naples','IT',40.886,14.2908],
+  ['PMO','Palermo','IT',38.1795,13.091],['CTA','Catania','IT',37.4667,15.0664],
+  ['OTP','Bucharest','RO',44.5722,26.1022],['SOF','Sofia','BG',42.6967,23.4061],
+  ['ATH','Athens','GR',37.9364,23.9445],['SKG','Thessaloniki','GR',40.5197,22.9709],
+  ['HER','Heraklion','GR',35.3397,25.1803],['RHO','Rhodes','GR',36.4054,28.0862],
+  ['CFU','Corfu','GR',39.6019,19.9117],['ZTH','Zakynthos','GR',37.7509,20.8843],
+  ['WAW','Warsaw','PL',52.1657,20.9671],['KRK','Krakow','PL',50.0777,19.7848],
+  ['GDN','Gdansk','PL',54.3776,18.4662],['WRO','Wroclaw','PL',51.1027,16.8858],
+  ['PRG','Prague','CZ',50.1008,14.26],['BUD','Budapest','HU',47.4298,19.2611],
+  ['BTS','Bratislava','SK',48.1702,17.2127],['LJU','Ljubljana','SI',46.2237,14.4576],
+  ['ZAG','Zagreb','HR',45.7429,16.0688],['SPU','Split','HR',43.5389,16.298],
+  ['DBV','Dubrovnik','HR',42.5614,18.2682],['BEG','Belgrade','RS',44.8184,20.3091],
+  ['SKP','Skopje','MK',41.9616,21.6214],['TIA','Tirana','AL',41.4147,19.7206],
+  ['RIX','Riga','LV',56.9236,23.9711],['TLL','Tallinn','EE',59.4133,24.8328],
+  ['VNO','Vilnius','LT',54.6341,25.2858],['KBP','Kyiv Boryspil','UA',50.345,30.8947],
+  ['LWO','Lviv','UA',49.8125,23.9561],['SVO','Moscow Sheremetyevo','RU',55.9726,37.4146],
+  ['DME','Moscow Domodedovo','RU',55.4088,37.9063],['LED','St. Petersburg','RU',59.8003,30.2625],
+  ['AER','Sochi','RU',43.4499,39.9566],['SVX','Yekaterinburg','RU',56.8431,60.8028],
+  ['OVB','Novosibirsk','RU',54.9663,82.6507],['IKT','Irkutsk','RU',52.268,104.3889],
+  ['VVO','Vladivostok','RU',43.399,132.1479],
+  // Turkey
+  ['IST','Istanbul','TR',41.2754,28.7519],['SAW','Istanbul Sabiha','TR',40.8985,29.3092],
+  ['AYT','Antalya','TR',36.8987,30.7992],['ADB','Izmir','TR',38.2924,27.157],
+  ['ESB','Ankara','TR',40.1281,32.9951],['DLM','Dalaman','TR',36.7131,28.7924],
+  // Middle East
+  ['DXB','Dubai','AE',25.2528,55.3644],['AUH','Abu Dhabi','AE',24.433,54.6511],
+  ['SHJ','Sharjah','AE',25.3286,55.5172],['DOH','Doha','QA',25.2731,51.6081],
+  ['KWI','Kuwait City','KW',29.2267,47.9689],['BAH','Bahrain','BH',26.2708,50.6336],
+  ['MCT','Muscat','OM',23.5932,58.2844],['AMM','Amman','JO',31.7226,35.9933],
+  ['BEY','Beirut','LB',33.8209,35.4884],['BGW','Baghdad','IQ',33.2626,44.2346],
+  ['EBL','Erbil','IQ',36.2376,43.9632],['TLV','Tel Aviv','IL',32.0114,34.8867],
+  ['GYD','Baku','AZ',40.4675,50.0467],['TBS','Tbilisi','GE',41.6692,44.9547],
+  ['EVN','Yerevan','AM',40.1473,44.3959],['NQZ','Astana','KZ',51.0222,71.4669],
+  ['ALA','Almaty','KZ',43.3521,77.0404],['TAS','Tashkent','UZ',41.2579,69.2811],
+  ['ASB','Ashgabat','TM',37.9869,58.361],['FRU','Bishkek','KG',43.0613,74.4776],
+  // Africa
+  ['CAI','Cairo','EG',30.1219,31.4056],['HRG','Hurghada','EG',27.1783,33.7994],
+  ['SSH','Sharm el-Sheikh','EG',27.9773,34.3951],['LXR','Luxor','EG',25.671,32.7065],
+  ['ALG','Algiers','DZ',36.691,3.2154],['TUN','Tunis','TN',36.851,10.2272],
+  ['CMN','Casablanca','MA',33.3675,-7.5898],['RAK','Marrakech','MA',31.6069,-8.0363],
+  ['FEZ','Fes','MA',33.9272,-4.9778],['TNG','Tangier','MA',35.7269,-5.917],
+  ['KRT','Khartoum','SD',15.5895,32.5532],['ADD','Addis Ababa','ET',8.9779,38.7993],
+  ['NBO','Nairobi','KE',-1.3192,36.9275],['MBA','Mombasa','KE',-4.0348,39.5942],
+  ['DAR','Dar es Salaam','TZ',-6.8781,39.2026],['ZNZ','Zanzibar','TZ',-6.222,39.2249],
+  ['KGL','Kigali','RW',-1.9686,30.1395],['EBB','Entebbe','UG',0.0424,32.4433],
+  ['LOS','Lagos','NG',6.5774,3.3212],['ABV','Abuja','NG',9.0067,7.2632],
+  ['ACC','Accra','GH',5.6052,-0.1668],['ABJ','Abidjan','CI',5.2613,-3.9262],
+  ['DKR','Dakar','SN',14.7397,-17.4902],['LBV','Libreville','GA',0.4584,9.4122],
+  ['FIH','Kinshasa','CD',-4.3858,15.4447],['JNB','Johannesburg','ZA',-26.1339,28.2421],
+  ['CPT','Cape Town','ZA',-33.9648,18.6017],['DUR','Durban','ZA',-29.6144,31.1197],
+  ['WDH','Windhoek','NA',-22.4799,17.4709],['HRE','Harare','ZW',-17.9318,31.0928],
+  ['LUN','Lusaka','ZM',-15.3308,28.4526],['MPM','Maputo','MZ',-25.9206,32.5726],
+  ['TNR','Antananarivo','MG',-18.7969,47.4788],['MRU','Mauritius','MU',-20.4302,57.6836],
+  ['SEZ','Mahe Seychelles','SC',-4.6743,55.5218],['RUN','Reunion','RE',-20.8871,55.5103],
+  // South Asia
+  ['DEL','Delhi','IN',28.5562,77.1],['BOM','Mumbai','IN',19.0887,72.8679],
+  ['BLR','Bangalore','IN',13.1979,77.7063],['MAA','Chennai','IN',12.99,80.1693],
+  ['HYD','Hyderabad','IN',17.2313,78.4298],['CCU','Kolkata','IN',22.652,88.4467],
+  ['AMD','Ahmedabad','IN',23.0772,72.6347],['PNQ','Pune','IN',18.5822,73.9197],
+  ['COK','Kochi','IN',10.152,76.4019],['TRV','Thiruvananthapuram','IN',8.4821,76.9199],
+  ['JAI','Jaipur','IN',26.8242,75.8122],['GOI','Goa','IN',15.3808,73.8314],
+  ['LKO','Lucknow','IN',26.7606,80.8893],['GAU','Guwahati','IN',26.1061,91.5859],
+  ['KTM','Kathmandu','NP',27.6966,85.3591],['CMB','Colombo','LK',7.1804,79.8842],
+  ['DAC','Dhaka','BD',23.8433,90.3978],['CGP','Chittagong','BD',22.2496,91.8133],
+  ['KHI','Karachi','PK',24.9065,67.1608],['LHE','Lahore','PK',31.5216,74.4036],
+  ['ISB','Islamabad','PK',33.6167,73.0997],['KBL','Kabul','AF',34.5659,69.2123],
+  // Southeast Asia
+  ['BKK','Bangkok Suvarnabhumi','TH',13.6811,100.747],['DMK','Bangkok Don Mueang','TH',13.9126,100.6067],
+  ['HKT','Phuket','TH',8.1132,98.3169],['CNX','Chiang Mai','TH',18.7668,98.9629],
+  ['USM','Koh Samui','TH',9.5478,100.0626],['SGN','Ho Chi Minh City','VN',10.8188,106.652],
+  ['HAN','Hanoi','VN',21.2212,105.8072],['DAD','Da Nang','VN',16.0439,108.1993],
+  ['PQC','Phu Quoc','VN',10.227,103.9669],['REP','Siem Reap','KH',13.4107,103.8133],
+  ['PNH','Phnom Penh','KH',11.5466,104.844],['VTE','Vientiane','LA',17.9883,102.5633],
+  ['RGN','Yangon','MM',16.9073,96.1332],['MDL','Mandalay','MM',21.7022,95.9779],
+  ['KUL','Kuala Lumpur','MY',2.7456,101.7099],['PEN','Penang','MY',5.2973,100.2768],
+  ['BKI','Kota Kinabalu','MY',5.9372,116.0512],['KCH','Kuching','MY',1.4847,110.3428],
+  ['SIN','Singapore','SG',1.3502,103.994],['CGK','Jakarta','ID',-6.1275,106.6537],
+  ['DPS','Bali','ID',-8.7481,115.1671],['SUB','Surabaya','ID',-7.3798,112.7866],
+  ['MNL','Manila','PH',14.5086,121.0194],['CEB','Cebu','PH',10.3075,123.9791],
+  ['DVO','Davao','PH',7.1255,125.6458],
+  // East Asia
+  ['PEK','Beijing Capital','CN',40.0799,116.6031],['PKX','Beijing Daxing','CN',39.5097,116.4105],
+  ['PVG','Shanghai Pudong','CN',31.1443,121.8083],['SHA','Shanghai Hongqiao','CN',31.1979,121.3363],
+  ['CAN','Guangzhou','CN',23.3924,113.2988],['SZX','Shenzhen','CN',22.6393,113.8107],
+  ['CTU','Chengdu','CN',30.5785,103.9467],['WUH','Wuhan','CN',30.7838,114.2081],
+  ['XIY','Xi\'an','CN',34.4471,108.7516],['HGH','Hangzhou','CN',30.2295,120.4346],
+  ['NKG','Nanjing','CN',31.742,118.862],['TAO','Qingdao','CN',36.2661,120.3745],
+  ['KMG','Kunming','CN',24.992,102.7436],['XMN','Xiamen','CN',24.544,118.1278],
+  ['CSX','Changsha','CN',28.1892,113.2196],['SYX','Sanya','CN',18.3029,109.4122],
+  ['HAK','Haikou','CN',19.9349,110.459],['CKG','Chongqing','CN',29.7192,106.6418],
+  ['HRB','Harbin','CN',45.6234,126.2503],['URC','Urumqi','CN',43.9071,87.4742],
+  ['NNG','Nanning','CN',22.6083,108.1724],['HKG','Hong Kong','HK',22.308,113.9185],
+  ['MFM','Macau','MO',22.1495,113.592],['TPE','Taipei','TW',25.0777,121.2327],
+  ['KHH','Kaohsiung','TW',22.5771,120.3497],['NRT','Tokyo Narita','JP',35.7653,140.3864],
+  ['HND','Tokyo Haneda','JP',35.5494,139.7798],['KIX','Osaka Kansai','JP',34.4272,135.244],
+  ['ITM','Osaka Itami','JP',34.7854,135.4389],['NGO','Nagoya','JP',34.8583,136.8046],
+  ['CTS','Sapporo','JP',42.7752,141.6923],['OKA','Okinawa','JP',26.1958,127.6459],
+  ['FUK','Fukuoka','JP',33.5859,130.4511],['HIJ','Hiroshima','JP',34.4361,132.9194],
+  ['SDJ','Sendai','JP',38.1397,140.9173],['ICN','Seoul Incheon','KR',37.4602,126.4407],
+  ['GMP','Seoul Gimpo','KR',37.5583,126.7906],['PUS','Busan','KR',35.1795,128.9382],
+  ['CJU','Jeju','KR',33.5113,126.4929],['ULN','Ulaanbaatar','MN',47.8431,106.7669],
+  // Oceania
+  ['SYD','Sydney','AU',-33.9461,151.1772],['MEL','Melbourne','AU',-37.6733,144.843],
+  ['BNE','Brisbane','AU',-27.3842,153.1175],['PER','Perth','AU',-31.9403,115.967],
+  ['ADL','Adelaide','AU',-34.945,138.531],['CBR','Canberra','AU',-35.3069,149.195],
+  ['CNS','Cairns','AU',-16.8858,145.7552],['DRW','Darwin','AU',-12.4147,130.8764],
+  ['HBA','Hobart','AU',-42.8361,147.5106],['OOL','Gold Coast','AU',-28.1644,153.505],
+  ['AKL','Auckland','NZ',-37.0082,174.785],['CHC','Christchurch','NZ',-43.4894,172.5322],
+  ['WLG','Wellington','NZ',-41.3272,174.8051],['ZQN','Queenstown','NZ',-45.0211,168.7392],
+  ['NAN','Nadi','FJ',-17.7554,177.443],['PPT','Papeete','PF',-17.5537,-149.6064],
+  ['NOU','Noumea','NC',-22.0146,166.2126],['GUM','Guam','GU',13.4834,144.7963],
+  ['HNL','Honolulu','US',21.3187,-157.9222],['OGG','Maui','US',20.8986,-156.4305],
+  ['KOA','Kona','US',19.7388,-156.0456],['LIH','Kauai','US',21.976,-159.3388],
+].forEach(([code, city, country, lat, lon]) => { AP[code] = { city, country, lat, lon }; });
+
+// ── AUTH ──────────────────────────────────────────────────────────────────
+function showRegister() {
+  document.getElementById('auth-login').style.display = 'none';
+  document.getElementById('auth-register').style.display = '';
+}
+function showLogin() {
+  document.getElementById('auth-register').style.display = 'none';
+  document.getElementById('auth-login').style.display = '';
+}
+
+document.getElementById('login-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('reg-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
+
+async function doLogin() {
+  const err = document.getElementById('login-err');
+  err.textContent = '';
+  try {
+    const r = await api('ft_login', 'POST', {
+      username: document.getElementById('login-user').value.trim(),
+      password: document.getElementById('login-pass').value,
+    });
+    if (r.error) { err.textContent = r.error; return; }
+    startSession(r.token, r.user);
+  } catch { err.textContent = 'Network error.'; }
+}
+
+async function doRegister() {
+  const err = document.getElementById('reg-err');
+  err.textContent = '';
+  const u = document.getElementById('reg-user').value.trim();
+  const n = document.getElementById('reg-name').value.trim();
+  const p = document.getElementById('reg-pass').value;
+  if (!u || !n || !p) { err.textContent = 'All fields required.'; return; }
+  try {
+    const r = await api('ft_register', 'POST', { username: u, display_name: n, password: p });
+    if (r.error) { err.textContent = r.error; return; }
+    startSession(r.token, r.user);
+  } catch { err.textContent = 'Network error.'; }
+}
+
+function startSession(t, user) {
+  token = t; currentUser = user;
+  localStorage.setItem('ft_token', t);
+  localStorage.setItem('ft_user', JSON.stringify(user));
+  document.getElementById('auth-overlay').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  document.getElementById('nav-user').textContent = user.display_name;
+  loadFlights();
+}
+
+async function doLogout() {
+  api('ft_logout', 'POST').catch(() => {});
+  token = ''; currentUser = null;
+  localStorage.removeItem('ft_token');
+  localStorage.removeItem('ft_user');
+  flights = []; mapSvg = null; mapProjection = null;
+  document.getElementById('auth-overlay').classList.remove('hidden');
+  document.getElementById('app').classList.add('hidden');
+}
+
+// ── API ───────────────────────────────────────────────────────────────────
+async function api(action, method = 'GET', body = null, extra = '') {
+  const opts = { method, headers: { 'Content-Type': 'application/json', 'X-Auth-Token': token } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(`${API}?action=${action}${extra}`, opts);
+  return res.json();
+}
+
+// ── DATA ──────────────────────────────────────────────────────────────────
+async function loadFlights() {
+  const r = await api('ft_flights');
+  flights = r.flights || [];
+  renderAll();
+}
+
+function renderAll() { renderMap(); renderStats(); renderTimeline(); }
+
+// ── HAVERSINE ─────────────────────────────────────────────────────────────
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371, dLat = (lat2-lat1)*Math.PI/180, dLon = (lon2-lon1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// ── MAP ───────────────────────────────────────────────────────────────────
+async function renderMap() {
+  const wrap = document.getElementById('map-wrap');
+  const emptyEl = document.getElementById('map-empty');
+
+  if (!mapSvg) {
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    mapProjection = d3.geoNaturalEarth1().scale(Math.min(w,h)*0.18).translate([w/2, h/2]);
+    const pathGen = d3.geoPath().projection(mapProjection);
+
+    const svg = d3.select(wrap).append('svg').attr('width',w).attr('height',h);
+    svg.append('rect').attr('width',w).attr('height',h).attr('fill','#0d1520');
+
+    try {
+      const world = await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+      svg.append('g').selectAll('path')
+        .data(topojson.feature(world, world.objects.countries).features)
+        .join('path').attr('class','country').attr('d',pathGen);
+    } catch {}
+
+    svg.append('g').attr('id','arcs-g');
+    svg.append('g').attr('id','dots-g');
+
+    const zoom = d3.zoom().scaleExtent([0.5,8]).on('zoom', e => {
+      svg.selectAll('g').attr('transform', e.transform);
+    });
+    svg.call(zoom);
+    mapSvg = { svg, pathGen };
+  }
+
+  const { svg, pathGen } = mapSvg;
+  const arcsG = svg.select('#arcs-g');
+  const dotsG = svg.select('#dots-g');
+  arcsG.selectAll('*').remove();
+  dotsG.selectAll('*').remove();
+
+  if (flights.length === 0) { emptyEl.classList.remove('hidden'); return; }
+  emptyEl.classList.add('hidden');
+
+  const tooltip = document.getElementById('map-tooltip');
+  const usedCodes = new Set();
+
+  flights.forEach(f => {
+    const from = AP[f.from_code], to = AP[f.to_code];
+    if (!from || !to) return;
+    usedCodes.add(f.from_code); usedCodes.add(f.to_code);
+    const arc = { type:'LineString', coordinates:[[from.lon,from.lat],[to.lon,to.lat]] };
+    const dist = Math.round(haversine(from.lat,from.lon,to.lat,to.lon)).toLocaleString();
+    arcsG.append('path').datum(arc).attr('class','flight-arc').attr('d',pathGen)
+      .on('mouseover', function(event) {
+        tooltip.style.opacity = '1';
+        tooltip.style.left = (event.offsetX+14)+'px';
+        tooltip.style.top = (event.offsetY+14)+'px';
+        tooltip.innerHTML = `<strong>${f.from_code} → ${f.to_code}</strong><br>${from.city} → ${to.city}<br>${dist} km`;
+      })
+      .on('mousemove', function(event) {
+        tooltip.style.left = (event.offsetX+14)+'px';
+        tooltip.style.top = (event.offsetY+14)+'px';
+      })
+      .on('mouseout', () => { tooltip.style.opacity = '0'; });
+  });
+
+  usedCodes.forEach(code => {
+    const ap = AP[code];
+    if (!ap) return;
+    const [x,y] = mapProjection([ap.lon, ap.lat]);
+    if (x == null) return;
+    dotsG.append('circle').attr('class','airport-dot').attr('cx',x).attr('cy',y).attr('r',3);
+  });
+}
+
+// ── STATS ─────────────────────────────────────────────────────────────────
+function renderStats() {
+  const wrap = document.getElementById('stats-wrap');
+  if (!flights.length) {
+    wrap.innerHTML = '<div class="stats-empty"><p>No flights yet — add one to see your stats!</p></div>';
+    return;
+  }
+
+  let totalDist = 0, longestDist = 0, longestFlight = null;
+  const airports = {}, countries = new Set();
+
+  flights.forEach(f => {
+    const from = AP[f.from_code], to = AP[f.to_code];
+    const d = (from && to) ? haversine(from.lat,from.lon,to.lat,to.lon) : 0;
+    totalDist += d;
+    if (d > longestDist) { longestDist = d; longestFlight = f; }
+    airports[f.from_code] = (airports[f.from_code]||0) + 1;
+    airports[f.to_code]   = (airports[f.to_code]  ||0) + 1;
+    if (from) countries.add(from.country);
+    if (to)   countries.add(to.country);
+  });
+
+  const uniqueAirports = new Set([...flights.map(f=>f.from_code),...flights.map(f=>f.to_code)]).size;
+  const topAirports = Object.entries(airports).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const km = Math.round(totalDist).toLocaleString();
+  const mi = Math.round(totalDist*0.621371).toLocaleString();
+
+  wrap.innerHTML = `
+    <div class="stats-title">Your Stats</div>
+    <div class="stats-grid">
+      <div class="stat-card accent">
+        <div class="stat-label">Total Flights</div>
+        <div class="stat-value">${flights.length}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Distance Flown</div>
+        <div class="stat-value">${km}</div>
+        <div class="stat-sub">${mi} miles</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Countries</div>
+        <div class="stat-value">${countries.size}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Airports</div>
+        <div class="stat-value">${uniqueAirports}</div>
+      </div>
+      ${longestFlight ? `
+      <div class="stat-card">
+        <div class="stat-label">Longest Flight</div>
+        <div class="stat-value" style="font-size:18px">${longestFlight.from_code} → ${longestFlight.to_code}</div>
+        <div class="stat-sub">${Math.round(longestDist).toLocaleString()} km</div>
+      </div>` : ''}
+    </div>
+    <div class="top-section-title">Most Visited Airports</div>
+    <div class="top-list">
+      ${topAirports.map(([code,cnt],i) => {
+        const ap = AP[code];
+        return `<div class="top-item">
+          <span class="top-rank">#${i+1}</span>
+          <span class="top-name">${code}${ap ? ` — ${ap.city}` : ''}</span>
+          <span class="top-count">${cnt} visit${cnt>1?'s':''}</span>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+// ── TIMELINE ──────────────────────────────────────────────────────────────
+function renderTimeline() {
+  const list = document.getElementById('timeline-list');
+  if (!flights.length) {
+    list.innerHTML = '<div class="timeline-empty"><p>No flights logged yet.</p><button class="btn-nav accent" onclick="openModal()">+ Add Flight</button></div>';
+    return;
+  }
+  const sorted = [...flights].sort((a,b) => b.flight_date.localeCompare(a.flight_date));
+  list.innerHTML = sorted.map(f => {
+    const from = AP[f.from_code], to = AP[f.to_code];
+    const dist = (from && to) ? Math.round(haversine(from.lat,from.lon,to.lat,to.lon)).toLocaleString()+' km' : '';
+    const cities = [from?.city, to?.city].filter(Boolean).join(' → ');
+    const date = new Date(f.flight_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    const tags = [f.airline, f.seat_class, f.flight_number].filter(Boolean);
+    return `<div class="flight-row">
+      <div>
+        <div class="flight-route">${f.from_code}<span class="sep">→</span>${f.to_code}</div>
+        <div class="flight-cities">${cities}</div>
+        ${tags.length ? `<div class="flight-tags">${tags.map(t=>`<span class="flight-tag">${t}</span>`).join('')}</div>` : ''}
+      </div>
+      <div class="flight-meta"></div>
+      <div class="flight-right">
+        <span class="flight-date">${date}</span>
+        ${dist ? `<span class="flight-dist">${dist}</span>` : ''}
+      </div>
+      <button class="btn-delete-flight" onclick="deleteFlight(${f.id})" title="Delete">×</button>
+    </div>`;
+  }).join('');
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.toggle('active', p.id === 'tab-'+name));
+  if (name === 'map') renderMap();
+}
+
+// ── ADD MODAL ─────────────────────────────────────────────────────────────
+function openModal() {
+  fromSelected = null; toSelected = null;
+  document.getElementById('from-input').value = '';
+  document.getElementById('to-input').value = '';
+  document.getElementById('flight-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('flight-airline').value = '';
+  document.getElementById('flight-class').value = '';
+  document.getElementById('flight-num').value = '';
+  document.getElementById('modal-err').textContent = '';
+  document.getElementById('add-modal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('from-input').focus(), 50);
+}
+
+function closeModal() {
+  document.getElementById('add-modal').classList.add('hidden');
+  document.getElementById('from-list').classList.add('hidden');
+  document.getElementById('to-list').classList.add('hidden');
+}
+
+document.getElementById('add-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('add-modal')) closeModal();
+});
+
+function searchAP(q) {
+  q = q.toLowerCase();
+  if (q.length < 1) return [];
+  return Object.entries(AP)
+    .filter(([code,ap]) => code.toLowerCase().includes(q) || ap.city.toLowerCase().includes(q) || ap.country.toLowerCase().includes(q))
+    .slice(0,8);
+}
+
+function setupAC(inputId, listId, onSelect) {
+  const input = document.getElementById(inputId);
+  const list  = document.getElementById(listId);
+  input.addEventListener('input', () => {
+    const results = searchAP(input.value);
+    if (!results.length) { list.classList.add('hidden'); return; }
+    list.innerHTML = results.map(([code,ap]) =>
+      `<div class="ac-item" onmousedown="pickAirport('${inputId}','${listId}','${code}')">
+        <span class="ac-code">${code}</span>
+        <span class="ac-city">${ap.city}</span>
+        <span class="ac-country">${ap.country}</span>
+      </div>`
+    ).join('');
+    list.classList.remove('hidden');
+  });
+  input.addEventListener('blur', () => setTimeout(() => list.classList.add('hidden'), 150));
+}
+
+function pickAirport(inputId, listId, code) {
+  const ap = AP[code];
+  document.getElementById(inputId).value = `${code} — ${ap.city}`;
+  document.getElementById(listId).classList.add('hidden');
+  if (inputId === 'from-input') fromSelected = code;
+  else toSelected = code;
+}
+
+setupAC('from-input', 'from-list');
+setupAC('to-input',   'to-list');
+
+async function saveFlight() {
+  const err = document.getElementById('modal-err');
+  err.textContent = '';
+  if (!fromSelected) {
+    const v = document.getElementById('from-input').value.trim().toUpperCase().slice(0,3);
+    if (AP[v]) fromSelected = v;
+  }
+  if (!toSelected) {
+    const v = document.getElementById('to-input').value.trim().toUpperCase().slice(0,3);
+    if (AP[v]) toSelected = v;
+  }
+  if (!fromSelected || !toSelected) { err.textContent = 'Please select valid airports.'; return; }
+  if (fromSelected === toSelected) { err.textContent = 'Departure and arrival must differ.'; return; }
+  const date = document.getElementById('flight-date').value;
+  if (!date) { err.textContent = 'Please select a date.'; return; }
+
+  const r = await api('ft_add_flight', 'POST', {
+    from_code: fromSelected, to_code: toSelected,
+    from_city: AP[fromSelected].city, to_city: AP[toSelected].city,
+    flight_date: date,
+    airline: document.getElementById('flight-airline').value.trim(),
+    seat_class: document.getElementById('flight-class').value,
+    flight_number: document.getElementById('flight-num').value.trim(),
+  });
+  if (r.error) { err.textContent = r.error; return; }
+  closeModal();
+  await loadFlights();
+}
+
+async function deleteFlight(id) {
+  if (!confirm('Delete this flight?')) return;
+  await api('ft_delete_flight', 'DELETE', null, '&id='+id);
+  await loadFlights();
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+if (token && currentUser) {
+  startSession(token, currentUser);
+}
+
+window.addEventListener('resize', () => {
+  if (mapSvg) {
+    mapSvg.svg.remove();
+    mapSvg = null; mapProjection = null;
+    if (document.getElementById('tab-map').classList.contains('active')) renderMap();
+  }
+});
+</script>
+</body>
+</html>

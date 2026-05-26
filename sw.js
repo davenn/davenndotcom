@@ -1,4 +1,4 @@
-const CACHE = 'davenn-v5';
+const CACHE = 'davenn-v6';
 const SHELL = [
   '/index.html',
   '/tracktimer.html',
@@ -8,6 +8,7 @@ const SHELL = [
   '/pomodoro.html',
   '/pomodoro-cast.html',
   '/reactiontest.html',
+  '/flighttracker.html',
 ];
 
 self.addEventListener('install', e => {
