@@ -982,6 +982,32 @@ if ($method === 'POST' && $action === 'ft_add_flight') {
     echo json_encode(['success' => true, 'id' => $pdo->lastInsertId()]); exit;
 }
 
+if ($method === 'POST' && $action === 'ft_add_flights') {
+    $me   = ftRequireAuth($pdo);
+    $body = json_decode(file_get_contents('php://input'), true);
+    $rows = $body['flights'] ?? [];
+    if (!is_array($rows) || empty($rows)) {
+        http_response_code(400); echo json_encode(['error' => 'No flights provided.']); exit;
+    }
+    $stmt = $pdo->prepare("INSERT INTO ft_flights (user_id,from_code,to_code,from_city,to_city,flight_date,airline,flight_number) VALUES (?,?,?,?,?,?,?,?)");
+    $inserted = 0;
+    foreach ($rows as $f) {
+        $from  = strtoupper(trim($f['from_code'] ?? ''));
+        $to    = strtoupper(trim($f['to_code']   ?? ''));
+        $date  = trim($f['flight_date'] ?? '');
+        if (!$from || !$to || $from === $to || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) continue;
+        $stmt->execute([
+            $me['id'], $from, $to,
+            trim($f['from_city'] ?? ''), trim($f['to_city'] ?? ''),
+            $date,
+            trim($f['airline']       ?? '') ?: null,
+            trim($f['flight_number'] ?? '') ?: null,
+        ]);
+        $inserted++;
+    }
+    echo json_encode(['success' => true, 'inserted' => $inserted]); exit;
+}
+
 if ($method === 'DELETE' && $action === 'ft_delete_flight') {
     $me = ftRequireAuth($pdo);
     $id = intval($_GET['id'] ?? 0);

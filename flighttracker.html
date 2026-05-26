@@ -130,6 +130,23 @@ nav.main-nav { height: var(--nav-h); min-height: var(--nav-h); background: var(-
 .btn-save { background: var(--accent); border: none; border-radius: 8px; padding: 10px 24px; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
 .btn-save:hover { opacity: 0.88; }
 .form-err { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--danger); margin-top: 10px; min-height: 18px; }
+
+/* IMPORT MODAL */
+.import-drop { border: 2px dashed var(--border2); border-radius: 10px; padding: 32px 20px; text-align: center; cursor: pointer; transition: border-color 0.15s, background 0.15s; margin-bottom: 16px; }
+.import-drop:hover, .import-drop.drag-over { border-color: var(--accent); background: var(--accent-dim); }
+.import-drop p { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--muted); margin-top: 8px; }
+.import-drop .drop-icon { font-size: 28px; }
+.import-format { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted2); background: var(--surface2); border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; line-height: 1.7; }
+.import-format strong { color: var(--muted); }
+.import-preview { max-height: 260px; overflow-y: auto; margin-bottom: 16px; }
+.import-table { width: 100%; border-collapse: collapse; font-family: 'DM Mono', monospace; font-size: 12px; }
+.import-table th { text-align: left; padding: 6px 10px; color: var(--muted); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+.import-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); }
+.import-table tr.row-ok td { color: var(--text); }
+.import-table tr.row-err td { color: var(--danger); }
+.import-table tr.row-err td:first-child::before { content: '✕ '; }
+.import-table tr.row-ok td:first-child::before { content: '✓ '; color: #22c55e; }
+.import-status { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); min-height: 18px; margin-bottom: 4px; }
 </style>
 </head>
 <body>
@@ -169,6 +186,7 @@ nav.main-nav { height: var(--nav-h); min-height: var(--nav-h); background: var(-
     </div>
     <div class="nav-right">
       <span class="nav-user" id="nav-user"></span>
+      <button class="btn-nav" onclick="openImport()">Import CSV</button>
       <button class="btn-nav accent" onclick="openModal()">+ Add Flight</button>
       <button class="btn-nav" onclick="doLogout()">Log out</button>
     </div>
@@ -224,24 +242,43 @@ nav.main-nav { height: var(--nav-h); min-height: var(--nav-h); background: var(-
     </div>
     <div class="form-row">
       <div class="form-field">
-        <label>Seat Class</label>
-        <select id="flight-class">
-          <option value="">—</option>
-          <option value="Economy">Economy</option>
-          <option value="Premium Economy">Premium Economy</option>
-          <option value="Business">Business</option>
-          <option value="First">First</option>
-        </select>
-      </div>
-      <div class="form-field">
         <label>Flight # (optional)</label>
         <input id="flight-num" type="text" placeholder="DL 404">
       </div>
+      <div class="form-field"></div>
     </div>
     <div class="form-err" id="modal-err"></div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal()">Cancel</button>
       <button class="btn-save" onclick="saveFlight()">Save Flight</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay hidden" id="import-modal">
+  <div class="modal-card" style="width:min(600px,96vw)">
+    <div class="modal-title">Import Flights from CSV</div>
+    <div class="import-format">
+      <strong>Required columns:</strong> from_code, to_code, date (YYYY-MM-DD)<br>
+      <strong>Optional columns:</strong> airline, flight_number<br>
+      <strong>Example:</strong> JFK,LAX,2024-06-01,Delta,DL404
+    </div>
+    <div class="import-drop" id="import-drop" onclick="document.getElementById('csv-file').click()">
+      <div class="drop-icon">📂</div>
+      <p>Click to choose a CSV file, or drag and drop here</p>
+      <input type="file" id="csv-file" accept=".csv,text/csv" style="display:none" onchange="handleCsvFile(this.files[0])">
+    </div>
+    <div class="import-preview hidden" id="import-preview">
+      <table class="import-table">
+        <thead><tr><th>From</th><th>To</th><th>Date</th><th>Airline</th><th>Flight #</th></tr></thead>
+        <tbody id="import-tbody"></tbody>
+      </table>
+    </div>
+    <div class="import-status" id="import-status"></div>
+    <div class="form-err" id="import-err"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeImport()">Cancel</button>
+      <button class="btn-save hidden" id="btn-do-import" onclick="doImport()">Import flights</button>
     </div>
   </div>
 </div>
@@ -727,7 +764,7 @@ function renderTimeline() {
     const dist = (from && to) ? Math.round(haversine(from.lat,from.lon,to.lat,to.lon)).toLocaleString()+' km' : '';
     const cities = [from?.city, to?.city].filter(Boolean).join(' → ');
     const date = new Date(f.flight_date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-    const tags = [f.airline, f.seat_class, f.flight_number].filter(Boolean);
+    const tags = [f.airline, f.flight_number].filter(Boolean);
     return `<div class="flight-row">
       <div>
         <div class="flight-route">${f.from_code}<span class="sep">→</span>${f.to_code}</div>
@@ -758,7 +795,6 @@ function openModal() {
   document.getElementById('to-input').value = '';
   document.getElementById('flight-date').value = new Date().toISOString().split('T')[0];
   document.getElementById('flight-airline').value = '';
-  document.getElementById('flight-class').value = '';
   document.getElementById('flight-num').value = '';
   document.getElementById('modal-err').textContent = '';
   document.getElementById('add-modal').classList.remove('hidden');
@@ -833,7 +869,6 @@ async function saveFlight() {
     from_city: AP[fromSelected].city, to_city: AP[toSelected].city,
     flight_date: date,
     airline: document.getElementById('flight-airline').value.trim(),
-    seat_class: document.getElementById('flight-class').value,
     flight_number: document.getElementById('flight-num').value.trim(),
   });
   if (r.error) { err.textContent = r.error; return; }
@@ -845,6 +880,121 @@ async function deleteFlight(id) {
   if (!confirm('Delete this flight?')) return;
   await api('ft_delete_flight', 'DELETE', null, '&id='+id);
   await loadFlights();
+}
+
+// ── CSV IMPORT ────────────────────────────────────────────────────────────
+let parsedRows = [];
+
+function openImport() {
+  parsedRows = [];
+  document.getElementById('import-preview').classList.add('hidden');
+  document.getElementById('import-status').textContent = '';
+  document.getElementById('import-err').textContent = '';
+  document.getElementById('btn-do-import').classList.add('hidden');
+  document.getElementById('csv-file').value = '';
+  document.getElementById('import-modal').classList.remove('hidden');
+}
+
+function closeImport() {
+  document.getElementById('import-modal').classList.add('hidden');
+}
+
+document.getElementById('import-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('import-modal')) closeImport();
+});
+
+const dropZone = document.getElementById('import-drop');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) handleCsvFile(file);
+});
+
+function handleCsvFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => parseCsv(e.target.result);
+  reader.readAsText(file);
+}
+
+function parseCsv(text) {
+  const lines = text.trim().split(/\r?\n/);
+  if (!lines.length) return;
+
+  // detect header row
+  let dataLines = lines;
+  const firstLower = lines[0].toLowerCase();
+  if (firstLower.includes('from') || firstLower.includes('date')) {
+    dataLines = lines.slice(1);
+  }
+
+  parsedRows = [];
+  const tbody = document.getElementById('import-tbody');
+  tbody.innerHTML = '';
+
+  dataLines.forEach((line, i) => {
+    if (!line.trim()) return;
+    const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+    const [from_code, to_code, date, airline='', flight_number=''] = cols;
+    const fromUp = (from_code||'').toUpperCase();
+    const toUp   = (to_code||'').toUpperCase();
+    const validFrom = !!AP[fromUp];
+    const validTo   = !!AP[toUp];
+    const validDate = /^\d{4}-\d{2}-\d{2}$/.test(date||'');
+    const ok = validFrom && validTo && validDate && fromUp !== toUp;
+
+    const tr = document.createElement('tr');
+    tr.className = ok ? 'row-ok' : 'row-err';
+    tr.innerHTML = `<td>${fromUp||'—'}</td><td>${toUp||'—'}</td><td>${date||'—'}</td><td>${airline||''}</td><td>${flight_number||''}</td>`;
+    tbody.appendChild(tr);
+
+    if (ok) parsedRows.push({
+      from_code: fromUp, to_code: toUp,
+      from_city: AP[fromUp].city, to_city: AP[toUp].city,
+      flight_date: date,
+      airline: airline || null,
+      flight_number: flight_number || null,
+    });
+  });
+
+  const valid = parsedRows.length;
+  const total = dataLines.filter(l => l.trim()).length;
+  const invalid = total - valid;
+  document.getElementById('import-status').textContent =
+    `${valid} valid flight${valid!==1?'s':''} found${invalid ? `, ${invalid} row${invalid!==1?'s':''} skipped` : ''}.`;
+  document.getElementById('import-preview').classList.remove('hidden');
+
+  const btn = document.getElementById('btn-do-import');
+  if (valid > 0) {
+    btn.textContent = `Import ${valid} flight${valid!==1?'s':''}`;
+    btn.classList.remove('hidden');
+  } else {
+    btn.classList.add('hidden');
+  }
+  document.getElementById('import-err').textContent = '';
+}
+
+async function doImport() {
+  if (!parsedRows.length) return;
+  const btn = document.getElementById('btn-do-import');
+  const errEl = document.getElementById('import-err');
+  btn.disabled = true;
+  btn.textContent = 'Importing…';
+  errEl.textContent = '';
+
+  try {
+    const r = await api('ft_add_flights', 'POST', { flights: parsedRows });
+    if (r.error) { errEl.textContent = r.error; btn.disabled = false; btn.textContent = `Import ${parsedRows.length} flights`; return; }
+    closeImport();
+    await loadFlights();
+  } catch {
+    errEl.textContent = 'Network error.';
+    btn.disabled = false;
+    btn.textContent = `Import ${parsedRows.length} flights`;
+  }
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────
