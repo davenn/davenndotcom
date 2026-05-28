@@ -76,6 +76,17 @@ nav {
 .nav-right { display: flex; align-items: center; gap: 1.2rem; }
 .nav-back { font-family: 'DM Mono', monospace; font-size: 11px; color: rgba(255,255,255,0.45); text-decoration: none; letter-spacing: 0.05em; text-transform: uppercase; transition: color 0.15s; }
 .nav-back:hover { color: #fff; }
+.btn-install {
+  display: none; align-items: center;
+  font-family: 'DM Mono', monospace; font-size: 11px;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  color: rgba(255,255,255,0.5); background: none;
+  border: 1px solid rgba(255,255,255,0.15); border-radius: 6px;
+  padding: 4px 10px; cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.btn-install.ready { display: flex; }
+.btn-install:hover { color: rgba(255,255,255,0.9); border-color: rgba(255,255,255,0.4); }
 
 /* ── FULLSCREEN ── */
 .btn-fs {
@@ -356,6 +367,7 @@ body.fs .intention-input:placeholder-shown { opacity: 0; }
         <div class="theme-toggle-thumb" id="toggle-icon">🌙</div>
       </div>
     </button>
+    <button class="btn-install" id="btn-install" onclick="triggerInstall()">⊕ Install</button>
     <a class="nav-back" href="index.html">← Back</a>
   </div>
 </nav>
@@ -647,5 +659,27 @@ function render() {
 }
 </script>
 <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+<script>
+// ── INSTALL PROMPT ────────────────────────────────────────────────────────────
+let _installEvt = null;
+const installBtn = document.getElementById('btn-install');
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _installEvt = e;
+  installBtn.classList.add('ready');
+});
+
+window.addEventListener('appinstalled', () => {
+  _installEvt = null;
+  installBtn.classList.remove('ready');
+});
+
+function triggerInstall() {
+  if (!_installEvt) return;
+  _installEvt.prompt();
+  _installEvt.userChoice.then(() => { _installEvt = null; installBtn.classList.remove('ready'); });
+}
+</script>
 </body>
 </html>
