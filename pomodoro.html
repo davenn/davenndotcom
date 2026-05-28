@@ -120,6 +120,16 @@ body.fs .timer { font-size: clamp(80px, 28vw, 220px); }
 .btn-cast.casting   { color: var(--accent); }
 .btn-cast:hover     { color: rgba(255,255,255,0.9); }
 .btn-cast svg { width: 20px; height: 20px; fill: currentColor; }
+.cast-tip {
+  position: absolute; top: calc(var(--nav-h) + 6px); right: 80px;
+  background: #222; border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px; padding: 10px 14px;
+  font-family: 'DM Mono', monospace; font-size: 12px; color: rgba(255,255,255,0.7);
+  white-space: nowrap; z-index: 200; display: none;
+}
+.cast-tip.show { display: block; }
+.cast-tip a { color: var(--accent); text-decoration: none; }
+.cast-tip a:hover { text-decoration: underline; }
 
 /* ── THEME TOGGLE ── */
 .theme-toggle {
@@ -340,6 +350,7 @@ body.fs .intention-input:placeholder-shown { opacity: 0; }
     <button class="btn-cast" id="btn-cast" onclick="toggleCast()" title="Cast to display" aria-label="Cast to display">
       <svg viewBox="0 0 24 24"><path d="M1 18v3h3c0-1.66-1.34-3-3-3zm0-4v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm18-7H5c-1.1 0-2 .9-2 2v3h2v-3h14v12h-5v2h5c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zm-18 3v2c4.97 0 9 4.03 9 9h2c0-6.08-4.93-11-11-11z"/></svg>
     </button>
+    <div class="cast-tip" id="cast-tip"></div>
     <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode" aria-label="Toggle theme">
       <div class="theme-toggle-track">
         <div class="theme-toggle-thumb" id="toggle-icon">🌙</div>
@@ -466,12 +477,33 @@ function toggleFs() { document.body.classList.toggle('fs'); }
 
 // ── CAST ──────────────────────────────────────────────────────────────────────
 const castBtn = document.getElementById('btn-cast');
+const castTip = document.getElementById('cast-tip');
 let castConn  = null;
 let castReq   = null;
+let castTipTimer = null;
+
+function showCastTip(html) {
+  clearTimeout(castTipTimer);
+  castTip.innerHTML = html;
+  castTip.classList.add('show');
+  castTipTimer = setTimeout(() => castTip.classList.remove('show'), 5000);
+}
 
 if ('presentation' in navigator) {
   castReq = new PresentationRequest(['/pomodoro-cast.html']);
   castBtn.classList.add('available');
+
+  // Monitor for available Cast devices — hide button if none on this network
+  castReq.getAvailability().then(avail => {
+    const update = () => {
+      avail.value ? castBtn.classList.add('available') : castBtn.classList.remove('available');
+    };
+    update();
+    avail.addEventListener('change', update);
+  }).catch(() => {
+    // getAvailability unsupported — keep button visible and let start() decide
+    castBtn.classList.add('available');
+  });
 }
 
 async function toggleCast() {
@@ -479,6 +511,7 @@ async function toggleCast() {
     castConn.terminate();
     return;
   }
+  if (!castReq) return;
   try {
     castConn = await castReq.start();
     castBtn.classList.add('casting');
@@ -487,7 +520,11 @@ async function toggleCast() {
     });
     castConn.addEventListener('close',     onCastEnd);
     castConn.addEventListener('terminate', onCastEnd);
-  } catch (_) { /* user cancelled */ }
+  } catch (err) {
+    if (err.name === 'AbortError') return; // user cancelled picker — no message needed
+    // No devices found or other failure — offer the manual fallback
+    showCastTip(`No cast devices found. <a href="/pomodoro-cast.html" target="_blank">Open on another screen ↗</a>`);
+  }
 }
 
 function onCastEnd() {
