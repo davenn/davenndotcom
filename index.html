@@ -104,16 +104,36 @@
 
         /* ── NOTIFY ── */
         .notify {
+            display: none;
             max-width: 900px;
             margin: 0 auto;
             padding: 0 2rem 40px;
+            scroll-margin-top: calc(var(--nav-height) + 16px);
         }
 
+        .notify.open { display: block; }
+
+        .notify-close {
+            position: absolute;
+            top: 10px; right: 10px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 18px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 6px;
+            transition: color 0.15s;
+        }
+
+        .notify-close:hover { color: var(--text-primary); }
+
         .notify-inner {
+            position: relative;
             background: var(--card-bg);
             border: 1px solid var(--card-border);
             border-radius: 10px;
-            padding: 22px 26px;
+            padding: 22px 44px 22px 26px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -376,7 +396,7 @@
         <a class="nav-logo" href="/">davenn<span>dotcom</span></a>
         <ul class="nav-links">
             <li><a href="#apps">Apps</a></li>
-            <li><a href="#notify">Get updates</a></li>
+            <li><a href="#notify" onclick="toggleNotify(event)">Get updates</a></li>
         </ul>
     </nav>
 
@@ -401,6 +421,7 @@
                     <span>I agree to receive texts/emails about davenn.com updates. Msg &amp; data rates may apply, frequency varies, reply STOP to opt out. See <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a> &amp; <a href="terms.html" target="_blank" rel="noopener">Terms</a>.</span>
                 </label>
             </form>
+            <button type="button" class="notify-close" onclick="toggleNotify(event)" title="Close" aria-label="Close">×</button>
         </div>
         <p class="notify-msg" id="notify-msg"></p>
     </section>
@@ -475,6 +496,17 @@
 
     <script>
         const API_URL = 'https://davenn.com/api.php';
+
+        function toggleNotify(e) {
+            e.preventDefault();
+            const section = document.getElementById('notify');
+            const opening = !section.classList.contains('open');
+            section.classList.toggle('open', opening);
+            if (opening) {
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                document.getElementById('notify-input').focus();
+            }
+        }
 
         function detectContactType(value) {
             if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'email';
