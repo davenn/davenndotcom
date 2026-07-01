@@ -1170,7 +1170,7 @@ if ($method === 'POST' && $action === 'notify_subscribers') {
               </p>
               <p style='margin-top:24px;font-size:12px;color:#999;'><a href='{$unsub_url}' style='color:#999;'>Unsubscribe</a></p>
             </div>";
-            sendEmail($sub['contact_value'], '', 'davenn.com — new update', $html, $mail_from, $mail_from_name);
+            sendEmail($sub['contact_value'], '', 'davenn.com — new update', $html, $mail_from, 'davenn.com Updates');
             $emailed++;
         } elseif ($sub['contact_type'] === 'phone') {
             $ok = sendSms($sub['contact_value'], $message . "\n\ndavenn.com — Reply STOP to unsubscribe.");
