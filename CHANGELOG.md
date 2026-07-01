@@ -9,3 +9,8 @@
 ## 2026-07-01
 Added Daily Tasks — a daily task tracker with per-task timers and a weekly leaderboard.
 You can now sign up on the home page to get a text or email whenever something new ships.
+
+
+## 2026-07-01
+Added Daily Tasks — a daily task tracker with per-task timers and a weekly leaderboard.
+You can now sign up on the home page to get a text or email whenever something new ships.
