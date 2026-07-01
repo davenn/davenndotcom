@@ -1,0 +1,15 @@
+{
+  "name": "Daily Tasks",
+  "short_name": "Daily Tasks",
+  "description": "Daily task tracker with per-task timers and a weekly leaderboard",
+  "start_url": "/dailytasks.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#0a0a0a",
+  "background_color": "#0a0a0a",
+  "icons": [
+    { "src": "/icons/dailytasks.svg",     "sizes": "any",     "type": "image/svg+xml" },
+    { "src": "/icons/dailytasks-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/dailytasks-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

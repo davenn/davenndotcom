@@ -127,6 +127,16 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS fb_scores (
     INDEX idx_week_score (week_start, score)
 )");
 
+$pdo->exec("CREATE TABLE IF NOT EXISTS dt_scores (
+    id            INT AUTO_INCREMENT PRIMARY KEY,
+    name          VARCHAR(60)  NOT NULL,
+    task_count    INT          NOT NULL,
+    total_seconds INT          NOT NULL,
+    week_key      DATE         NOT NULL,
+    created_at    DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_week (week_key, task_count, total_seconds)
+)");
+
 $pdo->exec("CREATE TABLE IF NOT EXISTS tb_friendships (
     id         INT AUTO_INCREMENT PRIMARY KEY,
     user_a     INT NOT NULL,
@@ -1016,6 +1026,44 @@ if ($method === 'DELETE' && $action === 'ft_delete_flight') {
     $stmt->execute([$id, $me['id']]);
     if (!$stmt->rowCount()) { http_response_code(404); echo json_encode(['error' => 'Not found.']); exit; }
     echo json_encode(['success' => true]); exit;
+}
+
+// ══════════════════════════════════════════════════════════════
+// DAILY TASKS — LEADERBOARD
+// ══════════════════════════════════════════════════════════════
+
+if ($method === 'GET' && $action === 'dt_week') {
+    $week_key = $_GET['week_key'] ?? '';
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $week_key)) {
+        http_response_code(400); echo json_encode(['error' => 'Invalid week_key.']); exit;
+    }
+    $stmt = $pdo->prepare("SELECT * FROM dt_scores WHERE week_key = ? ORDER BY task_count DESC, total_seconds ASC");
+    $stmt->execute([$week_key]);
+    echo json_encode($stmt->fetchAll()); exit;
+}
+
+if ($method === 'POST' && $action === 'dt_save') {
+    $body          = json_decode(file_get_contents('php://input'), true);
+    $name          = mb_substr(strip_tags(trim($body['name'] ?? '')), 0, 60);
+    $task_count    = intval($body['task_count']    ?? 0);
+    $total_seconds = intval($body['total_seconds'] ?? 0);
+    $week_key      = trim($body['week_key'] ?? '');
+    if (!$name || $task_count <= 0 || $total_seconds <= 0 || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $week_key)) {
+        http_response_code(400); echo json_encode(['error' => 'Missing or invalid fields.']); exit;
+    }
+    $stmt = $pdo->prepare("INSERT INTO dt_scores (name, task_count, total_seconds, week_key) VALUES (?, ?, ?, ?)");
+    $stmt->execute([$name, $task_count, $total_seconds, $week_key]);
+    echo json_encode(['success' => true, 'id' => $pdo->lastInsertId()]); exit;
+}
+
+if ($method === 'DELETE' && $action === 'dt_clear_week') {
+    $week_key = $_GET['week_key'] ?? '';
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $week_key)) {
+        http_response_code(400); echo json_encode(['error' => 'Invalid week_key.']); exit;
+    }
+    $stmt = $pdo->prepare("DELETE FROM dt_scores WHERE week_key = ?");
+    $stmt->execute([$week_key]);
+    echo json_encode(['success' => true, 'deleted' => $stmt->rowCount()]); exit;
 }
 
 // =============================================================
