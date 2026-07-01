@@ -119,7 +119,7 @@ nav {
 .task-card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 10px; transition: border-color 0.15s, background 0.2s, opacity 0.2s; }
 .task-card.is-running { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
 .task-card.is-done { opacity: 0.6; }
-.task-row { display: grid; grid-template-columns: 1fr auto auto auto; align-items: center; gap: 12px; padding: 12px 14px; }
+.task-row { display: grid; grid-template-columns: auto 1fr auto auto auto; align-items: center; gap: 12px; padding: 12px 14px; }
 .task-name { font-size: 17px; font-weight: 600; letter-spacing: 0.01em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .task-card.is-done .task-name { text-decoration: line-through; color: var(--text2); }
 .task-time { font-family: var(--font-mono); font-size: 15px; color: var(--text2); min-width: 76px; text-align: right; }
@@ -161,8 +161,6 @@ nav {
 .week-nav { display: flex; align-items: center; justify-content: space-between; padding: 1.2rem 1.5rem 1rem; }
 .week-nav button { padding: 7px 14px; font-family: var(--font-mono); font-size: 12px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px; cursor: pointer; color: var(--text); }
 .week-label { font-size: 16px; font-weight: 700; letter-spacing: 0.02em; }
-.lb-actions { display: flex; justify-content: flex-end; padding: 0 1.5rem 0.8rem; }
-.btn-clear { font-family: var(--font-mono); font-size: 11px; color: var(--danger); background: none; border: none; cursor: pointer; letter-spacing: 0.05em; padding: 4px 8px; }
 .lb-list { padding: 0 1.5rem; }
 .lb-item { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 6px; background: var(--surface); border: 1px solid var(--border); margin-bottom: 8px; }
 .lb-rank { font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: var(--text3); text-align: center; }
@@ -238,9 +236,6 @@ nav {
     <button onclick="changeWeek(-1)">&#8592; Prev</button>
     <div class="week-label" id="week-label"></div>
     <button onclick="changeWeek(1)">Next &#8594;</button>
-  </div>
-  <div class="lb-actions">
-    <button class="btn-clear" onclick="clearWeek()">Clear this week</button>
   </div>
   <div class="lb-list" id="lb-list"><div class="lb-loading">Loading…</div></div>
 </div>
@@ -372,11 +367,11 @@ function renderTasks() {
       const elapsed = computeElapsed(t);
       return `<div class="task-card ${t.running ? 'is-running' : ''} ${t.done ? 'is-done' : ''}" id="task-${t.id}">
         <div class="task-row">
+          <button class="btn-remove" onclick="removeTask(${t.id})" title="Remove">×</button>
           <div class="task-name">${escHtml(t.name)}</div>
           <div class="task-time" id="time-${t.id}">${fmtTime(elapsed)}</div>
           <button class="btn-play ${t.running ? 'playing' : ''}" onclick="toggleTimer(${t.id})" ${t.done ? 'disabled' : ''} title="${t.running ? 'Pause' : 'Play'}">${t.running ? '⏸' : '▶'}</button>
           <button class="btn-done" onclick="toggleDone(${t.id})" title="${t.done ? 'Reopen' : 'Mark done'}">✓</button>
-          <button class="btn-remove" onclick="removeTask(${t.id})" title="Remove">×</button>
         </div>
       </div>`;
     }).join('');
@@ -506,13 +501,6 @@ async function renderLeaderboard() {
       </div>
     </div>`;
   }).join('');
-}
-
-async function clearWeek() {
-  if (!confirm('Delete all leaderboard entries for this week?')) return;
-  const week_key = getMondayKey(viewWeekOffset);
-  const result = await apiFetch(`?action=dt_clear_week&week_key=${week_key}`, { method: 'DELETE' });
-  if (result?.success) { showToast('Week cleared'); renderLeaderboard(); }
 }
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────

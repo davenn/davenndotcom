@@ -1056,16 +1056,6 @@ if ($method === 'POST' && $action === 'dt_save') {
     echo json_encode(['success' => true, 'id' => $pdo->lastInsertId()]); exit;
 }
 
-if ($method === 'DELETE' && $action === 'dt_clear_week') {
-    $week_key = $_GET['week_key'] ?? '';
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $week_key)) {
-        http_response_code(400); echo json_encode(['error' => 'Invalid week_key.']); exit;
-    }
-    $stmt = $pdo->prepare("DELETE FROM dt_scores WHERE week_key = ?");
-    $stmt->execute([$week_key]);
-    echo json_encode(['success' => true, 'deleted' => $stmt->rowCount()]); exit;
-}
-
 // =============================================================
 http_response_code(404);
 echo json_encode(['error' => 'Unknown action.']);
