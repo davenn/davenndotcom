@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terms & SMS Program — davenn.com</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --nav-bg: #111110;
+            --nav-border: rgba(255,255,255,0.08);
+            --nav-height: 56px;
+            --body-bg: #ffffff;
+            --text-primary: #111110;
+            --text-muted: #666;
+            --card-bg: #f7f6f3;
+            --card-border: #e8e6e0;
+            --font-display: 'Syne', sans-serif;
+            --font-mono: 'DM Mono', monospace;
+        }
+
+        html, body { height: 100%; }
+        body { font-family: var(--font-display); background: var(--body-bg); color: var(--text-primary); }
+
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; height: var(--nav-height);
+            background: var(--nav-bg); border-bottom: 1px solid var(--nav-border);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 2rem; z-index: 100;
+        }
+        .nav-logo { font-family: var(--font-mono); font-size: 15px; font-weight: 500; color: #fff; letter-spacing: -0.02em; text-decoration: none; }
+        .nav-logo span { color: rgba(255,255,255,0.35); }
+        .nav-back { font-family: var(--font-mono); font-size: 12px; color: rgba(255,255,255,0.45); text-decoration: none; letter-spacing: 0.04em; text-transform: uppercase; transition: color 0.15s; }
+        .nav-back:hover { color: rgba(255,255,255,0.9); }
+
+        .content { max-width: 680px; margin: 0 auto; padding: calc(var(--nav-height) + 56px) 2rem 80px; }
+
+        .page-eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 14px; }
+        h1 { font-size: clamp(1.9rem, 4vw, 2.6rem); font-weight: 800; letter-spacing: -0.03em; margin-bottom: 8px; }
+        .updated { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); margin-bottom: 40px; }
+
+        h2 { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.01em; margin: 36px 0 12px; }
+        p, li { font-family: var(--font-mono); font-size: 13.5px; line-height: 1.75; color: #333; margin-bottom: 12px; }
+        ul { padding-left: 20px; margin-bottom: 12px; }
+        a { color: var(--text-primary); }
+
+        .box { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 20px 22px; margin: 12px 0 20px; }
+        .box dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; }
+        .box dt { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); white-space: nowrap; }
+        .box dd { font-family: var(--font-mono); font-size: 13px; color: #333; }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <a class="nav-logo" href="/">davenn<span>dotcom</span></a>
+        <a class="nav-back" href="index.html">← Back</a>
+    </nav>
+
+    <div class="content">
+        <div class="page-eyebrow">Legal</div>
+        <h1>Terms & SMS Program</h1>
+        <div class="updated">Last updated July 2026</div>
+
+        <h2>SMS/email update program</h2>
+        <p>This section describes the "Get notified" text and email program you can opt into from the davenn.com home page.</p>
+        <div class="box">
+            <dl>
+                <dt>Program</dt><dd>davenn.com Update Notifications</dd>
+                <dt>What you get</dt><dd>A text or email whenever a new app or feature ships on davenn.com.</dd>
+                <dt>Frequency</dt><dd>Varies — typically no more than a few messages per month, only when there's something new.</dd>
+                <dt>Cost</dt><dd>Message and data rates may apply, charged by your carrier.</dd>
+                <dt>Opt out</dt><dd>Reply STOP to any text, or click "unsubscribe" in any email, at any time.</dd>
+                <dt>Help</dt><dd>Reply HELP to any text, or email <a href="mailto:noreply@davenn.com">noreply@davenn.com</a>.</dd>
+            </dl>
+        </div>
+        <p>By submitting your phone number or email address on the home page, you consent to receive these messages. Carriers are not liable for delayed or undelivered messages. See our <a href="privacy.html">Privacy Policy</a> for how we handle your contact information.</p>
+
+        <h2>Using davenn.com</h2>
+        <p>davenn.com is a personal collection of small, independent utilities, provided as-is and free of charge. There's no guarantee of uptime, accuracy, or continued availability of any app — features can change or be removed at any time.</p>
+        <p>Some apps let you create an account or submit content (Toolshare listings and photos, Flight Tracker logs, leaderboard entries). You're responsible for what you submit, and it should be accurate, non-offensive, and something you have the right to post. We can remove content or accounts that violate this.</p>
+        <p>Don't use these apps to attempt to harm the site, other users, or third parties — including uploading malicious files, scraping at scale, or attempting to access another user's data.</p>
+
+        <h2>No warranty</h2>
+        <p>These tools are provided without warranty of any kind. davenn.com is not liable for any loss or damage arising from your use of the site or its apps, to the extent permitted by law.</p>
+
+        <h2>Contact</h2>
+        <p>Questions about these terms? Reach out at <a href="mailto:noreply@davenn.com">noreply@davenn.com</a>.</p>
+    </div>
+
+</body>
+</html>

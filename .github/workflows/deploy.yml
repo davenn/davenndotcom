@@ -14,7 +14,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2   # needed so FTP action can diff changed files
+          fetch-depth: 0   # full history — needed so FTP diff and the CHANGELOG diff both work regardless of how many commits were pushed
 
       # 2. Upload to GoDaddy via FTP
       #    Only uploads files that changed in the push — fast and safe.
@@ -36,3 +36,24 @@ jobs:
             **/uploads/**
             .env
             .env.*
+
+      # 3. Did this push change CHANGELOG.md?
+      - name: Detect changelog update
+        id: changelog
+        run: |
+          if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -qx 'CHANGELOG.md'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # 4. If so, text/email everyone subscribed to updates with the newest entry
+      - name: Notify subscribers
+        if: steps.changelog.outputs.changed == 'true'
+        run: |
+          ENTRY=$(awk '/^## /{c++} c==1' CHANGELOG.md)
+          PAYLOAD=$(jq -n --arg msg "$ENTRY" '{message: $msg}')
+          curl -sf -X POST "https://davenn.com/api.php?action=notify_subscribers" \
+            -H "Content-Type: application/json" \
+            -H "X-Admin-Secret: ${{ secrets.ADMIN_SECRET }}" \
+            -d "$PAYLOAD"

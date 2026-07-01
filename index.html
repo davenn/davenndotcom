@@ -102,6 +102,112 @@
             max-width: 460px;
         }
 
+        /* ── NOTIFY ── */
+        .notify {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 0 2rem 40px;
+        }
+
+        .notify-inner {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 22px 26px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        .notify-title {
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            margin-bottom: 4px;
+        }
+
+        .notify-sub {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .notify-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            flex: 1;
+            min-width: 260px;
+            max-width: 460px;
+        }
+
+        .notify-input-row { display: flex; gap: 8px; }
+
+        .notify-honeypot { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+
+        .notify-form input[type="text"]:not(.notify-honeypot) {
+            flex: 1;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            padding: 10px 12px;
+            border: 1px solid var(--card-border);
+            border-radius: 6px;
+            background: #fff;
+            color: var(--text-primary);
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        .notify-form input[type="text"]:not(.notify-honeypot):focus { border-color: var(--card-hover-border); }
+
+        .notify-consent {
+            display: flex;
+            align-items: flex-start;
+            gap: 7px;
+            font-family: var(--font-mono);
+            font-size: 10.5px;
+            line-height: 1.5;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+
+        .notify-consent input[type="checkbox"] { margin-top: 2px; flex-shrink: 0; cursor: pointer; }
+        .notify-consent a { color: var(--text-muted); text-decoration: underline; }
+        .notify-consent a:hover { color: var(--text-primary); }
+
+        .notify-form button {
+            font-family: var(--font-display);
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            background: var(--nav-bg);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 18px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: opacity 0.15s;
+        }
+
+        .notify-form button:hover { opacity: 0.85; }
+        .notify-form button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .notify-msg {
+            display: none;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            margin-top: 10px;
+            padding: 0 4px;
+        }
+
+        .notify-msg.show { display: block; }
+        .notify-msg.success { color: #1a7a3a; }
+        .notify-msg.error { color: #d93025; }
+
         /* ── SECTION HEADER ── */
         .section-header {
             max-width: 900px;
@@ -235,9 +341,17 @@
         footer p {
             font-family: var(--font-mono);
             font-size: 11px;
-            color: #ccc;
+            color: var(--text-muted);
             letter-spacing: 0.04em;
         }
+
+        footer a {
+            color: var(--text-muted);
+            text-decoration: underline;
+            transition: color 0.15s;
+        }
+
+        footer a:hover { color: var(--text-primary); }
 
         /* ── ANIMATIONS ── */
         .fade-in {
@@ -251,6 +365,8 @@
         @media (max-width: 480px) {
             .nav-links { display: none; }
             .apps-grid { grid-template-columns: 1fr; }
+            .notify-inner { flex-direction: column; align-items: stretch; }
+            .notify-form { max-width: none; }
         }
     </style>
 </head>
@@ -260,11 +376,33 @@
         <a class="nav-logo" href="/">davenn<span>dotcom</span></a>
         <ul class="nav-links">
             <li><a href="#apps">Apps</a></li>
+            <li><a href="#notify">Get updates</a></li>
         </ul>
     </nav>
 
     <section class="hero">
         <p class="hero-sub">A small collection of utilities for day-to-day work</p>
+    </section>
+
+    <section class="notify" id="notify">
+        <div class="notify-inner">
+            <div class="notify-text">
+                <div class="notify-title">Get notified about new apps</div>
+                <p class="notify-sub">Text or email me when something new ships.</p>
+            </div>
+            <form class="notify-form" id="notify-form" onsubmit="return subscribe(event)">
+                <input type="text" id="notify-website" class="notify-honeypot" tabindex="-1" autocomplete="off">
+                <div class="notify-input-row">
+                    <input type="text" id="notify-input" placeholder="Email or phone number" autocomplete="off" required>
+                    <button type="submit" id="notify-btn">Notify me</button>
+                </div>
+                <label class="notify-consent">
+                    <input type="checkbox" id="notify-consent">
+                    <span>I agree to receive texts/emails about davenn.com updates. Msg &amp; data rates may apply, frequency varies, reply STOP to opt out. See <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a> &amp; <a href="terms.html" target="_blank" rel="noopener">Terms</a>.</span>
+                </label>
+            </form>
+        </div>
+        <p class="notify-msg" id="notify-msg"></p>
     </section>
 
     <div class="section-header" id="apps">
@@ -331,6 +469,70 @@
         </a>
     </div>
 
+    <footer>
+        <p><a href="privacy.html">Privacy Policy</a> &nbsp;·&nbsp; <a href="terms.html">Terms &amp; SMS Program</a></p>
+    </footer>
+
+    <script>
+        const API_URL = 'https://davenn.com/api.php';
+
+        function detectContactType(value) {
+            if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'email';
+            if (value.replace(/[^\d]/g, '').length >= 7) return 'phone';
+            return null;
+        }
+
+        async function subscribe(e) {
+            e.preventDefault();
+            const input   = document.getElementById('notify-input');
+            const consent = document.getElementById('notify-consent');
+            const website = document.getElementById('notify-website').value;
+            const btn     = document.getElementById('notify-btn');
+            const msg     = document.getElementById('notify-msg');
+            const value   = input.value.trim();
+            const type    = detectContactType(value);
+
+            if (!type) {
+                msg.textContent = 'Enter a valid email or phone number.';
+                msg.className = 'notify-msg show error';
+                return false;
+            }
+
+            if (!consent.checked) {
+                msg.textContent = 'Please check the box to agree to receive updates.';
+                msg.className = 'notify-msg show error';
+                return false;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Submitting…';
+
+            try {
+                const res = await fetch(API_URL + '?action=subscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contact_type: type, contact_value: value, website })
+                });
+                const result = await res.json();
+                if (result && result.success) {
+                    msg.textContent = "You're in — we'll be in touch when something new ships.";
+                    msg.className = 'notify-msg show success';
+                    input.value = '';
+                    consent.checked = false;
+                } else {
+                    msg.textContent = (result && result.error) || 'Something went wrong — try again.';
+                    msg.className = 'notify-msg show error';
+                }
+            } catch (err) {
+                msg.textContent = 'Network error — try again.';
+                msg.className = 'notify-msg show error';
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Notify me';
+            return false;
+        }
+    </script>
 
 </body>
 </html>

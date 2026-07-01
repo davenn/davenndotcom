@@ -147,6 +147,15 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS tb_friendships (
     FOREIGN KEY (user_b) REFERENCES tb_users(id) ON DELETE CASCADE
 )");
 
+$pdo->exec("CREATE TABLE IF NOT EXISTS subscribers (
+    id            INT AUTO_INCREMENT PRIMARY KEY,
+    contact_type  ENUM('email','phone') NOT NULL,
+    contact_value VARCHAR(120) NOT NULL,
+    unsub_token   VARCHAR(64)  NOT NULL,
+    created_at    DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_contact (contact_type, contact_value)
+)");
+
 // ── HELPERS ────────────────────────────────────────────────────────────────
 function authUser(PDO $pdo): ?array {
     $token = $_SERVER['HTTP_X_AUTH_TOKEN'] ?? '';
@@ -170,6 +179,26 @@ function sendEmail(string $to, string $to_name, string $subject, string $body_ht
     $headers .= "Reply-To: {$from}\r\n";
     $headers .= "X-Mailer: PHP/" . phpversion();
     @mail($to, $subject, $body_html, $headers);
+}
+
+function sendSms(string $to, string $body): bool {
+    $sid   = $_ENV['TWILIO_ACCOUNT_SID'] ?? '';
+    $token = $_ENV['TWILIO_AUTH_TOKEN']  ?? '';
+    $from  = $_ENV['TWILIO_FROM_NUMBER'] ?? '';
+    if (!$sid || !$token || !$from) return false;
+
+    $ch = curl_init("https://api.twilio.com/2010-04-01/Accounts/{$sid}/Messages.json");
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_USERPWD        => "{$sid}:{$token}",
+        CURLOPT_POSTFIELDS     => http_build_query(['To' => $to, 'From' => $from, 'Body' => $body]),
+        CURLOPT_TIMEOUT        => 15,
+    ]);
+    curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    return $code >= 200 && $code < 300;
 }
 
 function borrowRequestEmail(array $owner, array $requester, array $tool, array $request,
@@ -1054,6 +1083,102 @@ if ($method === 'POST' && $action === 'dt_save') {
     $stmt = $pdo->prepare("INSERT INTO dt_scores (name, task_count, total_seconds, week_key) VALUES (?, ?, ?, ?)");
     $stmt->execute([$name, $task_count, $total_seconds, $week_key]);
     echo json_encode(['success' => true, 'id' => $pdo->lastInsertId()]); exit;
+}
+
+// ══════════════════════════════════════════════════════════════
+// UPDATE NOTIFICATIONS — SUBSCRIBERS
+// ══════════════════════════════════════════════════════════════
+
+// POST ?action=subscribe  body: { contact_type: 'email'|'phone', contact_value, website? }
+// "website" is an invisible honeypot field — real users never fill it in.
+if ($method === 'POST' && $action === 'subscribe') {
+    $body = json_decode(file_get_contents('php://input'), true);
+
+    if (!empty($body['website'])) { echo json_encode(['success' => true]); exit; } // bot — pretend success
+
+    $type = $body['contact_type']  ?? '';
+    $raw  = trim($body['contact_value'] ?? '');
+
+    if ($type === 'email') {
+        if (!filter_var($raw, FILTER_VALIDATE_EMAIL)) {
+            http_response_code(400); echo json_encode(['error' => 'Enter a valid email address.']); exit;
+        }
+        $value = strtolower($raw);
+    } elseif ($type === 'phone') {
+        $digits = preg_replace('/[^\d+]/', '', $raw);
+        if (!str_starts_with($digits, '+')) {
+            $digits = (strlen($digits) === 10) ? '+1' . $digits : '+' . $digits;
+        }
+        if (!preg_match('/^\+[1-9]\d{7,14}$/', $digits)) {
+            http_response_code(400); echo json_encode(['error' => 'Enter a valid phone number.']); exit;
+        }
+        $value = $digits;
+    } else {
+        http_response_code(400); echo json_encode(['error' => 'contact_type must be email or phone.']); exit;
+    }
+
+    $token = bin2hex(random_bytes(16));
+    try {
+        $stmt = $pdo->prepare("INSERT INTO subscribers (contact_type, contact_value, unsub_token) VALUES (?,?,?)");
+        $stmt->execute([$type, $value, $token]);
+    } catch (PDOException $e) {
+        // already subscribed — treat as success, no need to leak that to the client
+    }
+    echo json_encode(['success' => true]); exit;
+}
+
+// GET ?action=unsubscribe&token=xxx — clicked from an email/SMS, so it renders HTML, not JSON
+if ($method === 'GET' && $action === 'unsubscribe') {
+    $token = trim($_GET['token'] ?? '');
+    $stmt  = $pdo->prepare("DELETE FROM subscribers WHERE unsub_token = ?");
+    $stmt->execute([$token]);
+    $msg = $stmt->rowCount()
+        ? "You've been unsubscribed from davenn.com updates."
+        : "This unsubscribe link is invalid or already used.";
+    header('Content-Type: text/html; charset=utf-8');
+    echo "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Unsubscribed — davenn.com</title>
+    <style>body{font-family:sans-serif;max-width:480px;margin:80px auto;text-align:center;color:#111;padding:0 20px;}
+    a{color:#111;}</style></head><body><h2>{$msg}</h2><p><a href='/'>Return to davenn.com</a></p></body></html>";
+    exit;
+}
+
+// POST ?action=notify_subscribers  header: X-Admin-Secret  body: { message }
+// Called by the GitHub Actions deploy workflow when CHANGELOG.md changes.
+if ($method === 'POST' && $action === 'notify_subscribers') {
+    $admin_secret = $_ENV['ADMIN_SECRET'] ?? '';
+    $given        = $_SERVER['HTTP_X_ADMIN_SECRET'] ?? '';
+    if (!$admin_secret || !hash_equals($admin_secret, $given)) {
+        http_response_code(401); echo json_encode(['error' => 'Unauthorized']); exit;
+    }
+
+    $body    = json_decode(file_get_contents('php://input'), true);
+    $message = trim($body['message'] ?? '');
+    if (!$message) { http_response_code(400); echo json_encode(['error' => 'Missing message.']); exit; }
+
+    $subs    = $pdo->query("SELECT * FROM subscribers")->fetchAll();
+    $emailed = 0; $texted = 0; $failed = [];
+
+    foreach ($subs as $sub) {
+        $unsub_url = "https://davenn.com/api.php?action=unsubscribe&token=" . $sub['unsub_token'];
+        if ($sub['contact_type'] === 'email') {
+            $html = "<div style='font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px;'>
+              <h2 style='margin:0 0 16px;'>New on davenn.com</h2>
+              <p style='white-space:pre-line;'>" . nl2br(htmlspecialchars($message)) . "</p>
+              <p style='margin-top:24px;'>
+                <a href='https://davenn.com' style='background:#111;color:#fff;padding:10px 20px;
+                   border-radius:6px;text-decoration:none;font-weight:bold;'>Check it out</a>
+              </p>
+              <p style='margin-top:24px;font-size:12px;color:#999;'><a href='{$unsub_url}' style='color:#999;'>Unsubscribe</a></p>
+            </div>";
+            sendEmail($sub['contact_value'], '', 'davenn.com — new update', $html, $mail_from, $mail_from_name);
+            $emailed++;
+        } elseif ($sub['contact_type'] === 'phone') {
+            $ok = sendSms($sub['contact_value'], $message . "\n\ndavenn.com — Reply STOP to unsubscribe.");
+            if ($ok) $texted++; else $failed[] = $sub['contact_value'];
+        }
+    }
+
+    echo json_encode(['success' => true, 'emailed' => $emailed, 'texted' => $texted, 'failed' => $failed]); exit;
 }
 
 // =============================================================

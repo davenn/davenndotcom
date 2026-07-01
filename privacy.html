@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy — davenn.com</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --nav-bg: #111110;
+            --nav-border: rgba(255,255,255,0.08);
+            --nav-height: 56px;
+            --body-bg: #ffffff;
+            --text-primary: #111110;
+            --text-muted: #666;
+            --card-bg: #f7f6f3;
+            --card-border: #e8e6e0;
+            --font-display: 'Syne', sans-serif;
+            --font-mono: 'DM Mono', monospace;
+        }
+
+        html, body { height: 100%; }
+        body { font-family: var(--font-display); background: var(--body-bg); color: var(--text-primary); }
+
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; height: var(--nav-height);
+            background: var(--nav-bg); border-bottom: 1px solid var(--nav-border);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 2rem; z-index: 100;
+        }
+        .nav-logo { font-family: var(--font-mono); font-size: 15px; font-weight: 500; color: #fff; letter-spacing: -0.02em; text-decoration: none; }
+        .nav-logo span { color: rgba(255,255,255,0.35); }
+        .nav-back { font-family: var(--font-mono); font-size: 12px; color: rgba(255,255,255,0.45); text-decoration: none; letter-spacing: 0.04em; text-transform: uppercase; transition: color 0.15s; }
+        .nav-back:hover { color: rgba(255,255,255,0.9); }
+
+        .content { max-width: 680px; margin: 0 auto; padding: calc(var(--nav-height) + 56px) 2rem 80px; }
+
+        .page-eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 14px; }
+        h1 { font-size: clamp(1.9rem, 4vw, 2.6rem); font-weight: 800; letter-spacing: -0.03em; margin-bottom: 8px; }
+        .updated { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); margin-bottom: 40px; }
+
+        h2 { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.01em; margin: 36px 0 12px; }
+        p, li { font-family: var(--font-mono); font-size: 13.5px; line-height: 1.75; color: #333; margin-bottom: 12px; }
+        ul { padding-left: 20px; margin-bottom: 12px; }
+        a { color: var(--text-primary); }
+
+        .box { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 20px 22px; margin: 12px 0 20px; }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <a class="nav-logo" href="/">davenn<span>dotcom</span></a>
+        <a class="nav-back" href="index.html">← Back</a>
+    </nav>
+
+    <div class="content">
+        <div class="page-eyebrow">Legal</div>
+        <h1>Privacy Policy</h1>
+        <div class="updated">Last updated July 2026</div>
+
+        <p>davenn.com is a small collection of independent utilities. This page explains what information the site collects, why, and how you can have it removed.</p>
+
+        <h2>Update notifications</h2>
+        <p>If you sign up on the home page to be notified about new apps and features, we store the phone number or email address you submit, along with an unsubscribe token. That's it — no name, no account required.</p>
+        <div class="box">
+            <p style="margin:0;">We use this only to send you a text or email when something new ships on davenn.com. We do not sell, rent, or share this information with anyone outside the vendors listed below, and we don't send marketing for anything other than davenn.com itself.</p>
+        </div>
+        <p>You can unsubscribe at any time — every text includes reply-STOP instructions, and every email includes an unsubscribe link. Clicking that link removes your contact info immediately.</p>
+
+        <h2>Individual apps</h2>
+        <p>Some apps on this site store additional data needed for that app to function:</p>
+        <ul>
+            <li><strong>Toolshare</strong> — an account (username, hashed password, display name, email), any tools you list (including photos you upload), and borrow-request messages between friends.</li>
+            <li><strong>Flight Tracker</strong> — an account (username, hashed password, display name) and the flight log entries you add.</li>
+            <li><strong>Leaderboards</strong> (Meeting Cost Timer, Track Timer, Reaction Test, Face Breaker, Daily Tasks) — the name or title you type in when saving a result, plus the score/time itself. No account or contact info is required to appear on a leaderboard.</li>
+        </ul>
+        <p>Passwords are never stored in plain text. Tool photos you upload to Toolshare are stored on our hosting server and are visible to friends you've connected with in the app.</p>
+
+        <h2>Third-party services we use</h2>
+        <ul>
+            <li><strong>Twilio</strong> — delivers the SMS update notifications. Your phone number is shared with Twilio only to send that message.</li>
+            <li><strong>Anthropic (Claude API)</strong> — when you use Toolshare's photo auto-identify feature, the photo you upload is sent to Anthropic's API to detect the tool name/brand. It is not stored by Anthropic beyond processing the request.</li>
+            <li><strong>GoDaddy</strong> — our web host and database provider for davenn.com.</li>
+        </ul>
+
+        <h2>Local storage</h2>
+        <p>Some apps (Pomodoro, Daily Tasks, Track Timer, and others) save your in-progress session or theme preference in your browser's local storage so it survives a page refresh. This data never leaves your device and isn't something we can see or access.</p>
+
+        <h2>Data removal</h2>
+        <p>To remove your update-notification contact info, use the unsubscribe link/reply included in any message we send, or email us at the address below. To delete a Toolshare or Flight Tracker account, or remove a leaderboard entry, contact us and we'll take care of it.</p>
+
+        <h2>Contact</h2>
+        <p>Questions about this policy or your data? Reach out at <a href="mailto:noreply@davenn.com">noreply@davenn.com</a>.</p>
+    </div>
+
+</body>
+</html>
