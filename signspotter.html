@@ -174,7 +174,7 @@ html, body { height: 100%; background: #0f0f13; color: #fff; font-family: system
   <p class="app-sub">Point your camera at an object to look up how to sign it in ASL.</p>
   <button class="btn-main" id="btn-start">📷 Start Camera</button>
   <p class="btn-hint">Rear camera · Nothing is recorded or sent anywhere</p>
-  <p class="disclaimer">Sign references come from Lifeprint.com (ASL University) — a free, independent ASL dictionary. Coverage is limited to ~25 common objects for this prototype.</p>
+  <p class="disclaimer">Sign references come from Lifeprint.com (ASL University) — a free, independent ASL dictionary. Covers 63 of coco-ssd's 80 detectable objects.</p>
   <a class="back-link" href="index.html" style="margin-top: 14px;">← Home</a>
 </div>
 
@@ -259,7 +259,67 @@ const SIGN_LIBRARY = {
   'bed':          { word: 'Bed',      page: '/asl101/pages-signs/b/bed.htm',       media: '/asl101/images-signs/bed.gif' },
   'couch':        { word: 'Couch',    page: '/asl101/pages-signs/c/couch.htm',     media: '/asl101/gifs/c/couch.gif' },
   'dining table': { word: 'Table',    page: '/asl101/pages-signs/t/table.htm',     media: '/asl101/gifs/t/table.gif' },
+
+  // Vehicles
+  'motorcycle':   { word: 'Motorcycle', page: '/asl101/pages-signs/m/motorcycle.htm', media: '/asl101/gifs/m/motorcycle.gif' },
+  'airplane':     { word: 'Airplane',   page: '/asl101/pages-signs/a/airplane.htm',   media: '/asl101/gifs/a/airplane.gif' },
+  'bus':          { word: 'Bus',        page: '/asl101/pages-signs/b/bus.htm',        media: '/asl101/signjpegs/b/bus1.jpg', note: 'Often fingerspelled B-U-S' },
+  'train':        { word: 'Train',      page: '/asl101/pages-signs/t/train.htm',      media: '/asl101/gifs/t/train.gif' },
+  'truck':        { word: 'Truck',      page: '/asl101/pages-signs/t/truck.htm',      media: '/asl101/signjpegs/t/truck1.jpg', note: 'Usually fingerspelled T-R-U-C-K' },
+  'boat':         { word: 'Boat',       page: '/asl101/pages-signs/b/boat.htm',       media: '/asl101/images-signs/boat02.gif' },
+
+  // Animals
+  'bench':        { word: 'Bench',      page: '/asl101/pages-signs/b/bench.htm',      media: '/asl101/signjpegs/b/bench1.jpg', note: 'Modified form of the CHAIR sign' },
+  'bird':         { word: 'Bird',       page: '/asl101/pages-signs/b/bird.htm',       media: '/asl101/gifs/b/bird.gif' },
+  'horse':        { word: 'Horse',      page: '/asl101/pages-signs/h/horse.htm',      media: '/asl101/gifs/h/horse.gif' },
+  'sheep':        { word: 'Sheep',      page: '/asl101/pages-signs/s/sheep.htm',      media: '/asl101/signjpegs/s/sheep.jpg' },
+  'cow':          { word: 'Cow',        page: '/asl101/pages-signs/c/cow.htm',        media: '/asl101/gifs/c/cow.gif' },
+  'elephant':     { word: 'Elephant',   page: '/asl101/pages-signs/e/elephant.htm',   media: '/asl101/gifs-animated/elephant.gif' },
+  'bear':         { word: 'Bear',       page: '/asl101/pages-signs/b/bear.htm',       media: '/asl101/gifs/b/bear.gif' },
+  'zebra':        { word: 'Zebra',      page: '/asl101/pages-signs/z/zebra.htm',      media: '/asl101/gifs/z/zebra-stripes-torso.gif', note: 'No single established sign — one common approach shown' },
+  'giraffe':      { word: 'Giraffe',    page: '/asl101/pages-signs/g/giraffe.htm',    media: '/asl101/gifs/g/giraffe.gif' },
+
+  // Accessories & sports gear
+  'handbag':      { word: 'Handbag',    page: '/asl101/pages-signs/p/purse.htm',      media: '/asl101/gifs-animated/purse.gif', note: 'Same sign covers purse, handbag, briefcase, and suitcase' },
+  'tie':          { word: 'Tie',        page: '/asl101/pages-signs/t/tie.htm',        media: '/asl101/signjpegs/t/tie.ht81.jpg', note: 'Necktie sign — page also covers unrelated "tied score" and "knot" meanings' },
+  'suitcase':     { word: 'Suitcase',   page: '/asl101/pages-signs/s/suitcase.htm',   media: '/asl101/signjpegs/p/purse.1.jpg', note: 'Same sign as handbag/purse — context distinguishes the meaning' },
+  'frisbee':      { word: 'Frisbee',    page: '/asl101/pages-signs/f/frisbee.htm',    media: '/asl101/signjpegs/f/frisbe39.jpg', note: 'No single established sign — page teaches fingerspelling/mime instead' },
+  'snowboard':    { word: 'Snowboard',  page: '/asl101/pages-signs/s/snowboarding.htm', media: '/asl101/images-signs/snowboard-s.gif', note: 'Sign has evolved — newer bent-hand variant shown' },
+  'sports ball':  { word: 'Ball',       page: '/asl101/pages-signs/b/ball.htm',       media: '/asl101/signjpegs/b/ball1.jpg', note: 'Generic round-ball sign, not the "formal dance" sense of ball' },
+  'kite':         { word: 'Kite',       page: '/asl101/pages-signs/k/kite.htm',       media: '/asl101/signjpegs/k/kite.h30.jpg' },
+  'baseball bat': { word: 'Baseball Bat', page: '/asl101/pages-signs/b/baseball.htm', media: '/asl101/signjpegs/b/baseball1.jpg', note: 'Batting mime sign — deliberately not bat.htm, which defaults to the animal' },
+  'skateboard':   { word: 'Skateboard', page: '/asl101/pages-signs/s/skateboard.htm', media: '/asl101/gifs-animated/skateboard.gif' },
+
+  // Food
+  'sandwich':     { word: 'Sandwich',   page: '/asl101/pages-signs/s/sandwich.htm',   media: '/asl101/gifs/s/sandwich.gif' },
+  'hot dog':      { word: 'Hot Dog',    page: '/asl101/pages-signs/h/hotdog.htm',     media: '/asl101/gifs/h/hotdog.gif' },
+  'pizza':        { word: 'Pizza',      page: '/asl101/pages-signs/p/pizza.htm',      media: '/asl101/gifs/p/pizza.gif' },
+  'donut':        { word: 'Donut',      page: '/asl101/pages-signs/d/donut.htm',      media: '/asl101/signjpegs/d/donut.1.jpg' },
+  'cake':         { word: 'Cake',       page: '/asl101/pages-signs/c/cake.htm',       media: '/asl101/signjpegs/c/cake.h13.jpg', note: 'Site recommends fingerspelling as the safest option' },
+  'broccoli':     { word: 'Broccoli',   page: '/asl101/pages-signs/b/broccoli.htm',   media: null, note: 'Signs vary regionally — see page for video examples, no static reference image' },
+
+  // Household
+  'potted plant': { word: 'Plant',      page: '/asl101/pages-signs/p/plant.htm',      media: '/asl101/gifs-animated/plant.gif' },
+  'toilet':       { word: 'Toilet',     page: '/asl101/pages-signs/t/toilet.htm',     media: '/asl101/signjpegs/b/bathroom1.jpg', note: 'Signed as "bathroom"' },
+  'microwave':    { word: 'Microwave',  page: '/asl101/pages-signs/m/microwave.htm',  media: '/asl101/gifs/m/microwave-1.gif' },
+  'oven':         { word: 'Oven',       page: '/asl101/pages-signs/o/oven.htm',       media: '/asl101/gifs/o/oven.gif', note: 'Often fingerspelled O-V-E-N' },
+  'sink':         { word: 'Sink',       page: '/asl101/pages-signs/s/sink.htm',       media: '/asl101/signjpegs/s/sink1.jpg', note: 'Household fixture sense, not the verb "to sink"' },
+  'refrigerator': { word: 'Refrigerator', page: '/asl101/pages-signs/r/refrigerator.htm', media: '/asl101/gifs/r/refrigerator-r-e-f.gif' },
+  'hair drier':   { word: 'Hair Dryer', page: '/asl101/pages-signs/h/hairdryer.htm',  media: '/asl101/gifs-animated/hairdryer.gif' },
 };
+
+// Confirmed absent from Lifeprint entirely (empty auto-generated stub pages or
+// straight 404s across every reasonable word-form variant) — permanently
+// excluded rather than guessed: traffic light, fire hydrant, stop sign,
+// parking meter, skis, baseball glove, surfboard, tennis racket, carrot,
+// toaster, vase, laptop, remote, teddy bear, toothbrush.
+//
+// Deliberately excluded despite having *some* Lifeprint content, because
+// showing them would present a guess or a linguistic error as verified fact:
+// - "person": PERSON on Lifeprint is a grammatical agentive suffix (as in
+//   TEACH+PERSON="teacher"), not a standalone sign for "a human being."
+// - "wine glass": no dedicated sign exists; the only option is stretching
+//   CUP's size variant, which isn't a real distinct sign for this object.
 
 function signFor(label) {
   const entry = SIGN_LIBRARY[label];
