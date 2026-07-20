@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>SignSpotter — davenn.com</title>
+<link rel="manifest" href="/manifest-signspotter.json">
+<meta name="theme-color" content="#0f0f13">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: #0f0f13; color: #fff; font-family: system-ui, sans-serif; overflow: hidden; touch-action: none; }
+
+.screen {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 20px; padding: 2rem;
+}
+.screen.hidden { display: none; }
+
+/* ── INTRO ── */
+.app-title {
+  font-size: clamp(2.6rem, 13vw, 4.2rem); font-weight: 900;
+  letter-spacing: -0.04em; line-height: 0.95; text-align: center;
+}
+.app-title span { color: rgba(255,255,255,0.25); display: block; font-size: 0.4em; font-weight: 400; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px; }
+.app-sub { font-size: 14px; color: rgba(255,255,255,0.45); font-family: monospace; letter-spacing: 0.02em; text-align: center; line-height: 1.6; max-width: 340px; }
+
+.btn-main {
+  margin-top: 8px; padding: 16px 36px;
+  font-size: 16px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  background: #fff; color: #0f0f13;
+  border: none; border-radius: 40px; cursor: pointer;
+  transition: transform 0.12s, opacity 0.12s;
+}
+.btn-main:active { transform: scale(0.96); opacity: 0.85; }
+.btn-hint { font-size: 11px; color: rgba(255,255,255,0.25); font-family: monospace; text-align: center; }
+
+.disclaimer {
+  font-size: 10.5px; color: rgba(255,255,255,0.3); font-family: monospace;
+  text-align: center; max-width: 320px; line-height: 1.6; margin-top: 4px;
+}
+
+/* ── LOADING ── */
+.spinner {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.1);
+  border-top-color: #fff;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-family: monospace; font-size: 13px; color: rgba(255,255,255,0.5); letter-spacing: 0.06em; }
+
+/* ── CAMERA ── */
+#screen-camera { padding: 0; display: block; }
+.cam-wrap { position: fixed; inset: 0; background: #000; }
+#video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+#overlay { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+.box-label {
+  position: absolute;
+  font-family: monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.03em;
+  color: #0f0f13; background: #7ee787;
+  padding: 3px 7px; border-radius: 4px;
+  transform: translateY(-100%);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ── SIGN PANEL ── */
+.sign-panel {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 15;
+  background: #13131a; border-top: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px 20px 0 0;
+  padding: 18px 20px calc(18px + env(safe-area-inset-bottom));
+  transform: translateY(100%);
+  transition: transform 0.22s ease;
+  max-height: 62vh;
+  overflow-y: auto;
+}
+.sign-panel.open { transform: translateY(0); }
+
+.sign-panel-handle {
+  width: 36px; height: 4px; border-radius: 2px;
+  background: rgba(255,255,255,0.2);
+  margin: 0 auto 14px;
+}
+
+.sign-word {
+  font-size: 24px; font-weight: 900; letter-spacing: -0.02em;
+  margin-bottom: 2px;
+}
+.sign-confidence {
+  font-family: monospace; font-size: 11px; color: rgba(255,255,255,0.4);
+  margin-bottom: 14px;
+}
+
+.sign-diagram {
+  width: 100%; min-height: 140px;
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  text-align: center; padding: 16px;
+  margin-bottom: 8px;
+  background: #fff;
+  overflow: hidden;
+}
+.sign-diagram.no-media { background: rgba(255,255,255,0.03); border-style: dashed; border-color: rgba(255,255,255,0.2); }
+.sign-diagram img { max-width: 100%; max-height: 220px; display: block; }
+.sign-diagram-text {
+  font-family: monospace; font-size: 11.5px; color: rgba(255,255,255,0.35);
+  line-height: 1.6;
+}
+
+.sign-attribution {
+  font-family: monospace; font-size: 10px; color: rgba(255,255,255,0.3);
+  text-align: center; margin-bottom: 14px;
+}
+.sign-attribution a { color: rgba(255,255,255,0.45); }
+
+.sign-note {
+  font-family: monospace; font-size: 11px; color: rgba(255,255,255,0.45);
+  text-align: center; margin: -4px 0 14px; line-height: 1.5;
+}
+
+.sign-link {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 13px; border-radius: 10px;
+  background: #fff; color: #0f0f13;
+  font-size: 13px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase;
+  text-decoration: none;
+}
+
+.sign-close {
+  position: absolute; top: 14px; right: 16px;
+  background: none; border: none; color: rgba(255,255,255,0.4);
+  font-size: 20px; line-height: 1; cursor: pointer; padding: 6px;
+}
+
+/* ── HUD ── */
+.hud-top {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: calc(12px + env(safe-area-inset-top)) 16px 12px;
+  background: linear-gradient(rgba(0,0,0,0.55), transparent);
+}
+.hud-status {
+  font-family: monospace; font-size: 11px; color: rgba(255,255,255,0.6);
+  letter-spacing: 0.05em; text-transform: uppercase;
+}
+
+/* ── BACK LINK ── */
+.back-link {
+  font-family: monospace; font-size: 11px; color: rgba(255,255,255,0.6);
+  text-decoration: none; letter-spacing: 0.06em; text-transform: uppercase;
+  transition: color 0.15s;
+}
+.back-link:hover { color: #fff; }
+
+/* ── ERROR ── */
+.error-box {
+  text-align: center; font-family: monospace; font-size: 13px;
+  color: rgba(255,255,255,0.6); line-height: 1.7; max-width: 320px;
+}
+</style>
+</head>
+<body>
+
+<!-- ── INTRO ── -->
+<div id="screen-intro" class="screen">
+  <div class="app-title">
+    <span>davenn.com</span>
+    Sign<br>Spotter
+  </div>
+  <p class="app-sub">Point your camera at an object to look up how to sign it in ASL.</p>
+  <button class="btn-main" id="btn-start">📷 Start Camera</button>
+  <p class="btn-hint">Rear camera · Nothing is recorded or sent anywhere</p>
+  <p class="disclaimer">Sign references come from Lifeprint.com (ASL University) — a free, independent ASL dictionary. Coverage is limited to ~25 common objects for this prototype.</p>
+  <a class="back-link" href="index.html" style="margin-top: 14px;">← Home</a>
+</div>
+
+<!-- ── LOADING ── -->
+<div id="screen-loading" class="screen hidden">
+  <div class="spinner"></div>
+  <p class="loading-text" id="loading-text">Loading object recognition…</p>
+</div>
+
+<!-- ── ERROR ── -->
+<div id="screen-error" class="screen hidden">
+  <p class="error-box" id="error-text">Camera access was denied. Enable camera permissions for this site and try again.</p>
+  <button class="btn-main" id="btn-retry">Try Again</button>
+  <a class="back-link" href="index.html">← Home</a>
+</div>
+
+<!-- ── CAMERA ── -->
+<div id="screen-camera" class="screen hidden">
+  <div class="cam-wrap">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="overlay"></canvas>
+  </div>
+
+  <div class="hud-top">
+    <a class="back-link" href="index.html">← Home</a>
+    <span class="hud-status" id="hud-status">Scanning…</span>
+  </div>
+
+  <div class="sign-panel" id="sign-panel">
+    <button class="sign-close" id="btn-panel-close">×</button>
+    <div class="sign-panel-handle"></div>
+    <div class="sign-word" id="sign-word">—</div>
+    <div class="sign-confidence" id="sign-confidence"></div>
+    <div class="sign-diagram" id="sign-diagram"></div>
+    <p class="sign-attribution">Sign reference: <a href="https://www.lifeprint.com/" target="_blank" rel="noopener">Lifeprint.com (ASL University)</a></p>
+    <p class="sign-note" id="sign-note" style="display:none"></p>
+    <a class="sign-link" id="sign-link" href="#" target="_blank" rel="noopener">View on Lifeprint ↗</a>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────
+const DETECT_INTERVAL_MS = 500;   // throttle inference — coco-ssd is too heavy to run every frame
+const MIN_SCORE          = 0.6;
+const PANEL_STICKY_MS     = 1500; // ignore a new top pick for this long after showing one, so the panel doesn't flicker between two close detections
+
+// Known object labels (from the COCO-SSD 80-class set) mapped to a verified
+// Lifeprint.com (ASL University) page + media asset. Every URL here was
+// checked by hand — Lifeprint's asset layout isn't fully consistent
+// (some words use gifs/, others gifs-animated/ or images-signs/, some only
+// have static JPG frames, some have no dedicated page at all), so nothing
+// here is guessed or templated. Words with no real Lifeprint content
+// (laptop, remote, teddy bear, toothbrush all resolve to empty stub pages)
+// are intentionally omitted — those fall back to the generic case.
+const LIFEPRINT_BASE = 'https://www.lifeprint.com';
+const SIGN_LIBRARY = {
+  'cell phone':   { word: 'Phone',    page: '/asl101/pages-signs/t/telephone.htm', media: '/asl101/gifs-animated/phone-01.gif' },
+  'tv':           { word: 'TV',       page: '/asl101/pages-signs/t/tv.htm',        media: null, note: 'Fingerspelled T-V — no single sign' },
+  'cup':          { word: 'Cup',      page: '/asl101/pages-signs/c/cup.htm',       media: '/asl101/gifs/c/cup.gif' },
+  'bottle':       { word: 'Bottle',   page: '/asl101/pages-signs/b/bottle.htm',    media: '/asl101/signjpegs/b/bottle-35.jpg', note: 'Sign varies by bottle shape/size' },
+  'book':         { word: 'Book',     page: '/asl101/pages-signs/b/book.htm',      media: '/asl101/gifs/b/book.gif' },
+  'chair':        { word: 'Chair',    page: '/asl101/pages-signs/c/chair.htm',     media: '/asl101/signjpegs/c/chair-01.jpg' },
+  'dog':          { word: 'Dog',      page: '/asl101/pages-signs/d/dog.htm',       media: '/asl101/gifs/d/dog1.gif' },
+  'cat':          { word: 'Cat',      page: '/asl101/pages-signs/c/cat.htm',       media: '/asl101/gifs/c/cat.gif' },
+  'apple':        { word: 'Apple',    page: '/asl101/pages-signs/a/apple.htm',     media: '/asl101/gifs/a/apple.gif' },
+  'banana':       { word: 'Banana',   page: '/asl101/pages-signs/b/banana.htm',    media: '/asl101/gifs/b/banana.gif' },
+  'orange':       { word: 'Orange',   page: '/asl101/pages-signs/o/orange.htm',    media: '/asl101/gifs/o/orange.gif' },
+  'spoon':        { word: 'Spoon',    page: '/asl101/pages-signs/s/spoon.htm',     media: '/asl101/images-signs/spoon.gif' },
+  'fork':         { word: 'Fork',     page: '/asl101/pages-signs/f/fork.htm',      media: '/asl101/images-signs/fork.gif' },
+  'knife':        { word: 'Knife',    page: '/asl101/pages-signs/k/knife.htm',     media: '/asl101/signjpegs/k/knife.9.jpg', note: 'Several variations shown on page depending on context' },
+  'bowl':         { word: 'Bowl',     page: '/asl101/pages-signs/b/bowl.htm',      media: '/asl101/gifs-animated/bowl.gif' },
+  'clock':        { word: 'Clock',    page: '/asl101/pages-signs/c/clock.htm',     media: '/asl101/gifs-animated/clock.gif' },
+  'scissors':     { word: 'Scissors', page: '/asl101/pages-signs/s/scissors.htm',  media: null },
+  'backpack':     { word: 'Backpack', page: '/asl101/pages-signs/b/backpack.htm',  media: '/asl101/gifs/b/backpack-bag.gif', note: 'Several regional variants shown on page' },
+  'umbrella':     { word: 'Umbrella', page: '/asl101/pages-signs/u/umbrella.htm',  media: null },
+  'keyboard':     { word: 'Keyboard', page: '/asl101/pages-signs/k/keyboard.htm',  media: null },
+  'mouse':        { word: 'Mouse',    page: '/asl101/pages-signs/m/mouse.htm',     media: '/asl101/gifs/m/mouse-computer.gif', note: 'Computer mouse sign, not the animal' },
+  'bicycle':      { word: 'Bicycle',  page: '/asl101/pages-signs/b/bicycle.htm',   media: '/asl101/gifs/b/bicycle.gif' },
+  'car':          { word: 'Car',      page: '/asl101/pages-signs/c/car.htm',       media: '/asl101/images-signs/cardrive.gif' },
+  'bed':          { word: 'Bed',      page: '/asl101/pages-signs/b/bed.htm',       media: '/asl101/images-signs/bed.gif' },
+  'couch':        { word: 'Couch',    page: '/asl101/pages-signs/c/couch.htm',     media: '/asl101/gifs/c/couch.gif' },
+  'dining table': { word: 'Table',    page: '/asl101/pages-signs/t/table.htm',     media: '/asl101/gifs/t/table.gif' },
+};
+
+function signFor(label) {
+  const entry = SIGN_LIBRARY[label];
+  if (entry) {
+    return {
+      word: entry.word,
+      mediaUrl: entry.media ? LIFEPRINT_BASE + entry.media : null,
+      pageUrl: LIFEPRINT_BASE + entry.page,
+      note: entry.note || null,
+      covered: true
+    };
+  }
+  return {
+    word: label.replace(/\b\w/g, c => c.toUpperCase()),
+    mediaUrl: null,
+    pageUrl: LIFEPRINT_BASE + '/',
+    note: null,
+    covered: false
+  };
+}
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let video, overlayCanvas, overlayCtx;
+let model = null;
+let stream = null;
+let detecting = false;
+let currentLabel = null;
+let lastShownAt = 0;
+
+// ── BOOT ──────────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  video = document.getElementById('video');
+  overlayCanvas = document.getElementById('overlay');
+  overlayCtx = overlayCanvas.getContext('2d');
+
+  document.getElementById('btn-start').addEventListener('click', start);
+  document.getElementById('btn-retry').addEventListener('click', start);
+  document.getElementById('btn-panel-close').addEventListener('click', closePanel);
+  window.addEventListener('resize', sizeOverlay);
+});
+
+async function start() {
+  show('loading');
+  setLoadingText('Loading object recognition…');
+
+  try {
+    if (!model) model = await cocoSsd.load();
+  } catch (e) {
+    console.warn('model load failed', e);
+    showError('Could not load the object recognition model. Check your connection and try again.');
+    return;
+  }
+
+  setLoadingText('Requesting camera…');
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' } },
+      audio: false
+    });
+  } catch (e) {
+    showError('Camera access was denied. Enable camera permissions for this site and try again.');
+    return;
+  }
+
+  video.srcObject = stream;
+  await new Promise(res => { video.onloadedmetadata = res; });
+  await video.play();
+
+  sizeOverlay();
+  show('camera');
+  detecting = true;
+  detectLoop();
+}
+
+function showError(msg) {
+  document.getElementById('error-text').textContent = msg;
+  show('error');
+}
+
+function sizeOverlay() {
+  if (!video || !video.videoWidth) return;
+  overlayCanvas.width = video.clientWidth;
+  overlayCanvas.height = video.clientHeight;
+}
+
+// ── DETECTION LOOP ────────────────────────────────────────────────────────
+async function detectLoop() {
+  if (!detecting) return;
+  try {
+    const predictions = await model.detect(video);
+    drawBoxes(predictions);
+    handleTopPick(predictions);
+  } catch (e) {
+    console.warn('detect failed', e);
+  }
+  setTimeout(detectLoop, DETECT_INTERVAL_MS);
+}
+
+function drawBoxes(predictions) {
+  sizeOverlay();
+  overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+  if (!video.videoWidth) return;
+
+  const sx = overlayCanvas.width / video.videoWidth;
+  const sy = overlayCanvas.height / video.videoHeight;
+
+  overlayCtx.strokeStyle = '#7ee787';
+  overlayCtx.lineWidth = 2;
+
+  document.querySelectorAll('.box-label').forEach(el => el.remove());
+
+  for (const p of predictions) {
+    if (p.score < MIN_SCORE) continue;
+    const [x, y, w, h] = p.bbox;
+    const bx = x * sx, by = y * sy, bw = w * sx, bh = h * sy;
+    overlayCtx.strokeRect(bx, by, bw, bh);
+
+    const label = document.createElement('div');
+    label.className = 'box-label';
+    label.style.left = bx + 'px';
+    label.style.top = by + 'px';
+    label.textContent = `${p.class} ${Math.round(p.score * 100)}%`;
+    overlayCanvas.parentElement.appendChild(label);
+  }
+}
+
+function handleTopPick(predictions) {
+  const top = predictions.filter(p => p.score >= MIN_SCORE).sort((a, b) => b.score - a.score)[0];
+  const status = document.getElementById('hud-status');
+
+  if (!top) {
+    status.textContent = 'Scanning…';
+    return;
+  }
+
+  status.textContent = `Seeing: ${top.class}`;
+
+  const now = performance.now();
+  if (top.class === currentLabel && now - lastShownAt < PANEL_STICKY_MS) return;
+  if (top.class === currentLabel) return; // already showing this one, panel stays open
+
+  currentLabel = top.class;
+  lastShownAt = now;
+  showSignPanel(top);
+}
+
+function showSignPanel(prediction) {
+  const sign = signFor(prediction.class);
+  document.getElementById('sign-word').textContent = sign.word;
+  document.getElementById('sign-confidence').textContent = `Detected · ${Math.round(prediction.score * 100)}% confidence`;
+
+  const diagram = document.getElementById('sign-diagram');
+  diagram.innerHTML = '';
+  if (sign.mediaUrl) {
+    diagram.classList.remove('no-media');
+    const img = document.createElement('img');
+    img.src = sign.mediaUrl;
+    img.alt = `ASL sign for ${sign.word}`;
+    img.onerror = () => {
+      diagram.classList.add('no-media');
+      diagram.innerHTML = '<div class="sign-diagram-text">Reference image failed to load — use the link below</div>';
+    };
+    diagram.appendChild(img);
+  } else {
+    diagram.classList.add('no-media');
+    const text = sign.covered
+      ? 'No animated reference for this one — see the Lifeprint page for photos/description'
+      : 'Not yet verified against a real ASL reference — Lifeprint may still have it, check the link below';
+    diagram.innerHTML = `<div class="sign-diagram-text">${text}</div>`;
+  }
+
+  const noteEl = document.getElementById('sign-note');
+  if (sign.note) {
+    noteEl.textContent = sign.note;
+    noteEl.style.display = '';
+  } else {
+    noteEl.style.display = 'none';
+  }
+
+  document.getElementById('sign-link').href = sign.pageUrl;
+  document.getElementById('sign-panel').classList.add('open');
+}
+
+function closePanel() {
+  document.getElementById('sign-panel').classList.remove('open');
+  currentLabel = null;
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────
+function show(name) {
+  ['intro', 'loading', 'error', 'camera'].forEach(s =>
+    document.getElementById(`screen-${s}`).classList.toggle('hidden', s !== name)
+  );
+}
+
+function setLoadingText(t) { document.getElementById('loading-text').textContent = t; }
+</script>
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+</body>
+</html>

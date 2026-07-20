@@ -1,0 +1,12 @@
+{
+  "name": "SignSpotter",
+  "short_name": "SignSpotter",
+  "start_url": "/signspotter.html",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#0f0f13",
+  "background_color": "#0f0f13",
+  "icons": [
+    { "src": "/icons/signspotter.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
