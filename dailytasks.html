@@ -712,7 +712,7 @@ renderTasks();
 updateAuthUI();
 if (authToken) pullFromServer();
 setInterval(tickRunning, 1000);
-setInterval(pollServer, 25000);
+setInterval(pollServer, 2000);
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) {
     checkDailyReset();
