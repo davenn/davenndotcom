@@ -428,7 +428,16 @@ function pushToServer() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ date: state.date, tasks: state.tasks, next_id: state.nextId })
     });
+    syncTimer = null;
   }, 400);
+}
+
+// Periodic poll so two devices open at the same time converge without needing
+// a page reload. Skipped while a local push is still pending, so it can't
+// stomp on an edit that hasn't reached the server yet.
+function pollServer() {
+  if (!authToken || document.hidden || syncTimer) return;
+  pullFromServer();
 }
 
 // ── THEME ─────────────────────────────────────────────────────────────────────
@@ -703,6 +712,7 @@ renderTasks();
 updateAuthUI();
 if (authToken) pullFromServer();
 setInterval(tickRunning, 1000);
+setInterval(pollServer, 25000);
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) {
     checkDailyReset();
