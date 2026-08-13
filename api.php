@@ -137,6 +137,16 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS dt_scores (
     INDEX idx_week (week_key, task_count, total_seconds)
 )");
 
+$pdo->exec("CREATE TABLE IF NOT EXISTS dt_tasks (
+    user_id     INT          NOT NULL,
+    date_key    DATE         NOT NULL,
+    tasks_json  LONGTEXT     NOT NULL,
+    next_id     INT          NOT NULL DEFAULT 1,
+    updated_at  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, date_key),
+    FOREIGN KEY (user_id) REFERENCES tb_users(id) ON DELETE CASCADE
+)");
+
 $pdo->exec("CREATE TABLE IF NOT EXISTS tb_friendships (
     id         INT AUTO_INCREMENT PRIMARY KEY,
     user_a     INT NOT NULL,
@@ -1083,6 +1093,48 @@ if ($method === 'POST' && $action === 'dt_save') {
     $stmt = $pdo->prepare("INSERT INTO dt_scores (name, task_count, total_seconds, week_key) VALUES (?, ?, ?, ?)");
     $stmt->execute([$name, $task_count, $total_seconds, $week_key]);
     echo json_encode(['success' => true, 'id' => $pdo->lastInsertId()]); exit;
+}
+
+// ══════════════════════════════════════════════════════════════
+// DAILY TASKS — CROSS-DEVICE SYNC (optional login, shared tb_users accounts)
+// ══════════════════════════════════════════════════════════════
+
+// GET ?action=dt_get_tasks&date=YYYY-MM-DD — load this user's task list for a given day
+if ($method === 'GET' && $action === 'dt_get_tasks') {
+    $me   = requireAuth($pdo);
+    $date = $_GET['date'] ?? '';
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+        http_response_code(400); echo json_encode(['error' => 'Invalid date.']); exit;
+    }
+    $stmt = $pdo->prepare("SELECT tasks_json, next_id, updated_at FROM dt_tasks WHERE user_id = ? AND date_key = ?");
+    $stmt->execute([$me['id'], $date]);
+    $row = $stmt->fetch();
+    if (!$row) { echo json_encode(['success' => true, 'found' => false]); exit; }
+    echo json_encode([
+        'success'    => true,
+        'found'      => true,
+        'tasks'      => json_decode($row['tasks_json'], true) ?: [],
+        'next_id'    => (int)$row['next_id'],
+        'updated_at' => $row['updated_at'],
+    ]); exit;
+}
+
+// POST ?action=dt_save_tasks  body: { date, tasks, next_id } — upsert this user's task list for a given day
+if ($method === 'POST' && $action === 'dt_save_tasks') {
+    $me   = requireAuth($pdo);
+    $body = json_decode(file_get_contents('php://input'), true);
+    $date = trim($body['date'] ?? '');
+    $tasks = $body['tasks'] ?? null;
+    $next_id = intval($body['next_id'] ?? 1);
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) || !is_array($tasks)) {
+        http_response_code(400); echo json_encode(['error' => 'Missing or invalid fields.']); exit;
+    }
+    $stmt = $pdo->prepare("
+        INSERT INTO dt_tasks (user_id, date_key, tasks_json, next_id) VALUES (?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE tasks_json = VALUES(tasks_json), next_id = VALUES(next_id)
+    ");
+    $stmt->execute([$me['id'], $date, json_encode($tasks), $next_id]);
+    echo json_encode(['success' => true]); exit;
 }
 
 // ══════════════════════════════════════════════════════════════

@@ -79,6 +79,37 @@ nav {
 .nav-back { font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.45); text-decoration: none; letter-spacing: 0.05em; text-transform: uppercase; transition: color 0.15s; }
 .nav-back:hover { color: #fff; }
 
+/* ── AUTH ── */
+.nav-user { font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.5); }
+.nav-user strong { color: rgba(255,255,255,0.9); }
+.btn-auth { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; color: rgba(255,255,255,0.5); background: none; border: 1px solid rgba(255,255,255,0.25); border-radius: 4px; padding: 5px 10px; cursor: pointer; transition: color 0.15s, border-color 0.15s; }
+.btn-auth:hover { color: #fff; border-color: rgba(255,255,255,0.5); }
+
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(2px); z-index: 500; display: none; align-items: center; justify-content: center; padding: 1rem; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--surface); border: 1px solid var(--border2); border-radius: 10px; padding: 1.5rem; width: 100%; max-width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.modal-title { font-size: 22px; font-weight: 700; }
+.modal-close { background: none; border: none; font-size: 20px; color: var(--text3); cursor: pointer; line-height: 1; padding: 4px; transition: color 0.15s; }
+.modal-close:hover { color: var(--text); }
+.auth-hint { font-family: var(--font-mono); font-size: 11px; color: var(--text3); margin-bottom: 14px; line-height: 1.5; }
+.auth-tabs { display: flex; gap: 0; margin-bottom: 1rem; border: 1px solid var(--border2); border-radius: 6px; overflow: hidden; }
+.auth-tab { flex: 1; padding: 8px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; background: none; border: none; cursor: pointer; color: var(--text2); transition: background 0.15s, color 0.15s; }
+.auth-tab.active { background: var(--accent); color: #000; }
+[data-theme="light"] .auth-tab.active { color: #fff; }
+.auth-form { display: none; }
+.auth-form.active { display: block; }
+.field { margin-bottom: 12px; }
+.field label { display: block; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text2); margin-bottom: 4px; }
+.field input { width: 100%; padding: 9px 11px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 4px; font-family: var(--font-mono); font-size: 13px; color: var(--text); outline: none; transition: border-color 0.15s; }
+.field input:focus { border-color: var(--accent); }
+.auth-error { font-family: var(--font-mono); font-size: 11px; color: var(--danger); background: rgba(255,68,68,0.08); border: 1px solid var(--danger); border-radius: 6px; padding: 7px 10px; margin-bottom: 10px; display: none; }
+.auth-error.show { display: block; }
+.btn-modal-primary { width: 100%; padding: 11px; font-family: var(--font-disp); font-size: 14px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; background: var(--accent); color: #000; border: none; border-radius: 5px; cursor: pointer; transition: opacity 0.15s; }
+[data-theme="light"] .btn-modal-primary { color: #fff; }
+.btn-modal-primary:hover { opacity: 0.88; }
+.btn-modal-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* ── THEME TOGGLE ── */
 .theme-toggle { position: relative; width: 44px; height: 24px; cursor: pointer; background: none; border: none; padding: 0; }
 .theme-toggle-track { width: 44px; height: 24px; border-radius: 12px; background: #333; border: 1px solid #555; transition: background 0.2s, border-color 0.2s; display: flex; align-items: center; padding: 0 3px; }
@@ -180,6 +211,8 @@ nav {
 <nav>
   <a class="nav-logo" href="index.html"><strong>davenn</strong>dotcom</a>
   <div class="nav-right">
+    <span class="nav-user" id="nav-user-label" style="display:none;"></span>
+    <button class="btn-auth" id="btn-auth" onclick="openAuthModal()">Sign in</button>
     <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode" aria-label="Toggle theme">
       <div class="theme-toggle-track"><div class="theme-toggle-thumb" id="toggle-icon">🌙</div></div>
     </button>
@@ -242,12 +275,161 @@ nav {
 
 <div class="toast" id="toast"></div>
 
+<!-- ═══════════ AUTH MODAL ═══════════ -->
+<div class="modal-overlay" id="auth-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Sign in</div>
+      <button class="modal-close" onclick="closeAuthModal()">×</button>
+    </div>
+    <div class="auth-hint">Sign in to sync today's tasks across your devices. Uses the same account as Toolshare.</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="auth-tab-login" onclick="switchAuthTab('login')">Sign in</button>
+      <button class="auth-tab" id="auth-tab-register" onclick="switchAuthTab('register')">Register</button>
+    </div>
+
+    <div id="auth-error" class="auth-error"></div>
+
+    <div id="form-login" class="auth-form active">
+      <div class="field"><label>Username</label><input type="text" id="login-user" placeholder="your_username" autocomplete="username"></div>
+      <div class="field"><label>Password</label><input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password"></div>
+      <button class="btn-modal-primary" id="btn-login" onclick="doLogin()">Sign in</button>
+    </div>
+
+    <div id="form-register" class="auth-form">
+      <div class="field"><label>Username</label><input type="text" id="reg-user" placeholder="username" autocomplete="username"></div>
+      <div class="field"><label>Display name</label><input type="text" id="reg-name" placeholder="Full name"></div>
+      <div class="field"><label>Email</label><input type="email" id="reg-email" placeholder="you@example.com" autocomplete="email"></div>
+      <div class="field"><label>Password</label><input type="password" id="reg-pass" placeholder="••••••••" autocomplete="new-password"></div>
+      <button class="btn-modal-primary" id="btn-register" onclick="doRegister()">Create account</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 const API_URL = 'https://davenn.com/api.php';
 // ─────────────────────────────────────────────────────────────────────────────
 
 if (!API_URL) document.getElementById('api-warning').classList.add('show');
+
+// ── AUTH (optional — shares the same account/token as Toolshare via localStorage) ─
+const AUTH_TOKEN_KEY = 'tb_token';
+const AUTH_USER_KEY  = 'tb_user';
+
+let authToken   = localStorage.getItem(AUTH_TOKEN_KEY) || null;
+let currentUser = null;
+try { currentUser = JSON.parse(localStorage.getItem(AUTH_USER_KEY)); } catch(e) { currentUser = null; }
+if (!authToken || !currentUser) { authToken = null; currentUser = null; }
+
+let isSyncing = false;
+let syncTimer = null;
+
+function v(id) { return document.getElementById(id).value.trim(); }
+
+function updateAuthUI() {
+  const label = document.getElementById('nav-user-label');
+  const btn   = document.getElementById('btn-auth');
+  if (currentUser) {
+    label.innerHTML = `<strong>${escHtml(currentUser.display_name)}</strong>`;
+    label.style.display = '';
+    btn.textContent = 'Sign out';
+    btn.onclick = doLogout;
+  } else {
+    label.style.display = 'none';
+    btn.textContent = 'Sign in';
+    btn.onclick = openAuthModal;
+  }
+}
+
+function openAuthModal() {
+  document.getElementById('auth-error').classList.remove('show');
+  document.getElementById('auth-modal').classList.add('open');
+}
+function closeAuthModal() { document.getElementById('auth-modal').classList.remove('open'); }
+
+function switchAuthTab(tab) {
+  document.getElementById('auth-tab-login').classList.toggle('active', tab === 'login');
+  document.getElementById('auth-tab-register').classList.toggle('active', tab === 'register');
+  document.getElementById('form-login').classList.toggle('active', tab === 'login');
+  document.getElementById('form-register').classList.toggle('active', tab === 'register');
+  document.getElementById('auth-error').classList.remove('show');
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg; el.classList.add('show');
+}
+
+async function doLogin() {
+  const btn = document.getElementById('btn-login');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  const res = await apiFetch('?action=tb_login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: v('login-user'), password: v('login-pass') }) });
+  btn.disabled = false; btn.textContent = 'Sign in';
+  if (res?.success) { saveAuth(res); closeAuthModal(); await onLoggedIn(); }
+  else showAuthError(res?.error || 'Login failed');
+}
+
+async function doRegister() {
+  const btn = document.getElementById('btn-register');
+  btn.disabled = true; btn.textContent = 'Creating…';
+  const res = await apiFetch('?action=tb_register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: v('reg-user'), display_name: v('reg-name'), email: v('reg-email'), password: v('reg-pass') }) });
+  btn.disabled = false; btn.textContent = 'Create account';
+  if (res?.success) { saveAuth(res); closeAuthModal(); await onLoggedIn(); }
+  else showAuthError(res?.error || 'Registration failed');
+}
+
+async function doLogout() {
+  await apiFetch('?action=tb_logout', { method: 'POST' });
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(AUTH_USER_KEY);
+  authToken = null; currentUser = null;
+  updateAuthUI();
+  showToast('Signed out — tasks now saved on this device only');
+}
+
+function saveAuth(res) {
+  authToken   = res.token;
+  currentUser = res.user;
+  localStorage.setItem(AUTH_TOKEN_KEY, authToken);
+  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(currentUser));
+  updateAuthUI();
+}
+
+async function onLoggedIn() {
+  showToast(`Signed in as ${currentUser.display_name}`);
+  await pullFromServer();
+}
+
+// Pull today's tasks from the server (e.g. entered on another device). If nothing's
+// saved for today yet but this device already has tasks, push them up instead.
+async function pullFromServer() {
+  if (!authToken) return;
+  isSyncing = true;
+  const res = await apiFetch(`?action=dt_get_tasks&date=${todayKey()}`);
+  isSyncing = false;
+  if (!res?.success) return;
+  if (res.found) {
+    state = { date: todayKey(), tasks: res.tasks, nextId: res.next_id, saved: false };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    renderTasks();
+  } else if (state.tasks.length) {
+    pushToServer();
+  }
+}
+
+function pushToServer() {
+  if (!authToken) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(async () => {
+    if (isSyncing) return;
+    await apiFetch('?action=dt_save_tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: state.date, tasks: state.tasks, next_id: state.nextId })
+    });
+  }, 400);
+}
 
 // ── THEME ─────────────────────────────────────────────────────────────────────
 function getTheme() { return localStorage.getItem('dailytasks_theme') || 'dark'; }
@@ -278,7 +460,7 @@ function loadState() {
   return s;
 }
 
-function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); pushToServer(); }
 
 function checkDailyReset() {
   if (state.date !== todayKey()) {
@@ -408,8 +590,10 @@ function updateCompleteUI() {
 // ── API HELPER ────────────────────────────────────────────────────────────────
 async function apiFetch(path, options = {}) {
   if (!API_URL) { showToast('API_URL not configured'); return null; }
+  const headers = Object.assign({}, options.headers);
+  if (authToken) headers['X-Auth-Token'] = authToken;
   try {
-    const res = await fetch(API_URL + path, options);
+    const res = await fetch(API_URL + path, Object.assign({}, options, { headers }));
     return await res.json();
   } catch(e) {
     showToast('Network error — check API_URL');
@@ -516,8 +700,20 @@ function showToast(msg) {
 // ── INIT ──────────────────────────────────────────────────────────────────────
 checkDailyReset();
 renderTasks();
+updateAuthUI();
+if (authToken) pullFromServer();
 setInterval(tickRunning, 1000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkDailyReset(); renderTasks(); } });
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    checkDailyReset();
+    renderTasks();
+    if (authToken) pullFromServer();
+  }
+});
+['login-pass','reg-pass'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') id === 'login-pass' ? doLogin() : doRegister(); });
+});
 </script>
 <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 </body>
