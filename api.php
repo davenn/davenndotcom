@@ -109,6 +109,19 @@ try { $pdo->exec("ALTER TABLE tb_users ADD COLUMN invite_code VARCHAR(16) UNIQUE
 // Expand category to TEXT to support multiple comma-separated tags
 try { $pdo->exec("ALTER TABLE tb_tools MODIFY COLUMN category TEXT DEFAULT NULL"); } catch(PDOException $e) {}
 
+// tb_sessions — one row per logged-in device, so signing in on a second device
+// doesn't invalidate the first (tb_users.token used to be a single column, which
+// meant only the most-recently-logged-in device stayed authenticated).
+$pdo->exec("CREATE TABLE IF NOT EXISTS tb_sessions (
+    token      VARCHAR(64) PRIMARY KEY,
+    user_id    INT         NOT NULL,
+    created_at DATETIME    DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_user (user_id),
+    FOREIGN KEY (user_id) REFERENCES tb_users(id) ON DELETE CASCADE
+)");
+// Carry over any still-active legacy single-column token so existing sessions aren't logged out.
+try { $pdo->exec("INSERT IGNORE INTO tb_sessions (token, user_id) SELECT token, id FROM tb_users WHERE token IS NOT NULL"); } catch(PDOException $e) {}
+
 $pdo->exec("CREATE TABLE IF NOT EXISTS reaction_scores (
     id         INT AUTO_INCREMENT PRIMARY KEY,
     name       VARCHAR(60)  NOT NULL,
@@ -170,7 +183,7 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS subscribers (
 function authUser(PDO $pdo): ?array {
     $token = $_SERVER['HTTP_X_AUTH_TOKEN'] ?? '';
     if (!$token) return null;
-    $stmt = $pdo->prepare("SELECT * FROM tb_users WHERE token = ?");
+    $stmt = $pdo->prepare("SELECT u.* FROM tb_sessions s JOIN tb_users u ON u.id = s.user_id WHERE s.token = ?");
     $stmt->execute([trim($token)]);
     return $stmt->fetch() ?: null;
 }
@@ -350,9 +363,10 @@ if ($method === 'POST' && $action === 'tb_register') {
     $hash  = password_hash($pw, PASSWORD_DEFAULT);
     $token = bin2hex(random_bytes(32));
     try {
-        $stmt = $pdo->prepare("INSERT INTO tb_users (username, password_hash, display_name, email, token) VALUES (?,?,?,?,?)");
-        $stmt->execute([$uname, $hash, $dname, $email, $token]);
+        $stmt = $pdo->prepare("INSERT INTO tb_users (username, password_hash, display_name, email) VALUES (?,?,?,?)");
+        $stmt->execute([$uname, $hash, $dname, $email]);
         $id = $pdo->lastInsertId();
+        $pdo->prepare("INSERT INTO tb_sessions (token, user_id) VALUES (?, ?)")->execute([$token, $id]);
         echo json_encode(['success' => true, 'token' => $token, 'user' => ['id' => $id, 'username' => $uname, 'display_name' => $dname, 'email' => $email]]);
     } catch (PDOException $e) {
         http_response_code(409); echo json_encode(['error' => 'Username already taken.']);
@@ -372,15 +386,17 @@ if ($method === 'POST' && $action === 'tb_login') {
         http_response_code(401); echo json_encode(['error' => 'Invalid username or password.']); exit;
     }
     $token = bin2hex(random_bytes(32));
-    $pdo->prepare("UPDATE tb_users SET token = ? WHERE id = ?")->execute([$token, $u['id']]);
+    // A new session per login — does not invalidate tokens issued to other devices.
+    $pdo->prepare("INSERT INTO tb_sessions (token, user_id) VALUES (?, ?)")->execute([$token, $u['id']]);
     echo json_encode(['success' => true, 'token' => $token, 'user' => ['id' => $u['id'], 'username' => $u['username'], 'display_name' => $u['display_name'], 'email' => $u['email']]]);
     exit;
 }
 
-// POST ?action=tb_logout
+// POST ?action=tb_logout — ends only this device's session, other devices stay signed in
 if ($method === 'POST' && $action === 'tb_logout') {
-    $user = requireAuth($pdo);
-    $pdo->prepare("UPDATE tb_users SET token = NULL WHERE id = ?")->execute([$user['id']]);
+    requireAuth($pdo);
+    $token = trim($_SERVER['HTTP_X_AUTH_TOKEN'] ?? '');
+    $pdo->prepare("DELETE FROM tb_sessions WHERE token = ?")->execute([$token]);
     echo json_encode(['success' => true]); exit;
 }
 
