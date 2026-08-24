@@ -156,21 +156,27 @@ nav {
 
 /* ── BOARD ── */
 .board-wrap {
-  position: relative; width: 100%; aspect-ratio: 4 / 5;
+  position: relative; width: 100%; aspect-ratio: 1 / 1;
   border-radius: 16px; padding: 22px 14px;
   background: linear-gradient(155deg, var(--board-a), var(--board-b));
   border: 1px solid var(--board-border);
   box-shadow: inset 0 2px 10px rgba(0,0,0,0.35), 0 6px 18px rgba(0,0,0,0.25);
 }
-.board-lanes { position: absolute; inset: 22px 14px; display: flex; justify-content: space-between; }
-.lane { flex: 1; display: flex; flex-direction: column; justify-content: space-between; align-items: center; }
-.hole { width: 6px; height: 6px; border-radius: 50%; background: var(--hole); box-shadow: inset 0 1px 1px rgba(0,0,0,0.5); }
+.board-lanes { position: absolute; inset: 22px 14px; }
+.hole {
+  position: absolute; width: 5px; height: 5px; border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: inset 0 1px 1px rgba(0,0,0,0.5);
+}
+.hole--p0 { background: color-mix(in srgb, var(--p0) 65%, var(--hole)); }
+.hole--p1 { background: color-mix(in srgb, var(--p1) 65%, var(--hole)); }
+.tick { position: absolute; width: 2px; background: rgba(0,0,0,0.38); border-radius: 1px; }
 .board-label {
   position: absolute; font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.06em;
   color: rgba(255,255,255,0.55); text-transform: uppercase; pointer-events: none;
 }
 .board-label--start { left: 16px; bottom: 6px; }
-.board-label--finish { right: 12px; bottom: 6px; }
+.board-label--finish { right: 12px; top: 6px; }
 .peg {
   position: absolute; width: 14px; height: 14px; border-radius: 50%;
   transform: translate(-50%, -50%);
@@ -273,7 +279,7 @@ nav {
   <div class="board-wrap">
     <div class="board-lanes" id="board-lanes"></div>
     <span class="board-label board-label--start">Start</span>
-    <span class="board-label board-label--finish">120</span>
+    <span class="board-label board-label--finish">121</span>
     <div class="peg peg--prev" id="peg-prev-0"></div>
     <div class="peg peg--prev" id="peg-prev-1"></div>
     <div class="peg" id="peg-0"></div>
@@ -337,7 +343,8 @@ nav {
 const WIN_SCORE = 121;
 const SKUNK = 91;
 const DBL_SKUNK = 61;
-const LANES = 6, HOLES_PER_LANE = 20;
+const ROWS = 11, HOLES_PER_ROW = 11; // 11 x 11 = 121 holes per line
+const LINE_OFFSET_PCT = (100 / ROWS) * 0.26; // keeps the two S-lines apart, never touching
 const STORE_KEY = 'cribbage_state';
 
 const DEFAULTS = {
@@ -374,32 +381,65 @@ function pushHistory() {
   if (state.history.length > 60) state.history.shift();
 }
 
-// ── BOARD GEOMETRY ─────────────────────────────────────────────────────────
-function pegPosition(score) {
-  const pos = Math.max(0, Math.min(score, HOLES_PER_LANE * LANES));
-  if (pos === 0) return { x: 0, y: 100 };
-  const lane = Math.min(Math.floor((pos - 1) / HOLES_PER_LANE), LANES - 1);
-  const row = (pos - 1) % HOLES_PER_LANE;
-  const laneCenterPct = ((lane + 0.5) / LANES) * 100;
-  const even = lane % 2 === 0;
-  const rowFrac = HOLES_PER_LANE === 1 ? 0 : row / (HOLES_PER_LANE - 1);
-  const y = even ? 100 - rowFrac * 100 : rowFrac * 100;
-  return { x: laneCenterPct, y };
+// ── BOARD GEOMETRY ──────────────────────────────────────────────────────────
+// Two S-shaped tracks (one per player) snake bottom-left → top-right across an
+// 11x11 grid of 121 holes each. Both tracks share the same row/col path, just
+// offset a fixed amount vertically so they run in parallel and never touch.
+function holeRowCol(h) {
+  const idx = h - 1; // 0-based
+  const row = Math.floor(idx / HOLES_PER_ROW);       // 0 = bottom row
+  const posInRow = idx % HOLES_PER_ROW;
+  const ltr = row % 2 === 0;                          // even rows run left→right
+  const col = ltr ? posInRow : (HOLES_PER_ROW - 1 - posInRow);
+  return { row, col, ltr };
+}
+
+function holeCenter(h) {
+  const { row, col } = holeRowCol(h);
+  const x = ((col + 0.5) / HOLES_PER_ROW) * 100;
+  const y = 100 - ((row + 0.5) / ROWS) * 100;
+  return { x, y };
+}
+
+function pegPosition(score, playerIndex) {
+  const dy = playerIndex === 0 ? -LINE_OFFSET_PCT : LINE_OFFSET_PCT;
+  const pos = Math.max(0, Math.min(score, HOLES_PER_ROW * ROWS));
+  if (pos === 0) return { x: 0, y: (100 - (0.5 / ROWS) * 100) + dy };
+  const { x, y } = holeCenter(pos);
+  return { x, y: y + dy };
 }
 
 function buildBoard() {
   const lanesEl = document.getElementById('board-lanes');
   lanesEl.innerHTML = '';
-  for (let l = 0; l < LANES; l++) {
-    const lane = document.createElement('div');
-    lane.className = 'lane';
-    for (let h = 0; h < HOLES_PER_LANE; h++) {
-      const hole = document.createElement('div');
-      hole.className = 'hole';
-      lane.appendChild(hole);
+  const frag = document.createDocumentFragment();
+  const rowHeightPct = 100 / ROWS;
+  const colWidthPct = 100 / HOLES_PER_ROW;
+
+  for (let h = 1; h <= HOLES_PER_ROW * ROWS; h++) {
+    const { x, y } = holeCenter(h);
+    [0, 1].forEach(p => {
+      const dot = document.createElement('div');
+      dot.className = 'hole hole--p' + p;
+      dot.style.left = x + '%';
+      dot.style.top = (y + (p === 0 ? -LINE_OFFSET_PCT : LINE_OFFSET_PCT)) + '%';
+      frag.appendChild(dot);
+    });
+
+    // Solid divider tick after every 5th hole, offset toward the next hole.
+    if (h % 5 === 0 && h < HOLES_PER_ROW * ROWS) {
+      const { row, ltr } = holeRowCol(h);
+      const tick = document.createElement('div');
+      tick.className = 'tick';
+      const tickX = x + (ltr ? colWidthPct / 2 : -colWidthPct / 2);
+      const rowTop = 100 - ((row + 1) / ROWS) * 100;
+      tick.style.left = tickX + '%';
+      tick.style.top = rowTop + '%';
+      tick.style.height = rowHeightPct + '%';
+      frag.appendChild(tick);
     }
-    lanesEl.appendChild(lane);
   }
+  lanesEl.appendChild(frag);
 }
 
 // ── RENDER ───────────────────────────────────────────────────────────────
@@ -428,8 +468,8 @@ function render() {
   updatePending();
 
   state.players.forEach((p, i) => {
-    const cur = pegPosition(p.score);
-    const prev = pegPosition(p.prevScore);
+    const cur = pegPosition(p.score, i);
+    const prev = pegPosition(p.prevScore, i);
     const pegEl = document.getElementById('peg-' + i);
     const prevEl = document.getElementById('peg-prev-' + i);
     pegEl.style.left = cur.x + '%';
