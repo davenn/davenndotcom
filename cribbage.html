@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Cribbage — davenn.com</title>
+<link rel="manifest" href="/manifest-cribbage.json">
+<meta name="theme-color" content="#0f0f0f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Cribbage">
+<link rel="apple-touch-icon" href="/icons/cribbage.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── DARK THEME (default) ── */
+:root,
+[data-theme="dark"] {
+  --bg:          #0f0f0f;
+  --text:        #ffffff;
+  --text2:       rgba(255,255,255,0.45);
+  --text3:       rgba(255,255,255,0.25);
+  --surface:     rgba(255,255,255,0.04);
+  --surface-border: rgba(255,255,255,0.09);
+  --ctrl-bg:     rgba(255,255,255,0.07);
+  --ctrl-color:  #ffffff;
+  --ctrl-hover:  rgba(255,255,255,0.14);
+  --hole:        rgba(0,0,0,0.4);
+  --board-a:     #b9835a;
+  --board-b:     #7d5230;
+  --board-border: #5c3a1e;
+  --p0: #e2483d;
+  --p1: #3b82f6;
+  --font-disp: 'Syne', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+  --nav-h: 52px;
+  --modal-bg: #1a1a1a;
+}
+
+/* ── LIGHT THEME ── */
+[data-theme="light"] {
+  --bg:          #f5f4f0;
+  --text:        #111110;
+  --text2:       rgba(0,0,0,0.5);
+  --text3:       rgba(0,0,0,0.3);
+  --surface:     #ffffff;
+  --surface-border: rgba(0,0,0,0.1);
+  --ctrl-bg:     rgba(0,0,0,0.06);
+  --ctrl-color:  #111110;
+  --ctrl-hover:  rgba(0,0,0,0.12);
+  --hole:        rgba(0,0,0,0.28);
+  --board-a:     #c99568;
+  --board-b:     #8a5c37;
+  --board-border: #6b4322;
+  --p0: #d93025;
+  --p1: #2f6fe0;
+  --font-disp: 'Syne', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+  --nav-h: 52px;
+  --modal-bg: #ffffff;
+}
+
+html, body {
+  height: 100%; background: var(--bg); color: var(--text);
+  font-family: var(--font-disp);
+  transition: background 0.2s, color 0.2s;
+}
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: var(--nav-h);
+  background: #111110;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 1.5rem; z-index: 200;
+}
+.nav-logo { font-family: 'DM Mono', monospace; font-size: 13px; color: rgba(255,255,255,0.4); text-decoration: none; }
+.nav-logo strong { color: #fff; }
+.nav-right { display: flex; align-items: center; gap: 1.2rem; }
+.nav-back { font-family: 'DM Mono', monospace; font-size: 11px; color: rgba(255,255,255,0.45); text-decoration: none; letter-spacing: 0.05em; text-transform: uppercase; transition: color 0.15s; }
+.nav-back:hover { color: #fff; }
+.btn-install {
+  display: none; align-items: center;
+  font-family: 'DM Mono', monospace; font-size: 11px;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  color: rgba(255,255,255,0.5); background: none;
+  border: 1px solid rgba(255,255,255,0.15); border-radius: 6px;
+  padding: 4px 10px; cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.btn-install.ready { display: flex; }
+.btn-install:hover { color: rgba(255,255,255,0.9); border-color: rgba(255,255,255,0.4); }
+
+.theme-toggle {
+  position: relative; width: 44px; height: 24px; cursor: pointer;
+  background: none; border: none; padding: 0;
+}
+.theme-toggle-track {
+  width: 44px; height: 24px; border-radius: 12px;
+  background: #333; border: 1px solid #555;
+  transition: background 0.2s, border-color 0.2s;
+  display: flex; align-items: center; padding: 0 3px;
+}
+[data-theme="light"] .theme-toggle-track { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); }
+.theme-toggle-thumb {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #888; transition: transform 0.2s, background 0.2s;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; line-height: 1;
+}
+[data-theme="light"] .theme-toggle-thumb { transform: translateX(20px); background: #fff; }
+[data-theme="dark"]  .theme-toggle-thumb { transform: translateX(0); background: #666; }
+
+/* ── CONTAINER ── */
+.container {
+  padding: calc(var(--nav-h) + 18px) 16px 32px;
+  max-width: 460px;
+  margin: 0 auto;
+  display: flex; flex-direction: column; gap: 14px;
+}
+
+/* ── HAND / UNDO ROW ── */
+.hand-row { display: flex; align-items: center; justify-content: space-between; }
+.btn-hand {
+  display: flex; align-items: center; gap: 6px;
+  background: none; border: none; cursor: pointer;
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em;
+  color: var(--text2); padding: 4px 2px;
+  transition: color 0.15s;
+}
+.btn-hand:hover { color: var(--text); }
+.btn-hand svg { width: 13px; height: 13px; fill: currentColor; opacity: 0.7; }
+.btn-undo {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--text2); background: var(--ctrl-bg); border: 1px solid var(--surface-border);
+  border-radius: 6px; padding: 5px 12px; cursor: pointer;
+  transition: color 0.15s, background 0.15s, opacity 0.15s;
+}
+.btn-undo:hover:not(:disabled) { color: var(--text); background: var(--ctrl-hover); }
+.btn-undo:disabled { opacity: 0.35; cursor: default; }
+
+/* ── SCORE ROW ── */
+.score-row { display: flex; gap: 10px; }
+.player-card {
+  flex: 1; min-width: 0;
+  background: var(--surface); border: 1.5px solid var(--surface-border);
+  border-radius: 14px; padding: 14px 10px 12px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  cursor: pointer; text-align: center;
+  transition: border-color 0.15s, transform 0.1s;
+}
+.player-card:active { transform: scale(0.98); }
+.player-card.active { border-color: var(--card-color, var(--text2)); }
+.player-name-row { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; max-width: 100%; }
+.player-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--card-color); flex-shrink: 0; }
+.player-name {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+  color: var(--text); letter-spacing: 0.02em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px;
+}
+.btn-rename {
+  background: none; border: none; cursor: pointer; padding: 2px;
+  color: var(--text3); font-size: 10px; line-height: 1; flex-shrink: 0;
+  transition: color 0.15s;
+}
+.btn-rename:hover { color: var(--text2); }
+.crib-badge {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 500; letter-spacing: 0.08em;
+  color: var(--card-color); background: color-mix(in srgb, var(--card-color) 16%, transparent);
+  border-radius: 4px; padding: 1px 6px; margin-bottom: 4px;
+}
+.player-score {
+  font-family: var(--font-disp); font-weight: 800; font-size: clamp(38px, 11vw, 56px);
+  line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+}
+.player-togo { font-family: var(--font-mono); font-size: 10.5px; color: var(--text2); }
+
+/* ── BOARD ── */
+.board-wrap {
+  position: relative; width: 100%; aspect-ratio: 4 / 5;
+  border-radius: 16px; padding: 22px 14px;
+  background: linear-gradient(155deg, var(--board-a), var(--board-b));
+  border: 1px solid var(--board-border);
+  box-shadow: inset 0 2px 10px rgba(0,0,0,0.35), 0 6px 18px rgba(0,0,0,0.25);
+}
+.board-lanes { position: absolute; inset: 22px 14px; display: flex; justify-content: space-between; }
+.lane { flex: 1; display: flex; flex-direction: column; justify-content: space-between; align-items: center; }
+.hole { width: 6px; height: 6px; border-radius: 50%; background: var(--hole); box-shadow: inset 0 1px 1px rgba(0,0,0,0.5); }
+.board-label {
+  position: absolute; font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.06em;
+  color: rgba(255,255,255,0.55); text-transform: uppercase; pointer-events: none;
+}
+.board-label--start { left: 16px; bottom: 6px; }
+.board-label--finish { right: 12px; bottom: 6px; }
+.peg {
+  position: absolute; width: 14px; height: 14px; border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px solid rgba(255,255,255,0.85);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  transition: left 0.45s cubic-bezier(.3,.9,.4,1), top 0.45s cubic-bezier(.3,.9,.4,1);
+}
+.peg--prev {
+  width: 11px; height: 11px; background: transparent;
+  border: 2px solid rgba(255,255,255,0.55);
+  box-shadow: none; opacity: 0.7;
+}
+
+.active-hint {
+  text-align: center; font-family: var(--font-mono); font-size: 11.5px; color: var(--text2);
+}
+.active-hint b { color: var(--text); font-weight: 500; }
+
+/* ── KEYPAD ── */
+.keypad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.key {
+  background: var(--surface); border: 1px solid var(--surface-border);
+  border-radius: 10px; padding: 14px 0;
+  font-family: var(--font-disp); font-weight: 700; font-size: 18px; color: var(--text);
+  cursor: pointer; transition: background 0.12s, transform 0.08s;
+}
+.key:hover { background: var(--ctrl-hover); }
+.key:active { transform: scale(0.94); }
+.key-row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.key--primary {
+  background: var(--text); color: var(--bg);
+  border-color: var(--text);
+}
+.key--primary:hover { opacity: 0.88; background: var(--text); }
+.key--sub { font-size: 15px; }
+.keypad.disabled { opacity: 0.4; pointer-events: none; }
+
+/* ── FOOTER ROW ── */
+.foot-row {
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: var(--font-mono); font-size: 11px; color: var(--text2);
+}
+.btn-newgame { background: none; border: none; cursor: pointer; color: var(--text2); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.02em; text-decoration: underline; text-underline-offset: 2px; transition: color 0.15s; }
+.btn-newgame:hover { color: var(--text); }
+
+/* ── MODAL ── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(2px); z-index: 500; display: none; align-items: center; justify-content: center; padding: 1rem; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--modal-bg); border: 1px solid var(--surface-border); border-radius: 14px; padding: 1.5rem; width: 100%; max-width: 340px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.modal-title { font-family: var(--font-disp); font-size: 19px; font-weight: 700; }
+.modal-close { background: none; border: none; font-size: 20px; color: var(--text3); cursor: pointer; line-height: 1; padding: 4px; transition: color 0.15s; }
+.modal-close:hover { color: var(--text); }
+.modal-sub { font-family: var(--font-mono); font-size: 11.5px; color: var(--text2); margin-bottom: 12px; }
+.modal-input {
+  width: 100%; font-family: var(--font-disp); font-weight: 800; font-size: 40px; text-align: center;
+  background: var(--surface); border: 1px solid var(--surface-border); border-radius: 10px;
+  color: var(--text); padding: 10px; outline: none; margin-bottom: 14px;
+  font-variant-numeric: tabular-nums; -moz-appearance: textfield;
+}
+.modal-input::-webkit-inner-spin-button, .modal-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+.modal-input:focus { border-color: var(--text2); }
+.modal-btn {
+  width: 100%; background: var(--text); color: var(--bg); border: none; border-radius: 10px;
+  font-family: var(--font-disp); font-weight: 700; font-size: 15px; padding: 12px; cursor: pointer;
+  transition: opacity 0.15s;
+}
+.modal-btn:hover { opacity: 0.88; }
+.modal-name-input {
+  width: 100%; font-family: var(--font-mono); font-size: 15px;
+  background: var(--surface); border: 1px solid var(--surface-border); border-radius: 8px;
+  color: var(--text); padding: 9px 10px; outline: none; margin-bottom: 14px;
+}
+.modal-name-input:focus { border-color: var(--text2); }
+
+/* ── WIN OVERLAY ── */
+.win-emoji { font-size: 44px; text-align: center; margin-bottom: 10px; }
+.win-title { font-family: var(--font-disp); font-weight: 800; font-size: 24px; text-align: center; margin-bottom: 6px; }
+.win-sub { font-family: var(--font-mono); font-size: 12.5px; color: var(--text2); text-align: center; margin-bottom: 18px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="index.html"><strong>davenn</strong>dotcom</a>
+  <div class="nav-right">
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode" aria-label="Toggle theme">
+      <div class="theme-toggle-track">
+        <div class="theme-toggle-thumb" id="toggle-icon">🌙</div>
+      </div>
+    </button>
+    <button class="btn-install" id="btn-install" onclick="triggerInstall()">⊕ Install</button>
+    <a class="nav-back" href="index.html">← Back</a>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div class="hand-row">
+    <button class="btn-hand" id="btn-hand" title="Next hand — advances the crib">
+      <span id="hand-label">Hand 1</span>
+      <svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0020 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 004 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+    </button>
+    <button class="btn-undo" id="btn-undo" onclick="undo()">Undo</button>
+  </div>
+
+  <div class="score-row" id="score-row"></div>
+
+  <div class="board-wrap">
+    <div class="board-lanes" id="board-lanes"></div>
+    <span class="board-label board-label--start">Start</span>
+    <span class="board-label board-label--finish">120</span>
+    <div class="peg peg--prev" id="peg-prev-0"></div>
+    <div class="peg peg--prev" id="peg-prev-1"></div>
+    <div class="peg" id="peg-0"></div>
+    <div class="peg" id="peg-1"></div>
+  </div>
+
+  <p class="active-hint" id="active-hint"></p>
+
+  <div class="keypad" id="keypad">
+    <div class="keypad" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 8px;">
+      <button class="key" data-add="1">1</button>
+      <button class="key" data-add="2">2</button>
+      <button class="key" data-add="3">3</button>
+      <button class="key" data-add="4">4</button>
+      <button class="key" data-add="5">5</button>
+      <button class="key" data-add="6">6</button>
+      <button class="key" data-add="7">7</button>
+      <button class="key" data-add="8">8</button>
+    </div>
+    <div class="key-row3">
+      <button class="key key--sub" data-add="10">+10</button>
+      <button class="key key--sub" data-add="20">+20</button>
+      <button class="key key--primary" id="btn-add-custom">Add</button>
+    </div>
+  </div>
+
+  <div class="foot-row">
+    <button class="btn-newgame" onclick="newGame()">New game</button>
+    <span>Skunk line at 91</span>
+  </div>
+
+</div>
+
+<!-- Custom amount modal -->
+<div class="modal-overlay" id="custom-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Add points</div>
+      <button class="modal-close" onclick="closeCustomModal()">×</button>
+    </div>
+    <p class="modal-sub" id="custom-modal-sub">Enter points to add</p>
+    <input class="modal-input" id="custom-input" type="number" min="1" max="29" inputmode="numeric" autocomplete="off">
+    <button class="modal-btn" onclick="submitCustomAdd()">Add</button>
+  </div>
+</div>
+
+<!-- Rename modal -->
+<div class="modal-overlay" id="rename-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Player name</div>
+      <button class="modal-close" onclick="closeRenameModal()">×</button>
+    </div>
+    <input class="modal-name-input" id="rename-input" type="text" maxlength="16" autocomplete="off">
+    <button class="modal-btn" onclick="submitRename()">Save</button>
+  </div>
+</div>
+
+<!-- Win overlay -->
+<div class="modal-overlay" id="win-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Game over</div>
+      <button class="modal-close" onclick="closeWinModal()">×</button>
+    </div>
+    <div class="win-emoji" id="win-emoji">🏆</div>
+    <div class="win-title" id="win-title"></div>
+    <p class="win-sub" id="win-sub"></p>
+    <button class="modal-btn" onclick="newGame()">New game</button>
+  </div>
+</div>
+
+<script>
+const WIN_SCORE = 121;
+const SKUNK = 91;
+const DBL_SKUNK = 61;
+const LANES = 6, HOLES_PER_LANE = 20;
+const STORE_KEY = 'cribbage_state';
+
+const DEFAULTS = {
+  players: [
+    { name: 'Player 1', score: 0, prevScore: 0, color: 'var(--p0)' },
+    { name: 'Player 2', score: 0, prevScore: 0, color: 'var(--p1)' },
+  ],
+  active: 0,
+  crib: 0,
+  hand: 1,
+  history: [],
+  winner: null,
+};
+
+let state = loadState();
+let renameTarget = null;
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return structuredClone(DEFAULTS);
+    const parsed = JSON.parse(raw);
+    if (!parsed.players || parsed.players.length !== 2) return structuredClone(DEFAULTS);
+    return parsed;
+  } catch { return structuredClone(DEFAULTS); }
+}
+
+function saveState() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+
+function snapshot() {
+  return JSON.parse(JSON.stringify({ players: state.players, active: state.active, crib: state.crib, hand: state.hand, winner: state.winner }));
+}
+
+function pushHistory() {
+  state.history.push(snapshot());
+  if (state.history.length > 60) state.history.shift();
+}
+
+// ── BOARD GEOMETRY ─────────────────────────────────────────────────────────
+function pegPosition(score) {
+  const pos = Math.max(0, Math.min(score, HOLES_PER_LANE * LANES));
+  if (pos === 0) return { x: 0, y: 100 };
+  const lane = Math.min(Math.floor((pos - 1) / HOLES_PER_LANE), LANES - 1);
+  const row = (pos - 1) % HOLES_PER_LANE;
+  const laneCenterPct = ((lane + 0.5) / LANES) * 100;
+  const even = lane % 2 === 0;
+  const rowFrac = HOLES_PER_LANE === 1 ? 0 : row / (HOLES_PER_LANE - 1);
+  const y = even ? 100 - rowFrac * 100 : rowFrac * 100;
+  return { x: laneCenterPct, y };
+}
+
+function buildBoard() {
+  const lanesEl = document.getElementById('board-lanes');
+  lanesEl.innerHTML = '';
+  for (let l = 0; l < LANES; l++) {
+    const lane = document.createElement('div');
+    lane.className = 'lane';
+    for (let h = 0; h < HOLES_PER_LANE; h++) {
+      const hole = document.createElement('div');
+      hole.className = 'hole';
+      lane.appendChild(hole);
+    }
+    lanesEl.appendChild(lane);
+  }
+}
+
+// ── RENDER ───────────────────────────────────────────────────────────────
+function render() {
+  const scoreRow = document.getElementById('score-row');
+  scoreRow.innerHTML = state.players.map((p, i) => `
+    <div class="player-card${state.active === i ? ' active' : ''}" style="--card-color:${p.color}" onclick="setActive(${i})">
+      <div class="player-name-row">
+        <span class="player-dot"></span>
+        <span class="player-name">${escapeHtml(p.name)}</span>
+        <button class="btn-rename" onclick="event.stopPropagation(); openRenameModal(${i})" aria-label="Rename">✎</button>
+      </div>
+      ${state.crib === i ? '<span class="crib-badge">CRIB</span>' : ''}
+      <div class="player-score">${p.score}</div>
+      <div class="player-togo">${Math.max(0, WIN_SCORE - p.score)} to go</div>
+    </div>
+  `).join('');
+
+  document.getElementById('hand-label').textContent = `Hand ${state.hand}`;
+  document.getElementById('btn-undo').disabled = state.history.length === 0;
+
+  const active = state.players[state.active];
+  document.getElementById('active-hint').innerHTML = state.winner
+    ? `🏆 <b>${escapeHtml(state.players[state.winner.index].name)}</b> won — start a new game`
+    : `Adding to <b>${escapeHtml(active.name)}</b> · tap a player to switch`;
+
+  document.getElementById('keypad').classList.toggle('disabled', !!state.winner);
+
+  state.players.forEach((p, i) => {
+    const cur = pegPosition(p.score);
+    const prev = pegPosition(p.prevScore);
+    const pegEl = document.getElementById('peg-' + i);
+    const prevEl = document.getElementById('peg-prev-' + i);
+    pegEl.style.left = cur.x + '%';
+    pegEl.style.top = cur.y + '%';
+    pegEl.style.background = p.color;
+    prevEl.style.left = prev.x + '%';
+    prevEl.style.top = prev.y + '%';
+    prevEl.style.borderColor = p.color;
+    prevEl.style.display = p.score === p.prevScore ? 'none' : '';
+  });
+
+  saveState();
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+// ── ACTIONS ─────────────────────────────────────────────────────────────
+function setActive(i) {
+  if (state.winner) return;
+  state.active = i;
+  render();
+}
+
+function addPoints(amount) {
+  if (state.winner || !amount || amount < 1) return;
+  pushHistory();
+  const p = state.players[state.active];
+  p.prevScore = p.score;
+  p.score += amount;
+  if (p.score >= WIN_SCORE) {
+    const loser = state.players[1 - state.active];
+    state.winner = { index: state.active, loserScore: loser.score };
+    render();
+    openWinModal();
+    return;
+  }
+  render();
+}
+
+function undo() {
+  if (!state.history.length) return;
+  const prev = state.history.pop();
+  state.players = prev.players;
+  state.active = prev.active;
+  state.crib = prev.crib;
+  state.hand = prev.hand;
+  state.winner = prev.winner;
+  render();
+}
+
+document.getElementById('btn-hand').addEventListener('click', () => {
+  if (state.winner) return;
+  pushHistory();
+  state.hand += 1;
+  state.crib = 1 - state.crib;
+  render();
+});
+
+document.querySelectorAll('.key[data-add]').forEach(btn => {
+  btn.addEventListener('click', () => addPoints(parseInt(btn.dataset.add, 10)));
+});
+
+// ── CUSTOM ADD MODAL ───────────────────────────────────────────────────────
+const customModal = document.getElementById('custom-modal');
+const customInput = document.getElementById('custom-input');
+
+document.getElementById('btn-add-custom').addEventListener('click', () => {
+  if (state.winner) return;
+  document.getElementById('custom-modal-sub').innerHTML = `Adding to <b>${escapeHtml(state.players[state.active].name)}</b>`;
+  customInput.value = '';
+  customModal.classList.add('open');
+  setTimeout(() => customInput.focus(), 50);
+});
+
+function closeCustomModal() { customModal.classList.remove('open'); }
+
+function submitCustomAdd() {
+  const v = parseInt(customInput.value, 10);
+  if (!v || v < 1) { customInput.focus(); return; }
+  addPoints(v);
+  closeCustomModal();
+}
+
+customInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitCustomAdd(); });
+customModal.addEventListener('click', e => { if (e.target === customModal) closeCustomModal(); });
+
+// ── RENAME MODAL ───────────────────────────────────────────────────────────
+const renameModal = document.getElementById('rename-modal');
+const renameInput = document.getElementById('rename-input');
+
+function openRenameModal(i) {
+  renameTarget = i;
+  renameInput.value = state.players[i].name;
+  renameModal.classList.add('open');
+  setTimeout(() => { renameInput.focus(); renameInput.select(); }, 50);
+}
+function closeRenameModal() { renameModal.classList.remove('open'); renameTarget = null; }
+function submitRename() {
+  const v = renameInput.value.trim();
+  if (v && renameTarget !== null) state.players[renameTarget].name = v.slice(0, 16);
+  closeRenameModal();
+  render();
+}
+renameInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitRename(); });
+renameModal.addEventListener('click', e => { if (e.target === renameModal) closeRenameModal(); });
+
+// ── WIN MODAL ───────────────────────────────────────────────────────────────
+const winModal = document.getElementById('win-modal');
+function openWinModal() {
+  if (!state.winner) return;
+  const winnerName = state.players[state.winner.index].name;
+  const loserScore = state.winner.loserScore;
+  let emoji = '🏆', sub = 'Reached 121 first.';
+  if (loserScore < DBL_SKUNK) { emoji = '💀'; sub = `Double skunk — opponent stuck at ${loserScore}.`; }
+  else if (loserScore < SKUNK) { emoji = '🦨'; sub = `Skunk — opponent stuck at ${loserScore}.`; }
+  document.getElementById('win-emoji').textContent = emoji;
+  document.getElementById('win-title').textContent = `${winnerName} wins!`;
+  document.getElementById('win-sub').textContent = sub;
+  winModal.classList.add('open');
+}
+function closeWinModal() { winModal.classList.remove('open'); }
+winModal.addEventListener('click', e => { if (e.target === winModal) closeWinModal(); });
+
+// ── NEW GAME ────────────────────────────────────────────────────────────────
+function newGame() {
+  if (state.players.some(p => p.score > 0) || state.hand > 1) {
+    if (!confirm('Start a new game? Current scores will be reset.')) return;
+  }
+  const names = state.players.map(p => p.name);
+  state = structuredClone(DEFAULTS);
+  state.players[0].name = names[0];
+  state.players[1].name = names[1];
+  closeWinModal();
+  render();
+}
+
+// ── THEME ─────────────────────────────────────────────────────────────────
+function getTheme() { return localStorage.getItem('cribbage_theme') || 'dark'; }
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('toggle-icon').textContent = theme === 'dark' ? '🌙' : '☀️';
+  localStorage.setItem('cribbage_theme', theme);
+}
+function toggleTheme() { applyTheme(getTheme() === 'dark' ? 'light' : 'dark'); }
+applyTheme(getTheme());
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+buildBoard();
+render();
+if (state.winner) openWinModal();
+</script>
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+<script>
+let _installEvt = null;
+const installBtn = document.getElementById('btn-install');
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _installEvt = e;
+  installBtn.classList.add('ready');
+});
+window.addEventListener('appinstalled', () => {
+  _installEvt = null;
+  installBtn.classList.remove('ready');
+});
+function triggerInstall() {
+  if (!_installEvt) return;
+  _installEvt.prompt();
+  _installEvt.userChoice.then(() => { _installEvt = null; installBtn.classList.remove('ready'); });
+}
+</script>
+</body>
+</html>

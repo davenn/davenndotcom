@@ -1,0 +1,13 @@
+{
+  "name": "Cribbage",
+  "short_name": "Cribbage",
+  "description": "Simple offline cribbage scorekeeper with a pegging board",
+  "start_url": "/cribbage.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#0f0f0f",
+  "background_color": "#0f0f0f",
+  "icons": [
+    { "src": "/icons/cribbage.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
