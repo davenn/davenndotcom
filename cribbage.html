@@ -201,8 +201,9 @@ nav {
 .key:hover:not(:disabled) { background: var(--ctrl-hover); }
 .key:active:not(:disabled) { transform: scale(0.94); }
 .key:disabled { opacity: 0.35; cursor: default; }
-.key-row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.key-row3 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .key--primary {
+  grid-column: span 2;
   background: var(--text); color: var(--bg);
   border-color: var(--text);
 }
