@@ -207,6 +207,7 @@ nav {
 .active-hint b { color: var(--text); font-weight: 500; }
 
 /* ── KEYPAD ── */
+.keypad-wrap { display: flex; flex-direction: column; gap: 8px; }
 .keypad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .key {
   background: var(--surface); border: 1px solid var(--surface-border);
@@ -304,8 +305,8 @@ nav {
 
   <p class="active-hint" id="active-hint"></p>
 
-  <div class="keypad" id="keypad">
-    <div class="keypad" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 8px;">
+  <div class="keypad-wrap">
+    <div class="keypad">
       <button class="key" data-add="1">1</button>
       <button class="key" data-add="2">2</button>
       <button class="key" data-add="3">3</button>
