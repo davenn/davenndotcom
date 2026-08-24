@@ -156,7 +156,7 @@ nav {
 
 /* ── BOARD ── */
 .board-wrap {
-  position: relative; width: 100%; aspect-ratio: 3 / 4;
+  position: relative; width: 100%; aspect-ratio: 4 / 3;
   border-radius: 16px; padding: 22px 14px;
   background: linear-gradient(155deg, var(--board-a), var(--board-b));
   border: 1px solid var(--board-border);
@@ -384,8 +384,8 @@ function pushHistory() {
 // odd so the last lane runs bottom-to-top and the path ends at the top-right.
 // Both tracks follow the identical lane/row path, offset a hair horizontally
 // so they run side by side and never touch.
-const LANES = 7;
-const LANE_SIZES = [18, 18, 17, 17, 17, 17, 17]; // sums to 121 holes per line
+const LANES = 13;
+const LANE_SIZES = [10, 10, 10, 10, 9, 9, 9, 9, 9, 9, 9, 9, 9]; // sums to 121 holes per line
 const LANE_STARTS = (() => { const s = []; let acc = 0; for (const n of LANE_SIZES) { s.push(acc); acc += n; } return s; })();
 const SUB_OFFSET = (100 / LANES) * 0.16; // horizontal gap between the two player lines
 
