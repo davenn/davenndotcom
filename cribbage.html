@@ -28,10 +28,6 @@
   --ctrl-bg:     rgba(255,255,255,0.07);
   --ctrl-color:  #ffffff;
   --ctrl-hover:  rgba(255,255,255,0.14);
-  --hole:        rgba(0,0,0,0.4);
-  --board-a:     #b9835a;
-  --board-b:     #7d5230;
-  --board-border: #5c3a1e;
   --p0: #e2483d;
   --p1: #3b82f6;
   --font-disp: 'Syne', sans-serif;
@@ -51,10 +47,6 @@
   --ctrl-bg:     rgba(0,0,0,0.06);
   --ctrl-color:  #111110;
   --ctrl-hover:  rgba(0,0,0,0.12);
-  --hole:        rgba(0,0,0,0.28);
-  --board-a:     #c99568;
-  --board-b:     #8a5c37;
-  --board-border: #6b4322;
   --p0: #d93025;
   --p1: #2f6fe0;
   --font-disp: 'Syne', sans-serif;
@@ -154,41 +146,6 @@ nav {
 }
 .player-togo { font-family: var(--font-mono); font-size: 10.5px; color: var(--text2); }
 
-/* ── BOARD ── */
-.board-wrap {
-  position: relative; width: 100%; aspect-ratio: 4 / 3;
-  border-radius: 16px; padding: 22px 14px;
-  background: linear-gradient(155deg, var(--board-a), var(--board-b));
-  border: 1px solid var(--board-border);
-  box-shadow: inset 0 2px 10px rgba(0,0,0,0.35), 0 6px 18px rgba(0,0,0,0.25);
-}
-.board-lanes { position: absolute; inset: 22px 14px; }
-.hole {
-  position: absolute; width: 4px; height: 4px; border-radius: 50%;
-  transform: translate(-50%, -50%);
-  background: var(--hole);
-  box-shadow: inset 0 1px 1px rgba(0,0,0,0.5);
-}
-.tick { position: absolute; height: 2px; background: rgba(0,0,0,0.38); border-radius: 1px; transform: translate(-50%, -50%); }
-.board-label {
-  position: absolute; font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.06em;
-  color: rgba(255,255,255,0.55); text-transform: uppercase; pointer-events: none;
-}
-.board-label--start { left: 16px; bottom: 6px; }
-.board-label--finish { right: 12px; top: 6px; }
-.peg {
-  position: absolute; width: 14px; height: 14px; border-radius: 50%;
-  transform: translate(-50%, -50%);
-  border: 2px solid rgba(255,255,255,0.85);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
-  transition: left 0.45s cubic-bezier(.3,.9,.4,1), top 0.45s cubic-bezier(.3,.9,.4,1);
-}
-.peg--prev {
-  width: 11px; height: 11px; background: transparent;
-  border: 2px solid rgba(255,255,255,0.55);
-  box-shadow: none; opacity: 0.7;
-}
-
 .active-hint {
   text-align: center; font-family: var(--font-mono); font-size: 11.5px; color: var(--text2);
 }
@@ -275,16 +232,6 @@ nav {
 
   <div class="score-row" id="score-row"></div>
 
-  <div class="board-wrap">
-    <div class="board-lanes" id="board-lanes"></div>
-    <span class="board-label board-label--start">Start</span>
-    <span class="board-label board-label--finish">121</span>
-    <div class="peg peg--prev" id="peg-prev-0"></div>
-    <div class="peg peg--prev" id="peg-prev-1"></div>
-    <div class="peg" id="peg-0"></div>
-    <div class="peg" id="peg-1"></div>
-  </div>
-
   <p class="active-hint" id="active-hint"></p>
 
   <div class="keypad-wrap">
@@ -346,8 +293,8 @@ const STORE_KEY = 'cribbage_state';
 
 const DEFAULTS = {
   players: [
-    { name: 'Player 1', score: 0, prevScore: 0, color: 'var(--p0)' },
-    { name: 'Player 2', score: 0, prevScore: 0, color: 'var(--p1)' },
+    { name: 'Player 1', score: 0, color: 'var(--p0)' },
+    { name: 'Player 2', score: 0, color: 'var(--p1)' },
   ],
   active: 0,
   history: [],
@@ -378,72 +325,6 @@ function pushHistory() {
   if (state.history.length > 60) state.history.shift();
 }
 
-// ── BOARD GEOMETRY ──────────────────────────────────────────────────────────
-// Two tracks (one per player) snake bottom-left → top-right through tall,
-// tightly-spaced vertical lanes — the classic cribbage-board look. LANES is
-// odd so the last lane runs bottom-to-top and the path ends at the top-right.
-// Both tracks follow the identical lane/row path, offset a hair horizontally
-// so they run side by side and never touch.
-const LANES = 13;
-const LANE_SIZES = [10, 10, 10, 10, 9, 9, 9, 9, 9, 9, 9, 9, 9]; // sums to 121 holes per line
-const LANE_STARTS = (() => { const s = []; let acc = 0; for (const n of LANE_SIZES) { s.push(acc); acc += n; } return s; })();
-const SUB_OFFSET = (100 / LANES) * 0.16; // horizontal gap between the two player lines
-
-// Precompute every hole's {x, y, lane, row, size, evenLane} once.
-const HOLE_MAP = (() => {
-  const map = [];
-  for (let l = 0; l < LANES; l++) {
-    const size = LANE_SIZES[l];
-    const evenLane = l % 2 === 0; // even lanes run bottom→top
-    const x = ((l + 0.5) / LANES) * 100;
-    for (let r = 0; r < size; r++) {
-      const rowFrac = size === 1 ? 0 : r / (size - 1);
-      const y = evenLane ? 100 - rowFrac * 100 : rowFrac * 100;
-      map.push({ x, y, lane: l, row: r, size, evenLane });
-    }
-  }
-  return map; // map[h-1] = hole h
-})();
-
-function pegPosition(score, playerIndex) {
-  const dx = playerIndex === 0 ? -SUB_OFFSET : SUB_OFFSET;
-  const pos = Math.max(0, Math.min(score, HOLE_MAP.length));
-  if (pos === 0) return { x: dx, y: 100 };
-  const c = HOLE_MAP[pos - 1];
-  return { x: c.x + dx, y: c.y };
-}
-
-function buildBoard() {
-  const lanesEl = document.getElementById('board-lanes');
-  lanesEl.innerHTML = '';
-  const frag = document.createDocumentFragment();
-  const laneWidthPct = 100 / LANES;
-
-  HOLE_MAP.forEach((c, i) => {
-    const h = i + 1;
-    [0, 1].forEach(p => {
-      const dot = document.createElement('div');
-      dot.className = 'hole';
-      dot.style.left = (c.x + (p === 0 ? -SUB_OFFSET : SUB_OFFSET)) + '%';
-      dot.style.top = c.y + '%';
-      frag.appendChild(dot);
-    });
-
-    // Solid divider after every 5th hole, offset toward the next hole in the lane.
-    if (h % 5 === 0) {
-      const rowStep = c.size === 1 ? 0 : 100 / (c.size - 1);
-      const tickY = c.evenLane ? c.y - rowStep / 2 : c.y + rowStep / 2;
-      const tick = document.createElement('div');
-      tick.className = 'tick';
-      tick.style.left = c.x + '%';
-      tick.style.top = tickY + '%';
-      tick.style.width = (laneWidthPct * 0.62) + '%';
-      frag.appendChild(tick);
-    }
-  });
-  lanesEl.appendChild(frag);
-}
-
 // ── RENDER ───────────────────────────────────────────────────────────────
 function render() {
   const scoreRow = document.getElementById('score-row');
@@ -469,20 +350,6 @@ function render() {
   document.querySelectorAll('.key[data-add]').forEach(b => { b.disabled = !!state.winner; });
   updatePending();
 
-  state.players.forEach((p, i) => {
-    const cur = pegPosition(p.score, i);
-    const prev = pegPosition(p.prevScore, i);
-    const pegEl = document.getElementById('peg-' + i);
-    const prevEl = document.getElementById('peg-prev-' + i);
-    pegEl.style.left = cur.x + '%';
-    pegEl.style.top = cur.y + '%';
-    pegEl.style.background = p.color;
-    prevEl.style.left = prev.x + '%';
-    prevEl.style.top = prev.y + '%';
-    prevEl.style.borderColor = p.color;
-    prevEl.style.display = p.score === p.prevScore ? 'none' : '';
-  });
-
   saveState();
 }
 
@@ -501,7 +368,6 @@ function addPoints(amount) {
   if (state.winner || !amount || amount < 1) return;
   pushHistory();
   const p = state.players[state.active];
-  p.prevScore = p.score;
   p.score += amount;
   if (p.score >= WIN_SCORE) {
     const loser = state.players[1 - state.active];
@@ -615,7 +481,6 @@ function toggleTheme() { applyTheme(getTheme() === 'dark' ? 'light' : 'dark'); }
 applyTheme(getTheme());
 
 // ── INIT ──────────────────────────────────────────────────────────────────
-buildBoard();
 render();
 if (state.winner) openWinModal();
 </script>
