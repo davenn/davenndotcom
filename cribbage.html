@@ -134,14 +134,6 @@ nav {
 }
 .btn-hand:hover { color: var(--text); }
 .btn-hand svg { width: 13px; height: 13px; fill: currentColor; opacity: 0.7; }
-.btn-undo {
-  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;
-  color: var(--text2); background: var(--ctrl-bg); border: 1px solid var(--surface-border);
-  border-radius: 6px; padding: 5px 12px; cursor: pointer;
-  transition: color 0.15s, background 0.15s, opacity 0.15s;
-}
-.btn-undo:hover:not(:disabled) { color: var(--text); background: var(--ctrl-hover); }
-.btn-undo:disabled { opacity: 0.35; cursor: default; }
 
 /* ── SCORE ROW ── */
 .score-row { display: flex; gap: 10px; }
@@ -222,16 +214,22 @@ nav {
   font-family: var(--font-disp); font-weight: 700; font-size: 18px; color: var(--text);
   cursor: pointer; transition: background 0.12s, transform 0.08s;
 }
-.key:hover { background: var(--ctrl-hover); }
-.key:active { transform: scale(0.94); }
+.key:hover:not(:disabled) { background: var(--ctrl-hover); }
+.key:active:not(:disabled) { transform: scale(0.94); }
+.key:disabled { opacity: 0.35; cursor: default; }
 .key-row3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .key--primary {
   background: var(--text); color: var(--bg);
   border-color: var(--text);
 }
-.key--primary:hover { opacity: 0.88; background: var(--text); }
-.key--sub { font-size: 15px; }
-.keypad.disabled { opacity: 0.4; pointer-events: none; }
+.key--primary:hover:not(:disabled) { opacity: 0.88; background: var(--text); }
+.key--primary:disabled { opacity: 0.3; }
+.key--ghost {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+  letter-spacing: 0.05em; text-transform: uppercase; color: var(--text2);
+  background: var(--ctrl-bg);
+}
+.key--ghost:hover:not(:disabled) { color: var(--text); background: var(--ctrl-hover); }
 
 /* ── FOOTER ROW ── */
 .foot-row {
@@ -249,15 +247,6 @@ nav {
 .modal-title { font-family: var(--font-disp); font-size: 19px; font-weight: 700; }
 .modal-close { background: none; border: none; font-size: 20px; color: var(--text3); cursor: pointer; line-height: 1; padding: 4px; transition: color 0.15s; }
 .modal-close:hover { color: var(--text); }
-.modal-sub { font-family: var(--font-mono); font-size: 11.5px; color: var(--text2); margin-bottom: 12px; }
-.modal-input {
-  width: 100%; font-family: var(--font-disp); font-weight: 800; font-size: 40px; text-align: center;
-  background: var(--surface); border: 1px solid var(--surface-border); border-radius: 10px;
-  color: var(--text); padding: 10px; outline: none; margin-bottom: 14px;
-  font-variant-numeric: tabular-nums; -moz-appearance: textfield;
-}
-.modal-input::-webkit-inner-spin-button, .modal-input::-webkit-outer-spin-button { -webkit-appearance: none; }
-.modal-input:focus { border-color: var(--text2); }
 .modal-btn {
   width: 100%; background: var(--text); color: var(--bg); border: none; border-radius: 10px;
   font-family: var(--font-disp); font-weight: 700; font-size: 15px; padding: 12px; cursor: pointer;
@@ -299,7 +288,6 @@ nav {
       <span id="hand-label">Hand 1</span>
       <svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0020 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 004 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
     </button>
-    <button class="btn-undo" id="btn-undo" onclick="undo()">Undo</button>
   </div>
 
   <div class="score-row" id="score-row"></div>
@@ -328,9 +316,9 @@ nav {
       <button class="key" data-add="8">8</button>
     </div>
     <div class="key-row3">
-      <button class="key key--sub" data-add="10">+10</button>
-      <button class="key key--sub" data-add="20">+20</button>
-      <button class="key key--primary" id="btn-add-custom">Add</button>
+      <button class="key key--ghost" id="btn-undo" onclick="undo()" disabled>Undo</button>
+      <button class="key key--primary" id="btn-add" disabled>Add</button>
+      <button class="key key--ghost" id="btn-clear" disabled>Clear</button>
     </div>
   </div>
 
@@ -339,19 +327,6 @@ nav {
     <span>Skunk line at 91</span>
   </div>
 
-</div>
-
-<!-- Custom amount modal -->
-<div class="modal-overlay" id="custom-modal">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title">Add points</div>
-      <button class="modal-close" onclick="closeCustomModal()">×</button>
-    </div>
-    <p class="modal-sub" id="custom-modal-sub">Enter points to add</p>
-    <input class="modal-input" id="custom-input" type="number" min="1" max="29" inputmode="numeric" autocomplete="off">
-    <button class="modal-btn" onclick="submitCustomAdd()">Add</button>
-  </div>
 </div>
 
 <!-- Rename modal -->
@@ -475,7 +450,8 @@ function render() {
     ? `🏆 <b>${escapeHtml(state.players[state.winner.index].name)}</b> won — start a new game`
     : `Adding to <b>${escapeHtml(active.name)}</b> · tap a player to switch`;
 
-  document.getElementById('keypad').classList.toggle('disabled', !!state.winner);
+  document.querySelectorAll('.key[data-add]').forEach(b => { b.disabled = !!state.winner; });
+  updatePending();
 
   state.players.forEach((p, i) => {
     const cur = pegPosition(p.score);
@@ -540,33 +516,36 @@ document.getElementById('btn-hand').addEventListener('click', () => {
   render();
 });
 
-document.querySelectorAll('.key[data-add]').forEach(btn => {
-  btn.addEventListener('click', () => addPoints(parseInt(btn.dataset.add, 10)));
-});
+// ── KEYPAD (build a pending total, commit with Add) ────────────────────────
+let pending = 0;
 
-// ── CUSTOM ADD MODAL ───────────────────────────────────────────────────────
-const customModal = document.getElementById('custom-modal');
-const customInput = document.getElementById('custom-input');
-
-document.getElementById('btn-add-custom').addEventListener('click', () => {
-  if (state.winner) return;
-  document.getElementById('custom-modal-sub').innerHTML = `Adding to <b>${escapeHtml(state.players[state.active].name)}</b>`;
-  customInput.value = '';
-  customModal.classList.add('open');
-  setTimeout(() => customInput.focus(), 50);
-});
-
-function closeCustomModal() { customModal.classList.remove('open'); }
-
-function submitCustomAdd() {
-  const v = parseInt(customInput.value, 10);
-  if (!v || v < 1) { customInput.focus(); return; }
-  addPoints(v);
-  closeCustomModal();
+function updatePending() {
+  const addBtn = document.getElementById('btn-add');
+  const clearBtn = document.getElementById('btn-clear');
+  addBtn.textContent = pending > 0 ? `Add ${pending}` : 'Add';
+  addBtn.disabled = pending < 1 || !!state.winner;
+  clearBtn.disabled = pending < 1;
 }
 
-customInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitCustomAdd(); });
-customModal.addEventListener('click', e => { if (e.target === customModal) closeCustomModal(); });
+document.querySelectorAll('.key[data-add]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (state.winner) return;
+    pending += parseInt(btn.dataset.add, 10);
+    updatePending();
+  });
+});
+
+document.getElementById('btn-add').addEventListener('click', () => {
+  if (pending < 1 || state.winner) return;
+  addPoints(pending);
+  pending = 0;
+  updatePending();
+});
+
+document.getElementById('btn-clear').addEventListener('click', () => {
+  pending = 0;
+  updatePending();
+});
 
 // ── RENAME MODAL ───────────────────────────────────────────────────────────
 const renameModal = document.getElementById('rename-modal');
@@ -614,6 +593,7 @@ function newGame() {
   state = structuredClone(DEFAULTS);
   state.players[0].name = names[0];
   state.players[1].name = names[1];
+  pending = 0;
   closeWinModal();
   render();
 }
