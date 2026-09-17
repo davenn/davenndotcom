@@ -8,7 +8,7 @@
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *'); // lock to 'https://davenn.com' in production
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, X-Auth-Token');
+header('Access-Control-Allow-Headers: Content-Type, X-Auth-Token, X-BG-Token');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 
@@ -177,6 +177,15 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS subscribers (
     unsub_token   VARCHAR(64)  NOT NULL,
     created_at    DATETIME     DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uniq_contact (contact_type, contact_value)
+)");
+
+$pdo->exec("CREATE TABLE IF NOT EXISTS bg_readings (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    reading_at DATETIME     NOT NULL,
+    mgdl       SMALLINT     NOT NULL,
+    trend      VARCHAR(20)  DEFAULT NULL,
+    created_at DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_reading_at (reading_at)
 )");
 
 // ── HELPERS ────────────────────────────────────────────────────────────────
@@ -1247,6 +1256,216 @@ if ($method === 'POST' && $action === 'notify_subscribers') {
     }
 
     echo json_encode(['success' => true, 'emailed' => $emailed, 'texted' => $texted, 'failed' => $failed]); exit;
+}
+
+// ══════════════════════════════════════════════════════════════
+// GLUCOSE (CGM)
+// ══════════════════════════════════════════════════════════════
+// Dexcom's Share API only ever serves a rolling 24h window, so nothing older
+// than a day exists unless we capture it. The davenn-mcp poller pushes recent
+// readings here; everything downstream (dashboards, wall displays, streaks)
+// reads from bg_readings rather than touching Dexcom.
+//
+// reading_at is always stored in UTC.
+
+// Reads are gated by a low-privilege, read-only token so wall displays and
+// microcontrollers never hold the admin secret or the Dexcom credentials.
+function bgReadAuth(): bool {
+    $token = $_ENV['BG_READ_TOKEN'] ?? '';
+    if (!$token) return false;
+    $given = $_SERVER['HTTP_X_BG_TOKEN'] ?? ($_GET['token'] ?? '');
+    if (!is_string($given) || $given === '') return false;
+    return hash_equals($token, $given);
+}
+
+function bgRequireRead(): void {
+    if (!bgReadAuth()) {
+        http_response_code(401); echo json_encode(['error' => 'Unauthorized']); exit;
+    }
+}
+
+// Local-day grouping for the daily rollup. Computed from a timezone name so it
+// follows DST, using today's offset across the whole window — a day either side
+// of a DST change can land in the neighbouring bucket, which is fine for a
+// dashboard and avoids depending on MySQL's tz tables being loaded.
+function bgTzOffsetMinutes(): int {
+    $tz = $_ENV['BG_TIMEZONE'] ?? 'America/New_York';
+    try {
+        $zone = new DateTimeZone($tz);
+        return intdiv($zone->getOffset(new DateTime('now', new DateTimeZone('UTC'))), 60);
+    } catch (Exception $e) {
+        return 0;
+    }
+}
+
+// POST ?action=bg_ingest  header: X-Admin-Secret
+// body: { readings: [ { at: ISO8601, mgdl: int, trend: string|null } ] }
+// Idempotent — the poller deliberately re-sends an overlapping window, and
+// replaying it just refreshes rows already stored.
+if ($method === 'POST' && $action === 'bg_ingest') {
+    $admin_secret = $_ENV['ADMIN_SECRET'] ?? '';
+    $given        = $_SERVER['HTTP_X_ADMIN_SECRET'] ?? '';
+    if (!$admin_secret || !hash_equals($admin_secret, $given)) {
+        http_response_code(401); echo json_encode(['error' => 'Unauthorized']); exit;
+    }
+
+    $body     = json_decode(file_get_contents('php://input'), true);
+    $readings = $body['readings'] ?? null;
+    if (!is_array($readings)) {
+        http_response_code(400); echo json_encode(['error' => 'Missing readings array.']); exit;
+    }
+
+    $stmt = $pdo->prepare(
+        "INSERT INTO bg_readings (reading_at, mgdl, trend) VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE mgdl = VALUES(mgdl), trend = VALUES(trend)"
+    );
+
+    $stored = 0; $skipped = 0;
+    foreach ($readings as $r) {
+        if (!is_array($r)) { $skipped++; continue; }
+        $ts   = is_string($r['at'] ?? null) ? strtotime($r['at']) : false;
+        $mgdl = intval($r['mgdl'] ?? 0);
+        // Dexcom pins readings to 40 and 400 at the sensor's floor and ceiling;
+        // anything outside this window is not a plausible reading.
+        if ($ts === false || $mgdl < 20 || $mgdl > 600) { $skipped++; continue; }
+        // Share can deliver one reading twice, seconds apart. Snapping to the
+        // 5-minute grid the sensor samples on lets the unique key collapse them,
+        // and keeps a complete day at exactly 288 rows, which coverage_pct assumes.
+        $ts = intdiv($ts, 300) * 300;
+        $trend = isset($r['trend']) && is_string($r['trend']) ? substr($r['trend'], 0, 20) : null;
+        $stmt->execute([gmdate('Y-m-d H:i:s', $ts), $mgdl, $trend]);
+        $stored++;
+    }
+
+    // The poller sizes its next window from this, so a restart or an outage
+    // asks Dexcom for exactly the gap rather than a fixed guess.
+    $latest = $pdo->query('SELECT MAX(reading_at) FROM bg_readings')->fetchColumn();
+
+    echo json_encode([
+        'success'       => true,
+        'stored'        => $stored,
+        'skipped'       => $skipped,
+        'latest_stored' => $latest ? gmdate('c', strtotime($latest . ' UTC')) : null,
+    ]); exit;
+}
+
+// GET ?action=bg_latest&token=…  → the newest stored reading.
+// minutes_ago is what a display should use to decide it has gone stale: show
+// the age, and never present an old number as though it were current.
+if ($method === 'GET' && $action === 'bg_latest') {
+    bgRequireRead();
+    $row = $pdo->query("SELECT reading_at, mgdl, trend FROM bg_readings ORDER BY reading_at DESC LIMIT 1")->fetch();
+    if (!$row) { echo json_encode(['reading' => null]); exit; }
+    $ts = strtotime($row['reading_at'] . ' UTC');
+    echo json_encode(['reading' => [
+        'at'          => gmdate('c', $ts),
+        'mgdl'        => (int)$row['mgdl'],
+        'trend'       => $row['trend'],
+        'minutes_ago' => (int)floor((time() - $ts) / 60),
+    ]]); exit;
+}
+
+// GET ?action=bg_history&token=…&hours=24&low=70&high=180 → raw readings + summary.
+if ($method === 'GET' && $action === 'bg_history') {
+    bgRequireRead();
+    $hours = intval($_GET['hours'] ?? 24);
+    if ($hours < 1 || $hours > 168) {
+        http_response_code(400); echo json_encode(['error' => 'hours must be 1-168.']); exit;
+    }
+    $low  = intval($_GET['low']  ?? 70);
+    $high = intval($_GET['high'] ?? 180);
+
+    $since = gmdate('Y-m-d H:i:s', time() - $hours * 3600);
+    $stmt  = $pdo->prepare("SELECT reading_at, mgdl, trend FROM bg_readings WHERE reading_at >= ? ORDER BY reading_at");
+    $stmt->execute([$since]);
+
+    $readings = []; $values = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $values[]   = (int)$row['mgdl'];
+        $readings[] = [
+            'at'    => gmdate('c', strtotime($row['reading_at'] . ' UTC')),
+            'mgdl'  => (int)$row['mgdl'],
+            'trend' => $row['trend'],
+        ];
+    }
+
+    $summary = null;
+    if ($values) {
+        $count   = count($values);
+        $lowCnt  = count(array_filter($values, fn($v) => $v < $low));
+        $highCnt = count(array_filter($values, fn($v) => $v > $high));
+        $summary = [
+            'readings'       => $count,
+            'avg_mgdl'       => (int)round(array_sum($values) / $count),
+            'min_mgdl'       => min($values),
+            'max_mgdl'       => max($values),
+            'low_count'      => $lowCnt,
+            'high_count'     => $highCnt,
+            'in_range_pct'   => (int)round((($count - $lowCnt - $highCnt) / $count) * 100),
+            'low_threshold'  => $low,
+            'high_threshold' => $high,
+        ];
+    }
+
+    echo json_encode(['hours' => $hours, 'summary' => $summary, 'readings' => $readings]); exit;
+}
+
+// GET ?action=bg_daily&token=…&days=30&low=70&high=180 → one row per local day.
+// This is the shape the streak calendar and time-in-range bars want; the
+// aggregation happens in SQL so a year of history stays a small response.
+if ($method === 'GET' && $action === 'bg_daily') {
+    bgRequireRead();
+    $days = intval($_GET['days'] ?? 30);
+    if ($days < 1 || $days > 365) {
+        http_response_code(400); echo json_encode(['error' => 'days must be 1-365.']); exit;
+    }
+    $low    = intval($_GET['low']  ?? 70);
+    $high   = intval($_GET['high'] ?? 180);
+    $offset = bgTzOffsetMinutes();
+    $since  = gmdate('Y-m-d H:i:s', time() - $days * 86400);
+
+    $stmt = $pdo->prepare(
+        "SELECT DATE(reading_at + INTERVAL $offset MINUTE) AS day,
+                COUNT(*)         AS readings,
+                ROUND(AVG(mgdl)) AS avg_mgdl,
+                MIN(mgdl)        AS min_mgdl,
+                MAX(mgdl)        AS max_mgdl,
+                SUM(mgdl < $low) AS low_count,
+                SUM(mgdl > $high) AS high_count
+         FROM bg_readings
+         WHERE reading_at >= ?
+         GROUP BY day
+         ORDER BY day"
+    );
+    $stmt->execute([$since]);
+
+    $out = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $count = (int)$row['readings'];
+        $lowC  = (int)$row['low_count'];
+        $highC = (int)$row['high_count'];
+        $out[] = [
+            'day'          => $row['day'],
+            'readings'     => $count,
+            'avg_mgdl'     => (int)$row['avg_mgdl'],
+            'min_mgdl'     => (int)$row['min_mgdl'],
+            'max_mgdl'     => (int)$row['max_mgdl'],
+            'low_count'    => $lowC,
+            'high_count'   => $highC,
+            'in_range_pct' => (int)round((($count - $lowC - $highC) / $count) * 100),
+            // 288 readings is a complete day at one per 5 minutes; well under
+            // that means sensor gaps, so the day's stats are only partial.
+            'coverage_pct' => (int)round(min($count / 288, 1) * 100),
+        ];
+    }
+
+    echo json_encode([
+        'days'           => $days,
+        'timezone'       => $_ENV['BG_TIMEZONE'] ?? 'America/New_York',
+        'low_threshold'  => $low,
+        'high_threshold' => $high,
+        'daily'          => $out,
+    ]); exit;
 }
 
 // =============================================================
