@@ -8,91 +8,113 @@
     <link rel="manifest" href="/manifest-glucose.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        // Stamp the theme before first paint so there is no flash of the wrong
+        // one. Stored choice wins; first visit follows the OS.
+        (function () {
+            var t;
+            try { t = localStorage.getItem('glucose_theme'); } catch (e) {}
+            if (t !== 'light' && t !== 'dark') {
+                t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        /* Light is the base. Status hues are fixed and never themed — on either
-           surface they are paired with a label, never left to carry meaning on
-           their own. Deutan vision reads #d03b3b and #0ca30c as nearly the same
-           colour, and low-vs-in-range is exactly the distinction that matters
-           here, so every status is also named, ordered, or placed. */
-        :root {
+        /* Themes are explicit, written to data-theme by the toggle, the same way
+           the other davenn apps do it. Status hues are fixed and never themed —
+           on either surface they are paired with a label, never left to carry
+           meaning alone. Deutan vision reads #d03b3b and #0ca30c as nearly the
+           same colour, and low-vs-in-range is exactly the distinction that
+           matters here, so every status is also named, ordered, or placed. */
+        :root, [data-theme="light"] {
             color-scheme: light;
             --page:           #ffffff;
             --surface:        #f7f6f3;
             --surface-2:      #efeeea;
             --border:         #e8e6e0;
-            --nav-bg:         #111110;
-            --nav-border:     rgba(255,255,255,0.08);
             --text-primary:   #111110;
             --text-secondary: #52514e;
             --text-muted:     #898781;
             --grid:           #e1e0d9;
             --axis:           #c3c2b7;
-            --good:           #0ca30c;
-            --warn:           #fab219;
-            --crit:           #d03b3b;
             --band:           rgba(12,163,12,0.08);
-            --font-display:   'Syne', system-ui, sans-serif;
-            --font-mono:      'DM Mono', ui-monospace, monospace;
-            --nav-height:     56px;
         }
-        @media (prefers-color-scheme: dark) {
-            :root:not([data-theme="light"]) {
-                color-scheme: dark;
-                --page:           #0d0d0d;
-                --surface:        #1a1a19;
-                --surface-2:      #232322;
-                --border:         #2c2c2a;
-                --text-primary:   #ffffff;
-                --text-secondary: #c3c2b7;
-                --text-muted:     #898781;
-                --grid:           #2c2c2a;
-                --axis:           #383835;
-                --band:           rgba(12,163,12,0.14);
-            }
-        }
-        :root[data-theme="dark"] {
+        /* Dark surfaces match reactiontest/dailytasks so the apps feel like one set. */
+        [data-theme="dark"] {
             color-scheme: dark;
-            --page:           #0d0d0d;
-            --surface:        #1a1a19;
-            --surface-2:      #232322;
-            --border:         #2c2c2a;
-            --text-primary:   #ffffff;
+            --page:           #0a0a0a;
+            --surface:        #121212;
+            --surface-2:      #1a1a1a;
+            --border:         #2a2a2a;
+            --text-primary:   #f0f0f0;
             --text-secondary: #c3c2b7;
             --text-muted:     #898781;
             --grid:           #2c2c2a;
-            --axis:           #383835;
-            --band:           rgba(12,163,12,0.14);
+            --axis:           #3a3a38;
+            --band:           rgba(12,163,12,0.16);
+        }
+        :root {
+            /* Mode-invariant. The nav is dark in both themes, as everywhere else. */
+            --nav-bg:     #111110;
+            --nav-border: rgba(255,255,255,0.08);
+            --good:       #0ca30c;
+            --warn:       #fab219;
+            --crit:       #d03b3b;
+            --font-ui:    system-ui, -apple-system, 'Segoe UI', sans-serif;
+            --font-mono:  'DM Mono', ui-monospace, monospace;
+            --nav-h:      52px;
         }
 
         html, body { min-height: 100%; }
         body {
-            font-family: var(--font-display);
+            font-family: var(--font-ui);
             background: var(--page);
             color: var(--text-primary);
             -webkit-font-smoothing: antialiased;
+            padding-top: calc(var(--nav-h) + env(safe-area-inset-top));
             padding-bottom: env(safe-area-inset-bottom);
+            transition: background 0.2s, color 0.2s;
         }
 
-        /* ── NAV ── */
+        /* ── NAV (shared shape with the other davenn apps) ── */
         nav {
-            height: var(--nav-height);
+            position: fixed; top: 0; left: 0; right: 0;
+            height: calc(var(--nav-h) + env(safe-area-inset-top));
+            padding-top: env(safe-area-inset-top);
             background: var(--nav-bg);
             border-bottom: 1px solid var(--nav-border);
             display: flex; align-items: center; justify-content: space-between;
-            padding: 0 16px;
-            padding-top: env(safe-area-inset-top);
+            padding-left: 1.5rem; padding-right: 1.5rem; z-index: 200;
         }
-        .nav-logo { color: #fff; text-decoration: none; font-weight: 800; font-size: 15px; letter-spacing: -0.02em; }
-        .nav-logo span { color: #888; }
-        .nav-refresh {
-            background: none; border: 1px solid rgba(255,255,255,0.18); color: #fff;
-            font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em;
-            padding: 7px 12px; border-radius: 7px; cursor: pointer; min-height: 34px;
+        .nav-logo { font-family: var(--font-mono); font-size: 13px; color: rgba(255,255,255,0.4); text-decoration: none; }
+        .nav-logo strong { color: #fff; }
+        .nav-right { display: flex; align-items: center; gap: 1.2rem; }
+        .nav-back {
+            font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.45);
+            text-decoration: none; letter-spacing: 0.05em; text-transform: uppercase;
+            transition: color 0.15s; background: none; border: none; cursor: pointer; padding: 0;
         }
-        .nav-refresh:disabled { opacity: 0.45; cursor: default; }
+        .nav-back:hover { color: #fff; }
+        .nav-back:disabled { opacity: 0.4; cursor: default; }
+
+        /* ── THEME TOGGLE ── */
+        .theme-toggle { width: 44px; height: 24px; cursor: pointer; background: none; border: none; padding: 0; flex: none; }
+        .theme-toggle-track {
+            width: 44px; height: 24px; border-radius: 12px; background: #333; border: 1px solid #555;
+            display: flex; align-items: center; padding: 0 3px; transition: background 0.2s;
+        }
+        [data-theme="light"] .theme-toggle-track { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); }
+        .theme-toggle-thumb {
+            width: 18px; height: 18px; border-radius: 50%; display: flex;
+            align-items: center; justify-content: center; font-size: 10px;
+            transition: transform 0.2s, background 0.2s;
+        }
+        [data-theme="light"] .theme-toggle-thumb { transform: translateX(20px); background: #fff; }
+        [data-theme="dark"]  .theme-toggle-thumb { transform: translateX(0);    background: #666; }
 
         .wrap { max-width: 720px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
 
@@ -111,11 +133,12 @@
         /* ── HERO ── */
         .hero { text-align: center; padding: 26px 18px 20px; }
         .hero-row { display: flex; align-items: center; justify-content: center; gap: 12px; }
-        /* Proportional figures on the hero — equal-width digits make a number
-           this large read loose, and it is centred so it cannot shift layout. */
+        /* Same treatment as pomodoro's timer: the system sans at weight 800 with
+           tight tracking. Figures stay proportional — the number is centred, so it
+           cannot shift layout, and equal-width digits read loose this large. */
         .hero-value {
-            font-size: clamp(64px, 22vw, 104px); font-weight: 800; line-height: 0.9;
-            letter-spacing: -0.04em;
+            font-size: clamp(64px, 20vw, 140px); font-weight: 800; line-height: 1;
+            letter-spacing: -0.05em;
         }
         .hero-arrow { font-size: clamp(34px, 11vw, 52px); line-height: 1; color: var(--text-secondary); }
         .hero-unit { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); margin-top: 10px; letter-spacing: 0.08em; }
@@ -192,7 +215,7 @@
             background: var(--page); color: var(--text-primary); width: 100%;
         }
         .gate button {
-            font-family: var(--font-display); font-weight: 700; font-size: 14px;
+            font-family: var(--font-ui); font-weight: 700; font-size: 14px;
             padding: 12px; border: none; border-radius: 9px; cursor: pointer;
             background: var(--text-primary); color: var(--page); min-height: 46px;
         }
@@ -203,8 +226,14 @@
 </head>
 <body>
 <nav>
-    <a class="nav-logo" href="/">davenn<span>dotcom</span></a>
-    <button class="nav-refresh" id="refresh" type="button">REFRESH</button>
+    <a class="nav-logo" href="index.html"><strong>davenn</strong>dotcom</a>
+    <div class="nav-right">
+        <button class="nav-back" id="refresh" type="button">Refresh</button>
+        <button class="theme-toggle" id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
+            <div class="theme-toggle-track"><div class="theme-toggle-thumb" id="toggle-icon">🌙</div></div>
+        </button>
+        <a class="nav-back" href="index.html">← Back</a>
+    </div>
 </nav>
 
 <div class="wrap">
@@ -299,7 +328,7 @@
     ['gate','gate-form','gate-input','hero','hero-value','hero-arrow','hero-status','hero-dot',
      'hero-status-text','hero-age','filter-row','curve-card','chart-holder','tip','ranges','tir-card','tir-bar',
      'tir-key','tir-window','stats','days-card','days','days-note','loading','refresh',
-     'stale-banner','stale-text'].forEach(function (id) { el[id] = document.getElementById(id); });
+     'stale-banner','stale-text','theme-toggle','toggle-icon'].forEach(function (id) { el[id] = document.getElementById(id); });
 
     var ARROWS = {
         DoubleUp: '⇈', SingleUp: '↑', FortyFiveUp: '↗', Flat: '→',
@@ -656,6 +685,21 @@
     });
 
     el['refresh'].addEventListener('click', load);
+
+    // Theme. The head script already stamped data-theme before first paint;
+    // this only reflects it in the thumb and persists a deliberate change.
+    function applyTheme(t) {
+        document.documentElement.setAttribute('data-theme', t);
+        el['toggle-icon'].textContent = t === 'dark' ? '🌙' : '☀️';
+        try { localStorage.setItem('glucose_theme', t); } catch (e) {}
+        // The chart paints from CSS vars resolved at build time, so redraw it.
+        if (history.length) drawCurve();
+    }
+    el['toggle-icon'].textContent =
+        document.documentElement.getAttribute('data-theme') === 'dark' ? '🌙' : '☀️';
+    el['theme-toggle'].addEventListener('click', function () {
+        applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+    });
 
     var resizeTimer;
     window.addEventListener('resize', function () {
