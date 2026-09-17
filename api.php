@@ -188,6 +188,18 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS bg_readings (
     UNIQUE KEY uniq_reading_at (reading_at)
 )");
 
+// reading_at is snapped to the 5-minute grid so the unique key collapses the
+// duplicates Share sends; observed_at keeps the reading's real time, which is
+// what freshness and chart positions must use. Older rows have NULL here and
+// fall back to the snapped value.
+$bg_cols = $pdo->query(
+    "SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bg_readings'"
+)->fetchAll(PDO::FETCH_COLUMN);
+if (!in_array('observed_at', $bg_cols, true)) {
+    $pdo->exec("ALTER TABLE bg_readings ADD COLUMN observed_at DATETIME NULL AFTER reading_at");
+}
+
 // ── HELPERS ────────────────────────────────────────────────────────────────
 function authUser(PDO $pdo): ?array {
     $token = $_SERVER['HTTP_X_AUTH_TOKEN'] ?? '';
@@ -1316,8 +1328,8 @@ if ($method === 'POST' && $action === 'bg_ingest') {
     }
 
     $stmt = $pdo->prepare(
-        "INSERT INTO bg_readings (reading_at, mgdl, trend) VALUES (?, ?, ?)
-         ON DUPLICATE KEY UPDATE mgdl = VALUES(mgdl), trend = VALUES(trend)"
+        "INSERT INTO bg_readings (reading_at, observed_at, mgdl, trend) VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE observed_at = VALUES(observed_at), mgdl = VALUES(mgdl), trend = VALUES(trend)"
     );
 
     $stored = 0; $skipped = 0;
@@ -1331,9 +1343,12 @@ if ($method === 'POST' && $action === 'bg_ingest') {
         // Share can deliver one reading twice, seconds apart. Snapping to the
         // 5-minute grid the sensor samples on lets the unique key collapse them,
         // and keeps a complete day at exactly 288 rows, which coverage_pct assumes.
+        // The unsnapped time is kept too — flooring it made fresh readings look
+        // up to 5 minutes old, so a refresh appeared to do nothing.
+        $observed = gmdate('Y-m-d H:i:s', $ts);
         $ts = intdiv($ts, 300) * 300;
         $trend = isset($r['trend']) && is_string($r['trend']) ? substr($r['trend'], 0, 20) : null;
-        $stmt->execute([gmdate('Y-m-d H:i:s', $ts), $mgdl, $trend]);
+        $stmt->execute([gmdate('Y-m-d H:i:s', $ts), $observed, $mgdl, $trend]);
         $stored++;
     }
 
@@ -1408,9 +1423,9 @@ if ($method === 'POST' && $action === 'bg_refresh') {
 // the age, and never present an old number as though it were current.
 if ($method === 'GET' && $action === 'bg_latest') {
     bgRequireRead();
-    $row = $pdo->query("SELECT reading_at, mgdl, trend FROM bg_readings ORDER BY reading_at DESC LIMIT 1")->fetch();
+    $row = $pdo->query("SELECT reading_at, observed_at, mgdl, trend FROM bg_readings ORDER BY reading_at DESC LIMIT 1")->fetch();
     if (!$row) { echo json_encode(['reading' => null]); exit; }
-    $ts = strtotime($row['reading_at'] . ' UTC');
+    $ts = strtotime(($row['observed_at'] ?: $row['reading_at']) . ' UTC');
     echo json_encode(['reading' => [
         'at'          => gmdate('c', $ts),
         'mgdl'        => (int)$row['mgdl'],
@@ -1430,14 +1445,14 @@ if ($method === 'GET' && $action === 'bg_history') {
     $high = intval($_GET['high'] ?? 180);
 
     $since = gmdate('Y-m-d H:i:s', time() - $hours * 3600);
-    $stmt  = $pdo->prepare("SELECT reading_at, mgdl, trend FROM bg_readings WHERE reading_at >= ? ORDER BY reading_at");
+    $stmt  = $pdo->prepare("SELECT reading_at, observed_at, mgdl, trend FROM bg_readings WHERE reading_at >= ? ORDER BY reading_at");
     $stmt->execute([$since]);
 
     $readings = []; $values = [];
     foreach ($stmt->fetchAll() as $row) {
         $values[]   = (int)$row['mgdl'];
         $readings[] = [
-            'at'    => gmdate('c', strtotime($row['reading_at'] . ' UTC')),
+            'at'    => gmdate('c', strtotime(($row['observed_at'] ?: $row['reading_at']) . ' UTC')),
             'mgdl'  => (int)$row['mgdl'],
             'trend' => $row['trend'],
         ];
@@ -1479,7 +1494,7 @@ if ($method === 'GET' && $action === 'bg_daily') {
     $since  = gmdate('Y-m-d H:i:s', time() - $days * 86400);
 
     $stmt = $pdo->prepare(
-        "SELECT DATE(reading_at + INTERVAL $offset MINUTE) AS day,
+        "SELECT DATE(COALESCE(observed_at, reading_at) + INTERVAL $offset MINUTE) AS day,
                 COUNT(*)         AS readings,
                 ROUND(AVG(mgdl)) AS avg_mgdl,
                 MIN(mgdl)        AS min_mgdl,
