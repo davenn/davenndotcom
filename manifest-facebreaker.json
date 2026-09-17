@@ -1,6 +1,7 @@
 {
   "name": "Face Breaker",
   "short_name": "FaceBreaker",
+  "id": "/facebreaker.html",
   "start_url": "/facebreaker.html",
   "display": "standalone",
   "theme_color": "#0a0a0f",

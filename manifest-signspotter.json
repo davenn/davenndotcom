@@ -1,6 +1,7 @@
 {
   "name": "SignSpotter",
   "short_name": "SignSpotter",
+  "id": "/signspotter.html",
   "start_url": "/signspotter.html",
   "display": "standalone",
   "orientation": "any",

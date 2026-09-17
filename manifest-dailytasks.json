@@ -2,6 +2,7 @@
   "name": "Daily Tasks",
   "short_name": "Daily Tasks",
   "description": "Daily task tracker with per-task timers and a weekly leaderboard",
+  "id": "/dailytasks.html",
   "start_url": "/dailytasks.html",
   "display": "standalone",
   "orientation": "portrait",

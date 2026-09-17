@@ -1,6 +1,7 @@
 {
   "name": "Pomodoro",
   "short_name": "Pomodoro",
+  "id": "/pomodoro.html",
   "start_url": "/pomodoro.html",
   "display": "standalone",
   "orientation": "any",

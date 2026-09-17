@@ -1,0 +1,13 @@
+{
+  "name": "Flight Tracker",
+  "short_name": "Flights",
+  "id": "/flighttracker.html",
+  "start_url": "/flighttracker.html",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#0a0a0a",
+  "background_color": "#0a0a0a",
+  "icons": [
+    { "src": "/icons/flighttracker.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
