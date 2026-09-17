@@ -684,7 +684,25 @@
         load();
     });
 
-    el['refresh'].addEventListener('click', load);
+    // The button forces a live pull; the 60s auto-refresh deliberately does not,
+    // so an idle tab never turns into a stream of requests against Dexcom.
+    function forceRefresh() {
+        if (busy || !token) return;
+        busy = true;
+        el['refresh'].disabled = true;
+        el['refresh'].textContent = 'Syncing';
+        fetch(API + '?action=bg_refresh&token=' + encodeURIComponent(token), { method: 'POST' })
+            // A failure or timeout here is not proof the poll did not run, so the
+            // reload below happens either way.
+            .catch(function () {})
+            .then(function () {
+                el['refresh'].textContent = 'Refresh';
+                busy = false;
+                load();
+            });
+    }
+
+    el['refresh'].addEventListener('click', forceRefresh);
 
     // Theme. The head script already stamped data-theme before first paint;
     // this only reflects it in the thumb and persists a deliberate change.

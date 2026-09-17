@@ -1349,6 +1349,60 @@ if ($method === 'POST' && $action === 'bg_ingest') {
     ]); exit;
 }
 
+// POST ?action=bg_refresh&token=…
+// Asks the poller to pull from Dexcom now, so a manual refresh reflects live
+// data rather than whatever was last stored. The admin secret stays here on the
+// server — the page only ever holds the read-only token, which is why this is a
+// proxy rather than the browser calling the poller directly.
+if ($method === 'POST' && $action === 'bg_refresh') {
+    bgRequireRead();
+
+    $poll_url = $_ENV['BG_POLL_URL']  ?? '';
+    $secret   = $_ENV['ADMIN_SECRET'] ?? '';
+    if (!$poll_url || !$secret) {
+        http_response_code(503);
+        echo json_encode(['error' => 'Refresh is not configured.']); exit;
+    }
+
+    // Dexcom's Share API is unofficial, and a button is easy to lean on — one
+    // open tab per family member would be enough to turn this into a stream.
+    // Within the cooldown we report success without calling out: a poll that
+    // recent has already fetched everything this one would.
+    $cooldown = 45;
+    $stamp    = sys_get_temp_dir() . '/bg_refresh_last';
+    $last     = is_readable($stamp) ? (int)file_get_contents($stamp) : 0;
+    $age      = time() - $last;
+    if ($age < $cooldown) {
+        echo json_encode([
+            'triggered'   => false,
+            'reason'      => 'cooling down',
+            'retry_after' => $cooldown - $age,
+        ]); exit;
+    }
+    @file_put_contents($stamp, (string)time());
+
+    $ch = curl_init($poll_url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => '',
+        CURLOPT_HTTPHEADER     => ['X-Admin-Secret: ' . $secret],
+        // Generous, because a suspended instance has to wake before it answers.
+        CURLOPT_TIMEOUT        => 25,
+    ]);
+    $body = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    // A timeout is not proof of failure — the poll may well have run on the
+    // other end. The caller re-reads regardless, so report what we saw.
+    echo json_encode([
+        'triggered' => $code >= 200 && $code < 300,
+        'status'    => $code,
+        'poller'    => $body ? json_decode($body, true) : null,
+    ]); exit;
+}
+
 // GET ?action=bg_latest&token=…  → the newest stored reading.
 // minutes_ago is what a display should use to decide it has gone stale: show
 // the age, and never present an old number as though it were current.
