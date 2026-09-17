@@ -1,0 +1,12 @@
+{
+  "name": "Glucose",
+  "short_name": "Glucose",
+  "start_url": "/glucose.html",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#111110",
+  "background_color": "#ffffff",
+  "icons": [
+    { "src": "/icons/glucose.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

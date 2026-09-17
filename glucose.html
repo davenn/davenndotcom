@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Glucose — davenn.com</title>
+    <meta name="theme-color" content="#111110">
+    <link rel="manifest" href="/manifest-glucose.json">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* Light is the base. Status hues are fixed and never themed — on either
+           surface they are paired with a label, never left to carry meaning on
+           their own. Deutan vision reads #d03b3b and #0ca30c as nearly the same
+           colour, and low-vs-in-range is exactly the distinction that matters
+           here, so every status is also named, ordered, or placed. */
+        :root {
+            color-scheme: light;
+            --page:           #ffffff;
+            --surface:        #f7f6f3;
+            --surface-2:      #efeeea;
+            --border:         #e8e6e0;
+            --nav-bg:         #111110;
+            --nav-border:     rgba(255,255,255,0.08);
+            --text-primary:   #111110;
+            --text-secondary: #52514e;
+            --text-muted:     #898781;
+            --grid:           #e1e0d9;
+            --axis:           #c3c2b7;
+            --good:           #0ca30c;
+            --warn:           #fab219;
+            --crit:           #d03b3b;
+            --band:           rgba(12,163,12,0.08);
+            --font-display:   'Syne', system-ui, sans-serif;
+            --font-mono:      'DM Mono', ui-monospace, monospace;
+            --nav-height:     56px;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                color-scheme: dark;
+                --page:           #0d0d0d;
+                --surface:        #1a1a19;
+                --surface-2:      #232322;
+                --border:         #2c2c2a;
+                --text-primary:   #ffffff;
+                --text-secondary: #c3c2b7;
+                --text-muted:     #898781;
+                --grid:           #2c2c2a;
+                --axis:           #383835;
+                --band:           rgba(12,163,12,0.14);
+            }
+        }
+        :root[data-theme="dark"] {
+            color-scheme: dark;
+            --page:           #0d0d0d;
+            --surface:        #1a1a19;
+            --surface-2:      #232322;
+            --border:         #2c2c2a;
+            --text-primary:   #ffffff;
+            --text-secondary: #c3c2b7;
+            --text-muted:     #898781;
+            --grid:           #2c2c2a;
+            --axis:           #383835;
+            --band:           rgba(12,163,12,0.14);
+        }
+
+        html, body { min-height: 100%; }
+        body {
+            font-family: var(--font-display);
+            background: var(--page);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        /* ── NAV ── */
+        nav {
+            height: var(--nav-height);
+            background: var(--nav-bg);
+            border-bottom: 1px solid var(--nav-border);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 16px;
+            padding-top: env(safe-area-inset-top);
+        }
+        .nav-logo { color: #fff; text-decoration: none; font-weight: 800; font-size: 15px; letter-spacing: -0.02em; }
+        .nav-logo span { color: #888; }
+        .nav-refresh {
+            background: none; border: 1px solid rgba(255,255,255,0.18); color: #fff;
+            font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em;
+            padding: 7px 12px; border-radius: 7px; cursor: pointer; min-height: 34px;
+        }
+        .nav-refresh:disabled { opacity: 0.45; cursor: default; }
+
+        .wrap { max-width: 720px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px;
+        }
+        .card-title {
+            font-size: 11px; font-family: var(--font-mono); text-transform: uppercase;
+            letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 14px;
+            display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+        }
+
+        /* ── HERO ── */
+        .hero { text-align: center; padding: 26px 18px 20px; }
+        .hero-row { display: flex; align-items: center; justify-content: center; gap: 12px; }
+        /* Proportional figures on the hero — equal-width digits make a number
+           this large read loose, and it is centred so it cannot shift layout. */
+        .hero-value {
+            font-size: clamp(64px, 22vw, 104px); font-weight: 800; line-height: 0.9;
+            letter-spacing: -0.04em;
+        }
+        .hero-arrow { font-size: clamp(34px, 11vw, 52px); line-height: 1; color: var(--text-secondary); }
+        .hero-unit { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); margin-top: 10px; letter-spacing: 0.08em; }
+        .hero-status {
+            display: inline-flex; align-items: center; gap: 7px;
+            margin-top: 14px; padding: 7px 14px; border-radius: 999px;
+            background: var(--surface-2); border: 1px solid var(--border);
+            font-size: 13px; font-weight: 600;
+        }
+        .hero-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+        .hero-age { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); margin-top: 12px; }
+        .hero-age.stale { color: var(--crit); font-weight: 500; }
+
+        /* ── FILTER ROW ── */
+        .filter-row { display: flex; align-items: center; gap: 10px; padding: 0 2px; }
+        .filter-label {
+            font-family: var(--font-mono); font-size: 11px; text-transform: uppercase;
+            letter-spacing: 0.1em; color: var(--text-muted);
+        }
+        .ranges { display: flex; gap: 6px; }
+        .range-btn {
+            font-family: var(--font-mono); font-size: 11px;
+            padding: 7px 11px; min-height: 34px; border-radius: 7px; cursor: pointer;
+            background: transparent; color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+        .range-btn[aria-pressed="true"] { background: var(--text-primary); color: var(--page); border-color: var(--text-primary); }
+
+        /* ── CHART ── */
+        .chart-holder { position: relative; touch-action: pan-y; }
+        .chart-holder svg { display: block; width: 100%; height: auto; }
+        .tip {
+            position: absolute; pointer-events: none; opacity: 0; transition: opacity .12s;
+            background: var(--text-primary); color: var(--page);
+            font-family: var(--font-mono); font-size: 11px; line-height: 1.5;
+            padding: 6px 9px; border-radius: 7px; white-space: nowrap; transform: translate(-50%, -100%);
+            z-index: 3;
+        }
+        .tip.on { opacity: 1; }
+
+        /* ── TIME IN RANGE ── */
+        .tir-bar { display: flex; gap: 2px; height: 22px; border-radius: 6px; overflow: hidden; margin-bottom: 12px; }
+        .tir-seg { min-width: 2px; }
+        .tir-key { display: grid; gap: 7px; }
+        .tir-row { display: flex; align-items: center; gap: 9px; font-size: 13px; }
+        .tir-swatch { width: 11px; height: 11px; border-radius: 3px; flex: none; }
+        .tir-name { color: var(--text-secondary); }
+        .tir-pct { margin-left: auto; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; margin-top: 16px; border-top: 1px solid var(--border); padding-top: 14px; }
+        .stat { text-align: center; }
+        .stat-v { font-size: 20px; font-weight: 700; }
+        .stat-l { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 3px; }
+
+        /* ── DAY STRIP ── */
+        .days { display: grid; gap: 9px; }
+        .day { display: grid; grid-template-columns: 52px 1fr 42px; align-items: center; gap: 10px; }
+        .day-label { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+        .day-bar { display: flex; gap: 2px; height: 16px; border-radius: 4px; overflow: hidden; background: var(--surface-2); }
+        .day-avg { font-family: var(--font-mono); font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; }
+        .day-partial { opacity: 0.55; }
+
+        /* ── STATES ── */
+        .msg { text-align: center; color: var(--text-secondary); font-size: 14px; padding: 26px 8px; line-height: 1.6; }
+        .banner {
+            background: var(--surface-2); border: 1px solid var(--crit);
+            border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.5;
+            display: flex; gap: 9px; align-items: flex-start;
+        }
+        .gate { display: grid; gap: 12px; max-width: 360px; margin: 0 auto; }
+        .gate input {
+            font-family: var(--font-mono); font-size: 14px; padding: 12px;
+            border: 1px solid var(--border); border-radius: 9px;
+            background: var(--page); color: var(--text-primary); width: 100%;
+        }
+        .gate button {
+            font-family: var(--font-display); font-weight: 700; font-size: 14px;
+            padding: 12px; border: none; border-radius: 9px; cursor: pointer;
+            background: var(--text-primary); color: var(--page); min-height: 46px;
+        }
+        .foot { font-size: 11px; color: var(--text-muted); text-align: center; line-height: 1.6; padding: 4px 8px 20px; }
+        .foot a { color: var(--text-secondary); }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+<nav>
+    <a class="nav-logo" href="/">davenn<span>dotcom</span></a>
+    <button class="nav-refresh" id="refresh" type="button">REFRESH</button>
+</nav>
+
+<div class="wrap">
+
+    <!-- Token gate -->
+    <section class="card hidden" id="gate">
+        <div class="card-title">Access</div>
+        <form class="gate" id="gate-form">
+            <p class="msg" style="padding:0 0 4px">This dashboard needs the read-only token to load Levi's readings.</p>
+            <input type="password" id="gate-input" placeholder="Read token" autocomplete="off" spellcheck="false">
+            <button type="submit">Unlock</button>
+        </form>
+    </section>
+
+    <!-- Stale warning -->
+    <div class="banner hidden" id="stale-banner">
+        <span aria-hidden="true">⚠</span>
+        <span id="stale-text"></span>
+    </div>
+
+    <!-- Hero -->
+    <section class="card hero hidden" id="hero">
+        <div class="hero-row">
+            <div class="hero-value" id="hero-value">—</div>
+            <div class="hero-arrow" id="hero-arrow"></div>
+        </div>
+        <div class="hero-unit">MG/DL</div>
+        <div class="hero-status" id="hero-status">
+            <span class="hero-dot" id="hero-dot"></span>
+            <span id="hero-status-text">—</span>
+        </div>
+        <div class="hero-age" id="hero-age"></div>
+    </section>
+
+    <!-- Window filter: scopes both the curve and the time-in-range card -->
+    <div class="filter-row hidden" id="filter-row">
+        <span class="filter-label">Window</span>
+        <span class="ranges" id="ranges">
+            <button class="range-btn" type="button" data-hours="3">3H</button>
+            <button class="range-btn" type="button" data-hours="6">6H</button>
+            <button class="range-btn" type="button" data-hours="12">12H</button>
+            <button class="range-btn" type="button" data-hours="24" aria-pressed="true">24H</button>
+        </span>
+    </div>
+
+    <!-- Curve -->
+    <section class="card hidden" id="curve-card">
+        <div class="card-title"><span>Recent</span></div>
+        <div class="chart-holder" id="chart-holder">
+            <div class="tip" id="tip"></div>
+        </div>
+    </section>
+
+    <!-- Time in range -->
+    <section class="card hidden" id="tir-card">
+        <div class="card-title"><span>Time in range</span><span id="tir-window"></span></div>
+        <div class="tir-bar" id="tir-bar"></div>
+        <div class="tir-key" id="tir-key"></div>
+        <div class="stats" id="stats"></div>
+    </section>
+
+    <!-- History -->
+    <section class="card hidden" id="days-card">
+        <div class="card-title"><span>Last 14 days</span><span id="days-note"></span></div>
+        <div class="days" id="days"></div>
+    </section>
+
+    <div class="msg" id="loading">Loading…</div>
+
+    <p class="foot">
+        Readings come from a Dexcom follower feed and can lag or drop out.
+        Not for treatment decisions — check the Dexcom app for those.
+    </p>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    var API = '/api.php';
+    var LOW = 70, HIGH = 180;
+    var STALE_MIN = 15;          // a poll every 5 min on a 5-min cadence
+    var GAP_MIN = 15;            // break the line rather than draw across a gap
+    var REFRESH_MS = 60000;
+
+    var token = '';
+    try { token = localStorage.getItem('bg_token') || ''; } catch (e) { token = ''; }
+
+    var hours = 24;
+    var history = [];
+    var el = {};
+    ['gate','gate-form','gate-input','hero','hero-value','hero-arrow','hero-status','hero-dot',
+     'hero-status-text','hero-age','filter-row','curve-card','chart-holder','tip','ranges','tir-card','tir-bar',
+     'tir-key','tir-window','stats','days-card','days','days-note','loading','refresh',
+     'stale-banner','stale-text'].forEach(function (id) { el[id] = document.getElementById(id); });
+
+    var ARROWS = {
+        DoubleUp: '⇈', SingleUp: '↑', FortyFiveUp: '↗', Flat: '→',
+        FortyFiveDown: '↘', SingleDown: '↓', DoubleDown: '⇊'
+    };
+    var TREND_WORDS = {
+        DoubleUp: 'rising fast', SingleUp: 'rising', FortyFiveUp: 'drifting up', Flat: 'steady',
+        FortyFiveDown: 'drifting down', SingleDown: 'falling', DoubleDown: 'falling fast'
+    };
+
+    // Status is never colour alone: each of these ships with its label.
+    function statusOf(mgdl) {
+        if (mgdl < LOW) return { name: 'Low', color: 'var(--crit)' };
+        if (mgdl > HIGH) return { name: 'High', color: 'var(--warn)' };
+        return { name: 'In range', color: 'var(--good)' };
+    }
+
+    function show(node, on) { if (node) node.classList.toggle('hidden', !on); }
+
+    function api(action, params) {
+        var q = '?action=' + encodeURIComponent(action) + '&token=' + encodeURIComponent(token);
+        Object.keys(params || {}).forEach(function (k) {
+            q += '&' + k + '=' + encodeURIComponent(params[k]);
+        });
+        return fetch(API + q, { cache: 'no-store' }).then(function (r) {
+            if (r.status === 401) { var e = new Error('unauthorized'); e.code = 401; throw e; }
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+        });
+    }
+
+    /* ────────────────────────────── hero ────────────────────────────── */
+
+    function renderHero(reading) {
+        if (!reading) {
+            el['hero-value'].textContent = '—';
+            el['hero-status-text'].textContent = 'No readings stored yet';
+            el['hero-dot'].style.background = 'var(--text-muted)';
+            el['hero-age'].textContent = '';
+            return;
+        }
+        var st = statusOf(reading.mgdl);
+        el['hero-value'].textContent = reading.mgdl;
+        el['hero-arrow'].textContent = ARROWS[reading.trend] || '';
+        el['hero-arrow'].setAttribute('aria-label', TREND_WORDS[reading.trend] || '');
+        el['hero-dot'].style.background = st.color;
+        el['hero-status-text'].textContent = st.name + ' · ' + (TREND_WORDS[reading.trend] || 'trend unknown');
+
+        var age = reading.minutes_ago;
+        var stale = age > STALE_MIN;
+        el['hero-age'].textContent = age <= 0 ? 'just now' : age + ' min ago';
+        el['hero-age'].classList.toggle('stale', stale);
+        show(el['stale-banner'], stale);
+        if (stale) {
+            el['stale-text'].textContent =
+                'This reading is ' + age + ' minutes old, so it is not current. ' +
+                'The poller or the sensor may have dropped out — check the Dexcom app.';
+        }
+    }
+
+    /* ────────────────────────────── curve ───────────────────────────── */
+
+    function drawCurve() {
+        var holder = el['chart-holder'];
+        // Keep the tooltip node; rebuild the plot around it.
+        var old = holder.querySelector('svg');
+        if (old) old.remove();
+
+        var W = Math.max(holder.clientWidth, 260);
+        var H = W < 420 ? 210 : 250;
+        var padL = 34, padR = 10, padT = 12, padB = 24;
+        var plotW = W - padL - padR, plotH = H - padT - padB;
+
+        if (history.length < 2) {
+            holder.insertAdjacentHTML('afterbegin',
+                '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Not enough readings yet">' +
+                '<text x="' + (W / 2) + '" y="' + (H / 2) + '" text-anchor="middle" ' +
+                'fill="var(--text-muted)" font-family="DM Mono, monospace" font-size="12">' +
+                'Not enough readings yet</text></svg>');
+            return;
+        }
+
+        var vals = history.map(function (r) { return r.mgdl; });
+        var t0 = new Date(history[0].at).getTime();
+        var t1 = new Date(history[history.length - 1].at).getTime();
+        var lo = Math.min(LOW - 15, Math.min.apply(null, vals) - 10);
+        var hi = Math.max(HIGH + 30, Math.max.apply(null, vals) + 10);
+        var span = Math.max(t1 - t0, 60000);
+
+        function X(t) { return padL + ((t - t0) / span) * plotW; }
+        function Y(v) { return padT + (1 - (v - lo) / (hi - lo)) * plotH; }
+
+        var parts = [];
+        parts.push('<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Glucose over the last ' +
+                   hours + ' hours. Target range ' + LOW + ' to ' + HIGH + '.">');
+
+        // Target band — the in-range zone, so status reads by position.
+        parts.push('<rect x="' + padL + '" y="' + Y(HIGH) + '" width="' + plotW +
+                   '" height="' + (Y(LOW) - Y(HIGH)) + '" fill="var(--band)"/>');
+
+        // Threshold rules, labelled. Recessive.
+        [LOW, HIGH].forEach(function (v) {
+            parts.push('<line x1="' + padL + '" y1="' + Y(v) + '" x2="' + (W - padR) + '" y2="' + Y(v) +
+                       '" stroke="var(--axis)" stroke-width="1"/>');
+            parts.push('<text x="' + (padL - 6) + '" y="' + (Y(v) + 4) + '" text-anchor="end" ' +
+                       'fill="var(--text-muted)" font-family="DM Mono, monospace" font-size="10">' + v + '</text>');
+        });
+
+        // Hour ticks along the bottom. The step comes from the width actually
+        // available — a fixed step left a 14h chart with two labels on desktop
+        // while crowding a 3h chart on a phone.
+        // Size it off the span actually plotted, not the requested window — early
+        // on there is far less data than the range asks for, and using `hours`
+        // here left a phone with a single tick.
+        var spanHours = span / 3600000;
+        var room = Math.max(3, Math.floor(plotW / 62));
+        var step = [1, 2, 3, 4, 6, 12].find(function (s) { return s >= spanHours / room; }) || 12;
+        var cur = new Date(t0); cur.setMinutes(0, 0, 0);
+        cur = cur.getTime() + 3600000;
+        while (cur < t1) {
+            var d = new Date(cur);
+            if (d.getHours() % step === 0) {
+                parts.push('<text x="' + X(cur) + '" y="' + (H - 7) + '" text-anchor="middle" ' +
+                           'fill="var(--text-muted)" font-family="DM Mono, monospace" font-size="10">' +
+                           d.getHours() + ':00</text>');
+            }
+            cur += 3600000;
+        }
+
+        // The trace, split at sensor gaps — never draw a line across missing data.
+        var seg = [], segs = [];
+        history.forEach(function (r, i) {
+            var t = new Date(r.at).getTime();
+            if (i > 0) {
+                var prev = new Date(history[i - 1].at).getTime();
+                if ((t - prev) / 60000 > GAP_MIN) { if (seg.length) segs.push(seg); seg = []; }
+            }
+            seg.push(X(t).toFixed(1) + ',' + Y(r.mgdl).toFixed(1));
+        });
+        if (seg.length) segs.push(seg);
+        segs.forEach(function (s) {
+            if (s.length === 1) {
+                var xy = s[0].split(',');
+                parts.push('<circle cx="' + xy[0] + '" cy="' + xy[1] + '" r="2" fill="var(--text-primary)"/>');
+            } else {
+                parts.push('<polyline points="' + s.join(' ') + '" fill="none" stroke="var(--text-primary)" ' +
+                           'stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>');
+            }
+        });
+
+        // Selective labels only. The band plus the line's position already say
+        // in-or-out, so ringing all 39 excursions was noise — the window's high
+        // and low are the two points worth naming.
+        var loR = history[0], hiR = history[0];
+        history.forEach(function (r) {
+            if (r.mgdl < loR.mgdl) loR = r;
+            if (r.mgdl > hiR.mgdl) hiR = r;
+        });
+        (hiR === loR ? [loR] : [loR, hiR]).forEach(function (r) {
+            var cx = X(new Date(r.at).getTime()), cy = Y(r.mgdl);
+            var fill = r.mgdl < LOW ? 'var(--crit)' : r.mgdl > HIGH ? 'var(--warn)' : 'var(--text-primary)';
+            parts.push('<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) +
+                       '" r="4" fill="' + fill + '" stroke="var(--surface)" stroke-width="2"/>');
+            // Keep the label inside the plot at either edge.
+            var anchor = cx < padL + 26 ? 'start' : cx > W - padR - 26 ? 'end' : 'middle';
+            var ly = (r === hiR ? cy - 10 : cy + 17);
+            parts.push('<text x="' + cx.toFixed(1) + '" y="' + ly.toFixed(1) + '" text-anchor="' + anchor +
+                       '" fill="var(--text-secondary)" font-family="DM Mono, monospace" font-size="10">' +
+                       r.mgdl + '</text>');
+        });
+
+        // Crosshair, hidden until a pointer lands.
+        parts.push('<line id="cross" x1="0" y1="' + padT + '" x2="0" y2="' + (padT + plotH) +
+                   '" stroke="var(--axis)" stroke-width="1" opacity="0"/>');
+        parts.push('<circle id="cross-dot" r="4.5" fill="var(--text-primary)" stroke="var(--surface)" stroke-width="2" opacity="0"/>');
+        parts.push('</svg>');
+
+        holder.insertAdjacentHTML('afterbegin', parts.join(''));
+
+        var svg = holder.querySelector('svg');
+        var cross = svg.querySelector('#cross');
+        var dot = svg.querySelector('#cross-dot');
+        var tip = el['tip'];
+
+        function at(clientX) {
+            var box = svg.getBoundingClientRect();
+            var scale = W / box.width;
+            var px = (clientX - box.left) * scale;
+            var t = t0 + ((px - padL) / plotW) * span;
+            var best = null, bestD = Infinity;
+            history.forEach(function (r) {
+                var d = Math.abs(new Date(r.at).getTime() - t);
+                if (d < bestD) { bestD = d; best = r; }
+            });
+            if (!best) return;
+            var bt = new Date(best.at).getTime();
+            var bx = X(bt), by = Y(best.mgdl);
+            cross.setAttribute('x1', bx); cross.setAttribute('x2', bx); cross.setAttribute('opacity', '1');
+            dot.setAttribute('cx', bx); dot.setAttribute('cy', by); dot.setAttribute('opacity', '1');
+            var time = new Date(best.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+            tip.textContent = best.mgdl + ' · ' + statusOf(best.mgdl).name + ' · ' + time;
+            tip.classList.add('on');
+            tip.style.left = (bx / scale) + 'px';
+            tip.style.top = ((by / scale) - 10) + 'px';
+        }
+        function off() {
+            cross.setAttribute('opacity', '0');
+            dot.setAttribute('opacity', '0');
+            tip.classList.remove('on');
+        }
+        svg.addEventListener('pointermove', function (e) { at(e.clientX); });
+        svg.addEventListener('pointerdown', function (e) { at(e.clientX); });
+        svg.addEventListener('pointerleave', off);
+        svg.addEventListener('pointercancel', off);
+    }
+
+    /* ─────────────────────────── time in range ──────────────────────── */
+
+    function renderTir(summary) {
+        if (!summary) { show(el['tir-card'], false); return; }
+        var n = summary.readings;
+        var low = summary.low_count, high = summary.high_count;
+        var inr = n - low - high;
+        var pct = function (c) { return n ? Math.round((c / n) * 100) : 0; };
+
+        el['tir-window'].textContent = 'last ' + hours + 'h';
+
+        // Fixed order — low, in range, high — so the segments never swap places.
+        var segs = [
+            { name: 'Low',      note: 'under ' + LOW,          c: low,  color: 'var(--crit)' },
+            { name: 'In range', note: LOW + '–' + HIGH,        c: inr,  color: 'var(--good)' },
+            { name: 'High',     note: 'over ' + HIGH,          c: high, color: 'var(--warn)' }
+        ];
+
+        el['tir-bar'].innerHTML = segs.filter(function (s) { return s.c > 0; }).map(function (s) {
+            return '<div class="tir-seg" style="flex:' + s.c + ';background:' + s.color + '" ' +
+                   'title="' + s.name + ' ' + pct(s.c) + '%"></div>';
+        }).join('');
+
+        el['tir-key'].innerHTML = segs.map(function (s) {
+            return '<div class="tir-row">' +
+                   '<span class="tir-swatch" style="background:' + s.color + '"></span>' +
+                   '<span class="tir-name">' + s.name + ' <span style="color:var(--text-muted)">· ' + s.note + '</span></span>' +
+                   '<span class="tir-pct">' + pct(s.c) + '%</span></div>';
+        }).join('');
+
+        el['stats'].innerHTML =
+            '<div class="stat"><div class="stat-v">' + summary.avg_mgdl + '</div><div class="stat-l">Average</div></div>' +
+            '<div class="stat"><div class="stat-v">' + summary.min_mgdl + '</div><div class="stat-l">Lowest</div></div>' +
+            '<div class="stat"><div class="stat-v">' + summary.max_mgdl + '</div><div class="stat-l">Highest</div></div>';
+
+        show(el['tir-card'], true);
+    }
+
+    /* ──────────────────────────── day strip ─────────────────────────── */
+
+    function renderDays(payload) {
+        var daily = (payload && payload.daily) || [];
+        if (!daily.length) { show(el['days-card'], false); return; }
+
+        var partial = false;
+        el['days'].innerHTML = daily.slice().reverse().map(function (d) {
+            var inr = d.readings - d.low_count - d.high_count;
+            var thin = d.coverage_pct < 70;
+            if (thin) partial = true;
+            var date = new Date(d.day + 'T12:00:00');
+            var label = date.toLocaleDateString([], { weekday: 'short', day: 'numeric' });
+            var seg = function (c, color) {
+                return c > 0 ? '<div style="flex:' + c + ';background:' + color + '"></div>' : '';
+            };
+            return '<div class="day' + (thin ? ' day-partial' : '') + '" title="' +
+                   d.day + ' · ' + d.readings + ' readings · ' + d.coverage_pct + '% coverage">' +
+                   '<span class="day-label">' + label + '</span>' +
+                   '<span class="day-bar">' +
+                       seg(d.low_count, 'var(--crit)') +
+                       seg(inr, 'var(--good)') +
+                       seg(d.high_count, 'var(--warn)') +
+                   '</span>' +
+                   '<span class="day-avg">' + d.avg_mgdl + '</span></div>';
+        }).join('');
+
+        el['days-note'].textContent = partial ? 'faded = partial day' : '';
+        show(el['days-card'], true);
+    }
+
+    /* ───────────────────────────── loading ──────────────────────────── */
+
+    var busy = false;
+    function load() {
+        if (!token) { gate(true); return; }
+        if (busy) return;
+        busy = true;
+        el['refresh'].disabled = true;
+
+        Promise.all([
+            api('bg_latest'),
+            api('bg_history', { hours: hours, low: LOW, high: HIGH }),
+            api('bg_daily', { days: 14, low: LOW, high: HIGH })
+        ]).then(function (res) {
+            gate(false);
+            show(el['loading'], false);
+            renderHero(res[0].reading);
+            history = res[1].readings || [];
+            renderTir(res[1].summary);
+            renderDays(res[2]);
+            show(el['hero'], true);
+            show(el['filter-row'], true);
+            show(el['curve-card'], true);
+            drawCurve();
+        }).catch(function (err) {
+            if (err.code === 401) {
+                try { localStorage.removeItem('bg_token'); } catch (e) {}
+                token = '';
+                gate(true, 'That token was rejected. Try again.');
+            } else {
+                show(el['loading'], true);
+                el['loading'].textContent = 'Could not load readings (' + err.message + ').';
+            }
+        }).then(function () {
+            busy = false;
+            el['refresh'].disabled = false;
+        });
+    }
+
+    function gate(on, note) {
+        show(el['gate'], on);
+        show(el['loading'], !on && !history.length);
+        [ 'hero', 'filter-row', 'curve-card', 'tir-card', 'days-card' ].forEach(function (k) { if (on) show(el[k], false); });
+        if (on && note) el['gate-input'].placeholder = note;
+    }
+
+    /* ───────────────────────────── wiring ───────────────────────────── */
+
+    el['gate-form'].addEventListener('submit', function (e) {
+        e.preventDefault();
+        var v = el['gate-input'].value.trim();
+        if (!v) return;
+        token = v;
+        try { localStorage.setItem('bg_token', v); } catch (err) {}
+        el['gate-input'].value = '';
+        show(el['loading'], true);
+        el['loading'].textContent = 'Loading…';
+        load();
+    });
+
+    el['ranges'].addEventListener('click', function (e) {
+        var btn = e.target.closest('.range-btn');
+        if (!btn) return;
+        hours = parseInt(btn.dataset.hours, 10);
+        Array.prototype.forEach.call(el['ranges'].querySelectorAll('.range-btn'), function (b) {
+            b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+        });
+        load();
+    });
+
+    el['refresh'].addEventListener('click', load);
+
+    var resizeTimer;
+    window.addEventListener('resize', function () {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function () { if (history.length) drawCurve(); }, 150);
+    });
+
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) load();
+    });
+    setInterval(function () { if (!document.hidden) load(); }, REFRESH_MS);
+
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').catch(function () {});
+    }
+
+    load();
+})();
+</script>
+</body>
+</html>
