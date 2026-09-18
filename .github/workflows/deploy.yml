@@ -36,6 +36,7 @@ jobs:
             **/uploads/**
             .env
             .env.*
+            docs/**
 
       # 3. Did this push change CHANGELOG.md?
       - name: Detect changelog update
