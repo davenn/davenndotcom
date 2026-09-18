@@ -172,6 +172,14 @@
         .range-btn[aria-pressed="true"] { background: var(--text-primary); color: var(--page); border-color: var(--text-primary); }
 
         /* ── EVENT BANDS & SHEET ── */
+        /* The crosshair, trace and labels sit visually on top but must be
+           invisible to the pointer — otherwise the crosshair line slides under
+           the cursor and steals hover from the band being pointed at. Only the
+           interactive marks, and the capture rect behind them, take events. */
+        .chart-holder svg * { pointer-events: none; }
+        .chart-holder svg .capture,
+        .chart-holder svg .band,
+        .chart-holder svg .evtick { pointer-events: all; }
         .chart-holder svg .band { cursor: pointer; }
         .chart-holder svg .band:hover { opacity: 0.3 !important; }
         .chart-holder svg .evtick { cursor: pointer; }
@@ -617,6 +625,12 @@
         var parts = [];
         parts.push('<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Glucose over the last ' +
                    hours + ' hours. Target range ' + LOW + ' to ' + HIGH + '.">');
+
+        // Transparent capture layer, first so it sits beneath everything. It
+        // gives the crosshair a surface to track across even where nothing is
+        // painted, and leaves the bands above it free to take their own clicks.
+        parts.push('<rect class="capture" x="' + padL + '" y="' + padT + '" width="' + plotW +
+                   '" height="' + plotH + '" fill="transparent"/>');
 
         // Target band — the in-range zone, so status reads by position.
         parts.push('<rect x="' + padL + '" y="' + Y(HIGH) + '" width="' + plotW +
