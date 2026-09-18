@@ -18,7 +18,7 @@ That is the whole response: 10 bytes, `text/plain`, no JSON. A 24-point sparklin
 
 **It reads MySQL only.** A device never reaches Dexcom, so adding displays costs the upstream API nothing — Dexcom load stays fixed by the poller no matter how many panels are on the wall. It also means a display shows whatever was last stored: if the poller stalls, the reading goes stale rather than wrong.
 
-**Status: written, not deployed.** As of 2026-09-18 the endpoint returns 404 on davenn.com. The PHP is in `api.php` uncommitted, and has not been run through an interpreter — there is no PHP on the dev machine, so the code is unverified beyond a simulation of its output against live data.
+**Status: live.** Verified 2026-09-18 — the endpoint answers with `text/plain; charset=utf-8`, returning `143,4,4,1`, and `&spark=6` appends a second line of `76,118,141,141,144,143`.
 
 ## Authentication
 
