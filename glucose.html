@@ -503,6 +503,12 @@
 
     function inRange(mgdl) { return mgdl >= LOW && mgdl <= HIGH; }
 
+    // 24-hour, zero-padded, everywhere a time appears — axis, tooltip and notes.
+    // Fixed-width times line up in a list and never need am/pm disambiguating.
+    function hhmm(date) {
+        return ('0' + date.getHours()).slice(-2) + ':' + ('0' + date.getMinutes()).slice(-2);
+    }
+
     // Under a day reads as hours and minutes. A day or more leads with whole
     // days and keeps the exact total beside it, since "2d" alone loses the
     // difference between just-past-two-days and nearly-three.
@@ -752,7 +758,7 @@
             if (d.getHours() % step === 0) {
                 parts.push('<text x="' + X(cur) + '" y="' + (H - 7) + '" text-anchor="middle" ' +
                            'fill="var(--text-muted)" font-family="DM Mono, monospace" font-size="10">' +
-                           d.getHours() + ':00</text>');
+                           hhmm(d) + '</text>');
             }
             cur += 3600000;
         }
@@ -827,7 +833,7 @@
             var bx = X(bt), by = Y(best.mgdl);
             cross.setAttribute('x1', bx); cross.setAttribute('x2', bx); cross.setAttribute('opacity', '1');
             dot.setAttribute('cx', bx); dot.setAttribute('cy', by); dot.setAttribute('opacity', '1');
-            var time = new Date(best.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+            var time = hhmm(new Date(best.at));
             tip.textContent = best.mgdl + ' · ' + statusOf(best.mgdl).name + ' · ' + time;
             tip.classList.add('on');
             tip.style.left = (bx / scale) + 'px';
@@ -999,21 +1005,13 @@
     /* ────────────────────────────── sheet ───────────────────────────── */
 
     function fmtWhen(startMs, endMs) {
-        var opts = { hour: 'numeric', minute: '2-digit' };
         var d = new Date(startMs);
         // Numeric M/D, always shown. A bare time is ambiguous the moment the
         // window runs past a day, and on a dashboard left open overnight
         // "today" is not something the reader can assume.
         var day = (d.getMonth() + 1) + '/' + d.getDate() + ' · ';
-        var from = d.toLocaleTimeString([], opts);
-        if (!endMs || endMs === startMs) return day + from;
-        var to = new Date(endMs).toLocaleTimeString([], opts);
-        // Drop the repeated am/pm when both ends share it: "8:21–10:01 AM".
-        var m = from.match(/\s?([AP]M)$/i);
-        if (m && to.slice(-m[1].length).toUpperCase() === m[1].toUpperCase()) {
-            from = from.slice(0, m.index);
-        }
-        return day + from + '–' + to;
+        if (!endMs || endMs === startMs) return day + hhmm(d);
+        return day + hhmm(d) + '–' + hhmm(new Date(endMs));
     }
 
     function renderChips(selected) {
