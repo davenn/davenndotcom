@@ -4,13 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Glucose API — davenn.com</title>
-    <meta name="description" content="How to ingest CGM readings on a microcontroller from the davenn.com glucose endpoint.">
+    <meta name="description" content="Read CGM glucose data over HTTP. Endpoints, formats and examples.">
     <meta name="theme-color" content="#111110">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script>
-        // Stamp the theme before first paint so there is no flash of the wrong one.
         (function () {
             var t;
             try { t = localStorage.getItem('glucose_theme'); } catch (e) {}
@@ -25,159 +24,161 @@
 
         :root, [data-theme="light"] {
             color-scheme: light;
-            --page:           #ffffff;
-            --surface:        #f7f6f3;
-            --surface-2:      #efeeea;
-            --border:         #e8e6e0;
-            --text-primary:   #111110;
-            --text-body:      #333333;
-            --text-muted:     #898781;
-            --accent:         #0ca30c;
+            --page: #fafafa; --surface: #ffffff; --surface-2: #f7f7f7; --border: #e4e4e0;
+            --text-primary: #3b4151; --text-body: #454750; --text-muted: #8a8f98;
+            --code-bg: #41444e; --code-fg: #ffffff;
         }
         [data-theme="dark"] {
             color-scheme: dark;
-            --page:           #0a0a0a;
-            --surface:        #121212;
-            --surface-2:      #1a1a1a;
-            --border:         #2a2a2a;
-            --text-primary:   #f0f0f0;
-            --text-body:      #c3c2b7;
-            --text-muted:     #898781;
-            --accent:         #0ca30c;
+            --page: #0a0a0a; --surface: #131313; --surface-2: #1a1a1a; --border: #2a2a2a;
+            --text-primary: #e8e8e6; --text-body: #c3c2b7; --text-muted: #8a8f98;
+            --code-bg: #1e1f24; --code-fg: #e8e8e6;
         }
         :root {
-            --nav-bg:     #111110;
-            --nav-border: rgba(255,255,255,0.08);
-            --font-ui:    system-ui, -apple-system, 'Segoe UI', sans-serif;
-            --font-mono:  'DM Mono', ui-monospace, monospace;
-            --nav-h:      52px;
+            --nav-bg: #111110; --nav-border: rgba(255,255,255,0.08);
+            --get: #61affe; --post: #49cc90;
+            --font-ui: system-ui, -apple-system, 'Segoe UI', sans-serif;
+            --font-mono: 'DM Mono', ui-monospace, monospace;
+            --nav-h: 52px;
         }
 
-        html { scroll-behavior: smooth; }
         body {
-            font-family: var(--font-ui);
-            background: var(--page);
-            color: var(--text-primary);
+            font-family: var(--font-ui); background: var(--page); color: var(--text-primary);
             -webkit-font-smoothing: antialiased;
             padding-top: calc(var(--nav-h) + env(safe-area-inset-top));
             transition: background 0.2s, color 0.2s;
         }
 
-        /* ── NAV ── */
         nav {
             position: fixed; top: 0; left: 0; right: 0;
             height: calc(var(--nav-h) + env(safe-area-inset-top));
-            padding-top: env(safe-area-inset-top);
-            background: var(--nav-bg);
-            border-bottom: 1px solid var(--nav-border);
-            display: flex; align-items: center; justify-content: space-between;
-            padding-left: 1.5rem; padding-right: 1.5rem; z-index: 200;
+            padding: env(safe-area-inset-top) 1.5rem 0;
+            background: var(--nav-bg); border-bottom: 1px solid var(--nav-border);
+            display: flex; align-items: center; justify-content: space-between; z-index: 200;
         }
         .nav-logo { font-family: var(--font-mono); font-size: 13px; color: rgba(255,255,255,0.4); text-decoration: none; }
         .nav-logo strong { color: #fff; }
         .nav-right { display: flex; align-items: center; gap: 1.2rem; }
-        .nav-back {
-            font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.45);
-            text-decoration: none; letter-spacing: 0.05em; text-transform: uppercase; transition: color 0.15s;
-        }
+        .nav-back { font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.45); text-decoration: none; letter-spacing: 0.05em; text-transform: uppercase; }
         .nav-back:hover { color: #fff; }
-
         .theme-toggle { width: 44px; height: 24px; cursor: pointer; background: none; border: none; padding: 0; flex: none; }
-        .theme-toggle-track {
-            width: 44px; height: 24px; border-radius: 12px; background: #333; border: 1px solid #555;
-            display: flex; align-items: center; padding: 0 3px; transition: background 0.2s;
-        }
+        .theme-toggle-track { width: 44px; height: 24px; border-radius: 12px; background: #333; border: 1px solid #555; display: flex; align-items: center; padding: 0 3px; transition: background 0.2s; }
         [data-theme="light"] .theme-toggle-track { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); }
-        .theme-toggle-thumb {
-            width: 18px; height: 18px; border-radius: 50%; display: flex;
-            align-items: center; justify-content: center; font-size: 10px;
-            transition: transform 0.2s, background 0.2s;
-        }
+        .theme-toggle-thumb { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; transition: transform 0.2s, background 0.2s; }
         [data-theme="light"] .theme-toggle-thumb { transform: translateX(20px); background: #fff; }
         [data-theme="dark"]  .theme-toggle-thumb { transform: translateX(0);    background: #666; }
 
-        /* ── LAYOUT ── */
-        .shell { max-width: 1040px; margin: 0 auto; padding: 48px 1.5rem 96px; display: grid; gap: 40px; }
-        @media (min-width: 900px) {
-            .shell { grid-template-columns: 200px minmax(0, 1fr); gap: 56px; align-items: start; }
-            .toc { position: sticky; top: calc(var(--nav-h) + 40px); }
+        main { max-width: 820px; margin: 0 auto; padding: 36px 1.25rem 88px; }
+
+        /* ── HEADER ── */
+        h1 { font-size: 1.9rem; font-weight: 700; letter-spacing: -0.02em; }
+        .version {
+            display: inline-block; vertical-align: middle; margin-left: 10px;
+            background: #7d8492; color: #fff; border-radius: 4px;
+            font-family: var(--font-mono); font-size: 11px; padding: 2px 8px;
+        }
+        .lede { font-size: 14px; color: var(--text-body); margin-top: 8px; line-height: 1.6; }
+        .base {
+            font-family: var(--font-mono); font-size: 13px; color: var(--text-body);
+            background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+            padding: 9px 12px; margin-top: 16px; overflow-x: auto; white-space: nowrap;
         }
 
-        /* ── TOC ── */
-        .toc-label {
-            font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
-            text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px;
+        /* ── AUTH BAR ── */
+        .auth {
+            display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+            background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+            padding: 12px 14px; margin: 14px 0 32px;
         }
-        .toc ol { list-style: none; display: grid; gap: 2px; counter-reset: toc; }
-        .toc a {
-            display: block; padding: 5px 0 5px 22px; position: relative;
-            font-size: 13px; color: var(--text-muted); text-decoration: none;
-            border-left: 2px solid var(--border); transition: color 0.15s, border-color 0.15s;
+        .auth label { font-size: 13px; font-weight: 600; }
+        .auth input {
+            flex: 1 1 220px; min-width: 0; font-family: var(--font-mono); font-size: 13px;
+            padding: 7px 10px; border: 1px solid var(--border); border-radius: 4px;
+            background: var(--page); color: var(--text-primary);
         }
-        .toc a::before {
-            counter-increment: toc; content: counter(toc);
-            position: absolute; left: 9px; font-family: var(--font-mono); font-size: 10px;
+        .auth .hint { flex-basis: 100%; font-size: 12px; color: var(--text-muted); }
+        .btn {
+            font-family: var(--font-ui); font-size: 13px; font-weight: 600; cursor: pointer;
+            padding: 7px 16px; border-radius: 4px; border: 1px solid var(--get);
+            background: transparent; color: var(--get);
         }
-        .toc a:hover { color: var(--text-primary); border-left-color: var(--text-muted); }
-        .toc a.on { color: var(--text-primary); border-left-color: var(--accent); }
+        .btn:hover { background: rgba(97,175,254,0.1); }
+        .btn.solid { background: var(--get); color: #fff; }
+        .btn.solid:hover { filter: brightness(1.06); }
 
-        /* ── CONTENT ── */
-        .doc { max-width: 680px; min-width: 0; }
-        .eyebrow {
-            font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em;
-            text-transform: uppercase; color: var(--text-muted); margin-bottom: 14px;
+        /* ── OPERATIONS ── */
+        .tag {
+            font-size: 1.15rem; font-weight: 600; margin: 32px 0 10px;
+            padding-bottom: 8px; border-bottom: 1px solid var(--border);
         }
-        h1 { font-size: clamp(1.9rem, 4vw, 2.6rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
-        .lede { font-size: 1.05rem; color: var(--text-body); margin-top: 12px; line-height: 1.6; }
-        .updated { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); margin-top: 18px; }
+        .op { border-radius: 4px; margin-bottom: 10px; border: 1px solid; }
+        .op.get  { border-color: var(--get);  background: rgba(97,175,254,0.08); }
+        .op.post { border-color: var(--post); background: rgba(73,204,144,0.08); }
 
-        h2 {
-            font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em;
-            margin: 52px 0 14px; scroll-margin-top: calc(var(--nav-h) + 24px);
+        .op-head {
+            width: 100%; display: flex; align-items: center; gap: 10px;
+            padding: 8px 10px; background: none; border: none; cursor: pointer; text-align: left;
         }
-        h3 { font-size: 0.95rem; font-weight: 700; margin: 28px 0 10px; }
-        p, li { font-size: 14px; line-height: 1.75; color: var(--text-body); margin-bottom: 12px; }
-        ul { padding-left: 20px; margin-bottom: 12px; }
-        strong { color: var(--text-primary); font-weight: 700; }
-        a { color: var(--text-primary); }
+        .method {
+            flex: none; min-width: 62px; text-align: center; color: #fff;
+            font-family: var(--font-ui); font-size: 12px; font-weight: 700;
+            padding: 6px 0; border-radius: 3px;
+        }
+        .get .method  { background: var(--get); }
+        .post .method { background: var(--post); }
+        .op-path { font-family: var(--font-mono); font-size: 13px; color: var(--text-primary); word-break: break-all; }
+        .op-sum { flex: 1; font-size: 13px; color: var(--text-muted); text-align: right; }
+        .caret { flex: none; color: var(--text-muted); font-size: 11px; transition: transform 0.15s; }
+        .op.open .caret { transform: rotate(90deg); }
+        @media (max-width: 620px) {
+            .op-head { flex-wrap: wrap; }
+            .op-sum { flex-basis: 100%; text-align: left; }
+        }
 
-        code {
-            font-family: var(--font-mono); font-size: 0.88em;
-            background: var(--surface-2); border: 1px solid var(--border);
-            border-radius: 4px; padding: 1px 5px; color: var(--text-primary);
+        .op-body { padding: 4px 14px 16px; border-top: 1px solid var(--border); background: var(--surface); }
+        .op.get .op-body, .op.post .op-body { border-radius: 0 0 3px 3px; }
+        .op-desc { font-size: 13.5px; line-height: 1.65; color: var(--text-body); margin: 14px 0; }
+        h4 {
+            font-family: var(--font-ui); font-size: 12px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.06em; color: var(--text-muted); margin: 18px 0 8px;
         }
-        pre {
-            background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-            padding: 16px 18px; margin: 14px 0 20px; overflow-x: auto;
-        }
-        pre code { background: none; border: none; padding: 0; font-size: 12.5px; line-height: 1.7; display: block; }
 
-        .table-wrap { overflow-x: auto; margin: 14px 0 22px; }
         table { border-collapse: collapse; width: 100%; font-size: 13px; }
-        th, td {
-            text-align: left; padding: 9px 12px;
-            border-bottom: 1px solid var(--border); vertical-align: top;
-        }
-        th {
-            font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em;
-            text-transform: uppercase; color: var(--text-muted); font-weight: 400;
-            border-bottom: 1px solid var(--text-muted);
-        }
+        th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+        th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); font-weight: 600; }
         td { color: var(--text-body); }
-        td code { white-space: nowrap; }
-
-        .note {
-            background: var(--surface); border: 1px solid var(--border);
-            border-left: 3px solid var(--accent); border-radius: 8px;
-            padding: 14px 18px; margin: 18px 0 22px;
+        .pname { font-family: var(--font-mono); color: var(--text-primary); white-space: nowrap; }
+        .ptype { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-muted); }
+        td input {
+            width: 100%; max-width: 160px; font-family: var(--font-mono); font-size: 12.5px;
+            padding: 5px 8px; border: 1px solid var(--border); border-radius: 3px;
+            background: var(--page); color: var(--text-primary);
         }
-        .note p:last-child { margin-bottom: 0; }
+        .table-wrap { overflow-x: auto; }
+
+        pre {
+            background: var(--code-bg); color: var(--code-fg); border-radius: 4px;
+            padding: 12px 14px; margin: 8px 0 4px; overflow-x: auto;
+        }
+        pre code { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6; display: block; white-space: pre; }
+        .exec-row { display: flex; gap: 10px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+        .status { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
+        code.inline {
+            font-family: var(--font-mono); font-size: 0.9em; background: var(--surface-2);
+            border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; color: var(--text-primary);
+        }
+
+        .notes { margin-top: 36px; }
+        .notes li { font-size: 13.5px; line-height: 1.7; color: var(--text-body); margin-bottom: 8px; }
+        .notes ul { padding-left: 20px; }
+        strong { color: var(--text-primary); }
 
         footer {
-            border-top: 1px solid var(--border); margin-top: 64px; padding-top: 20px;
+            border-top: 1px solid var(--border); margin-top: 48px; padding-top: 18px;
             font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);
         }
         footer a { color: var(--text-muted); }
+        [hidden] { display: none !important; }
     </style>
 </head>
 <body>
@@ -192,233 +193,280 @@
     </div>
 </nav>
 
-<div class="shell">
+<main>
+    <h1>Glucose API <span class="version">v1</span></h1>
+    <p class="lede">Continuous glucose monitor readings over HTTP. Plain text for microcontrollers, JSON for everything else. All reads are served from stored data — no request reaches the CGM vendor.</p>
+    <div class="base">https://davenn.com/api.php</div>
 
-    <aside class="toc">
-        <div class="toc-label">Contents</div>
-        <ol>
-            <li><a href="#contract">The contract</a></li>
-            <li><a href="#auth">Authentication</a></li>
-            <li><a href="#fields">Fields</a></li>
-            <li><a href="#history">Requesting history</a></li>
-            <li><a href="#parsing">Parsing on device</a></li>
-            <li><a href="#tls">TLS</a></li>
-            <li><a href="#polling">Polling and staleness</a></li>
-        </ol>
-    </aside>
+    <div class="auth">
+        <label for="token">Token</label>
+        <input type="password" id="token" placeholder="BG_READ_TOKEN" autocomplete="off" spellcheck="false">
+        <button class="btn solid" id="save-token" type="button">Authorize</button>
+        <span class="hint">Sent as <code class="inline">?token=</code> or <code class="inline">X-BG-Token</code>. Stored in this browser only, never transmitted anywhere but davenn.com.</span>
+    </div>
 
-    <main class="doc">
-        <div class="eyebrow">API reference</div>
-        <h1>Glucose Embed Endpoint</h1>
-        <p class="lede">How to ingest CGM readings on a microcontroller.</p>
-        <p class="updated">Updated 18 September 2026</p>
+    <div class="tag">Readings</div>
 
-        <h2 id="contract">The contract</h2>
-        <p><code>bg_embed</code> returns one line of plain text holding the newest stored reading.</p>
-<pre><code>GET https://davenn.com/api.php?action=bg_embed&amp;token=&lt;BG_READ_TOKEN&gt;
-
-141,3,1,1</code></pre>
-        <p>That is the whole response: 10 bytes, <code>text/plain</code>, no JSON. A 24-point sparkline brings it to about 100 bytes. The equivalent <code>bg_history</code> call is 17.7&nbsp;KB, which is why this endpoint exists.</p>
-        <p><strong>It reads MySQL only.</strong> A device never reaches Dexcom, so adding displays costs the upstream API nothing — Dexcom load stays fixed by the poller no matter how many panels are on the wall. It also means a display shows whatever was last stored: if the poller stalls, the reading goes stale rather than wrong.</p>
-        <div class="note">
-            <p><strong>Status: live.</strong> Verified 18 September 2026 — the endpoint answers with <code>text/plain; charset=utf-8</code>, returning <code>143,4,4,1</code>, and <code>&amp;spark=6</code> appends a second line of <code>76,118,141,141,144,143</code>.</p>
+    <!-- bg_embed -->
+    <section class="op get" data-action="bg_embed">
+        <button class="op-head" type="button">
+            <span class="method">GET</span>
+            <span class="op-path">/api.php?action=bg_embed</span>
+            <span class="op-sum">Newest reading, plain text</span>
+            <span class="caret">▸</span>
+        </button>
+        <div class="op-body" hidden>
+            <p class="op-desc">Four comma-separated integers on one line: <code class="inline">mgdl</code>, <code class="inline">trend</code> (0–7), <code class="inline">minutes_ago</code>, <code class="inline">in_range</code>. About 10 bytes. An <code class="inline">mgdl</code> of 0 means nothing is stored. With <code class="inline">spark</code>, a second line carries that many mg/dL values, oldest first.</p>
+            <h4>Parameters</h4>
+            <div class="table-wrap">
+            <table>
+                <thead><tr><th>Name</th><th>Description</th><th>Value</th></tr></thead>
+                <tbody>
+                    <tr><td class="pname">spark<div class="ptype">integer 1–60</div></td><td>Append a sparkline of the last N readings</td><td><input data-param="spark" placeholder="24"></td></tr>
+                    <tr><td class="pname">low<div class="ptype">integer</div></td><td>Lower bound of the in-range band</td><td><input data-param="low" placeholder="70"></td></tr>
+                    <tr><td class="pname">high<div class="ptype">integer</div></td><td>Upper bound of the in-range band</td><td><input data-param="high" placeholder="180"></td></tr>
+                </tbody>
+            </table>
+            </div>
+            <h4>Example response · text/plain</h4>
+<pre><code>270,3,5,0
+251,252,259,270</code></pre>
+            <div class="exec-row">
+                <button class="btn try" type="button">Try it out</button>
+                <span class="status"></span>
+            </div>
+            <pre class="result" hidden><code></code></pre>
         </div>
+    </section>
 
-        <h2 id="auth">Authentication</h2>
-        <p>Every read needs a read token, passed either way:</p>
-        <div class="table-wrap">
-        <table>
-            <thead><tr><th>Method</th><th>Form</th></tr></thead>
-            <tbody>
-                <tr><td>Query string</td><td><code>?action=bg_embed&amp;token=&lt;TOKEN&gt;</code></td></tr>
-                <tr><td>Header</td><td><code>X-BG-Token: &lt;TOKEN&gt;</code></td></tr>
-            </tbody>
-        </table>
-        </div>
-        <p>The query string is simpler on a microcontroller and is what the examples below use. The token lives in the server's environment, not in the repository, so it has to be set there directly.</p>
-        <p>Auth fails closed. An empty or missing token on the server rejects every request, so a 401 means either a wrong token or an unconfigured server, not an open endpoint.</p>
-        <p><strong>The token is not purely read-only.</strong> The refresh endpoint accepts the same token, so anything holding it can trigger a poll against Dexcom. A 45-second server-side cooldown caps the rate, and for a wall display that is arguably useful — it can force a sync when someone walks up. But a device that goes missing carries that capability with it.</p>
-
-        <h2 id="fields">Fields</h2>
-        <p>Line 1 is four comma-separated integers, newline-terminated.</p>
-        <div class="table-wrap">
-        <table>
-            <thead><tr><th>Position</th><th>Field</th><th>Meaning</th></tr></thead>
-            <tbody>
-                <tr><td>1</td><td><code>mgdl</code></td><td>Glucose in mg/dL. <strong>0 means nothing is stored.</strong></td></tr>
-                <tr><td>2</td><td><code>trend</code></td><td>Direction, 0–7 (table below)</td></tr>
-                <tr><td>3</td><td><code>minutes_ago</code></td><td>Age of the reading. <code>-1</code> when there is no data</td></tr>
-                <tr><td>4</td><td><code>in_range</code></td><td>1 inside 70–180, else 0</td></tr>
-            </tbody>
-        </table>
-        </div>
-        <p>The <code>in_range</code> thresholds follow <code>&amp;low=</code> and <code>&amp;high=</code> if given, defaulting to 70 and 180, so a device agrees with whatever the dashboard shows.</p>
-
-        <h3>Trend codes</h3>
-        <p>The codes follow Dexcom's own ordering, so a device can index an arrow glyph array directly rather than comparing strings:</p>
-        <div class="table-wrap">
-        <table>
-            <thead><tr><th>Code</th><th>Direction</th><th>Glyph</th></tr></thead>
-            <tbody>
-                <tr><td>0</td><td>Unknown</td><td>—</td></tr>
-                <tr><td>1</td><td>Rising fast</td><td>↑↑</td></tr>
-                <tr><td>2</td><td>Rising</td><td>↑</td></tr>
-                <tr><td>3</td><td>Drifting up</td><td>↗</td></tr>
-                <tr><td>4</td><td>Steady</td><td>→</td></tr>
-                <tr><td>5</td><td>Drifting down</td><td>↘</td></tr>
-                <tr><td>6</td><td>Falling</td><td>↓</td></tr>
-                <tr><td>7</td><td>Falling fast</td><td>↓↓</td></tr>
-            </tbody>
-        </table>
-        </div>
-
-        <h3>Why mgdl is the no-data flag</h3>
-        <p>A single check covers an empty database, a brand-new install, and a sensor that has never reported. Testing <code>mgdl &lt;= 0</code> before drawing avoids a separate error path and any status-code handling on the device.</p>
-
-        <h3>Freshness</h3>
-        <p><code>minutes_ago</code> is computed from the reading's true timestamp, not the 5-minute grid key used for deduplication. That distinction matters: the grid key floors the time, which made fresh readings look up to five minutes old and would push a display into a false stale state.</p>
-
-        <h2 id="history">Requesting history</h2>
-        <p>Adding <code>&amp;spark=N</code> appends a second line: the last N readings as comma-separated mg/dL values, oldest first.</p>
-<pre><code>GET ...&amp;action=bg_embed&amp;token=&lt;TOKEN&gt;&amp;spark=24
-
-141,3,1,1
-108,108,109,117,121,117,116,115,113,109,106,103,...</code></pre>
-        <p>At the sensor's 5-minute cadence, count determines span:</p>
-        <div class="table-wrap">
-        <table>
-            <thead><tr><th>spark</th><th>Approx. span</th><th>Response size</th></tr></thead>
-            <tbody>
-                <tr><td>12</td><td>1 hour</td><td>~48 bytes</td></tr>
-                <tr><td>24</td><td>2 hours</td><td>~100 bytes</td></tr>
-                <tr><td>60 (max)</td><td>5 hours</td><td>~240 bytes</td></tr>
-            </tbody>
-        </table>
-        </div>
-
-        <h3>Two limitations</h3>
-        <p><strong>Count and span are welded together.</strong> A 64-pixel-wide display wants exactly 64 points; whether those cover 2 hours or 12 is a separate decision you cannot currently make. Asking for 64 points forces a 5.3-hour window.</p>
-        <p><strong>Time is ignored.</strong> The query takes the last N rows whatever their timestamps. If the poller was down overnight, those rows might span 14 hours, and a device drawing them evenly spaced produces a smooth, confident, wrong line. The dashboard chart breaks its line at gaps; this endpoint has no such protection.</p>
-
-        <h3>Planned replacement</h3>
-        <p>A <code>span</code> parameter decoupling the two, bucketing the window into N slots and averaging within each:</p>
-<pre><code>&amp;points=64&amp;span=6     → 64 points evenly covering the last 6 hours</code></pre>
-        <p>Empty buckets emit <code>0</code>, so a device knows where not to draw and an outage renders as a gap rather than a fabricated line. The cap rises from 60 to 128, since common display widths are 64 and 128 and 128 points is still only ~512 bytes.</p>
-
-        <h2 id="parsing">Parsing on device</h2>
-        <p>The whole parse is one line:</p>
-<pre><code>int mgdl, trend, mins, inRange;
-if (sscanf(buf, "%d,%d,%d,%d", &amp;mgdl, &amp;trend, &amp;mins, &amp;inRange) != 4) return;
-if (mgdl &lt;= 0) { showNoData(); return; }</code></pre>
-        <p>No JSON library, no dynamic allocation, no heap fragmentation over months of uptime. A fixed stack buffer is enough:</p>
-        <div class="table-wrap">
-        <table>
-            <thead><tr><th>Request</th><th>Buffer</th></tr></thead>
-            <tbody>
-                <tr><td>Line 1 only</td><td>32 bytes</td></tr>
-                <tr><td>With <code>spark=24</code></td><td>160 bytes</td></tr>
-                <tr><td>With <code>spark=60</code></td><td>320 bytes</td></tr>
-            </tbody>
-        </table>
-        </div>
-        <p>The sparkline sits on line 2, so split on the newline first and walk it with <code>strtok</code>:</p>
-<pre><code>char *line2 = strchr(buf, '\n');
-if (line2) {
-  int i = 0;
-  for (char *t = strtok(line2 + 1, ","); t &amp;&amp; i &lt; MAX_PTS; t = strtok(NULL, ",")) {
-    spark[i++] = atoi(t);   // 0 = no data for that slot, skip drawing
+    <!-- bg_latest -->
+    <section class="op get" data-action="bg_latest">
+        <button class="op-head" type="button">
+            <span class="method">GET</span>
+            <span class="op-path">/api.php?action=bg_latest</span>
+            <span class="op-sum">Newest reading, JSON</span>
+            <span class="caret">▸</span>
+        </button>
+        <div class="op-body" hidden>
+            <p class="op-desc">The newest stored reading. <code class="inline">at</code> is the reading's true timestamp and <code class="inline">minutes_ago</code> its age — check that before displaying anything. <code class="inline">reading</code> is <code class="inline">null</code> when nothing is stored.</p>
+            <h4>Parameters</h4>
+            <p class="op-desc">None.</p>
+            <h4>Example response · application/json</h4>
+<pre><code>{
+  "reading": {
+    "at": "2026-09-18T13:46:47+00:00",
+    "mgdl": 270,
+    "trend": "FortyFiveUp",
+    "minutes_ago": 5
   }
 }</code></pre>
-        <p>Request only what you will draw. Asking for 60 points to render 24 wastes bandwidth, parse time and buffer on a device that has little of any.</p>
-
-        <h2 id="tls">TLS</h2>
-        <p>The endpoint is HTTPS only, and TLS is the bulk of the work on an ESP32. The chain served is:</p>
-<pre><code>leaf    CN=davenn.com                                  expires 2026-11-21
-chain   Go Daddy Secure Certificate Authority - G2     (intermediate)
-root    Go Daddy Root Certificate Authority - G2       (expected in trust store)</code></pre>
-        <p><strong>Embed the root, not the leaf.</strong> The leaf expires 21 November 2026 and rotates on every renewal — pin it and the device dies roughly twice a year, at whatever hour the renewal lands. Embed the Go Daddy Root CA G2 and it survives renewals untouched.</p>
-<pre><code>WiFiClientSecure client;
-client.setCACert(GODADDY_ROOT_G2);   // not the leaf</code></pre>
-
-        <h3>Memory</h3>
-        <p>The handshake needs roughly 30–40&nbsp;KB of RAM. Comfortable on an ESP32, tight on an ESP8266 — on the latter, expect to free heap elsewhere or accept intermittent handshake failures.</p>
-
-        <h3>On setInsecure</h3>
-        <p><code>client.setInsecure()</code> skips verification and is what most tutorials reach for. It works, and it sends the token over a connection nobody has authenticated. On a home LAN the practical risk is modest, but it is the kind of shortcut that quietly becomes permanent — and this token can trigger a poll, not just read. Worth the extra hour to pin the root.</p>
-
-        <h2 id="polling">Polling and staleness</h2>
-        <p>Poll every 60 seconds. Readings only arrive every 5 minutes, so faster buys nothing but battery and bandwidth.</p>
-        <p>On battery, deep-sleep between polls. <code>minutes_ago</code> tells the device where it sits in the cycle, so it can sleep until just after the next reading is due rather than waking on a blind timer — the same trick the server-side poller uses.</p>
-
-        <h3>The staleness rule</h3>
-        <div class="note">
-            <p><strong>A display must never present an old number as current.</strong> This is the one rule worth enforcing in firmware, because a wall panel showing a confident wrong number is worse than one showing nothing.</p>
+            <div class="exec-row">
+                <button class="btn try" type="button">Try it out</button>
+                <span class="status"></span>
+            </div>
+            <pre class="result" hidden><code></code></pre>
         </div>
-        <div class="table-wrap">
-        <table>
-            <thead><tr><th>minutes_ago</th><th>Display</th></tr></thead>
-            <tbody>
-                <tr><td>0–15</td><td>Normal</td></tr>
-                <tr><td>15–60</td><td>Show the age alongside the number, dimmed</td></tr>
-                <tr><td>Over 60</td><td>Stop showing the number; show the age alone</td></tr>
-            </tbody>
-        </table>
-        </div>
-        <p>Fifteen minutes is the threshold the dashboard uses. It sits comfortably above healthy worst case: a reading publishes about a minute after it is taken, and the poller picks it up within its own cycle.</p>
+    </section>
 
-        <h3>Failure modes</h3>
-        <div class="table-wrap">
-        <table>
-            <thead><tr><th>Symptom</th><th>Meaning</th></tr></thead>
-            <tbody>
-                <tr><td><code>mgdl</code> is 0</td><td>Nothing stored yet — new install, or the poller has never run</td></tr>
-                <tr><td><code>minutes_ago</code> past 15</td><td>Poller stalled; stored data is fine, just not fresh</td></tr>
-                <tr><td>HTTP 401</td><td>Wrong token, or no token set on the server</td></tr>
-                <tr><td>HTTP 404</td><td>Endpoint not deployed</td></tr>
-                <tr><td>Connection fails</td><td>Usually TLS — check the root CA before suspecting the network</td></tr>
-            </tbody>
-        </table>
+    <!-- bg_history -->
+    <section class="op get" data-action="bg_history">
+        <button class="op-head" type="button">
+            <span class="method">GET</span>
+            <span class="op-path">/api.php?action=bg_history</span>
+            <span class="op-sum">Every reading in a window</span>
+            <span class="caret">▸</span>
+        </button>
+        <div class="op-body" hidden>
+            <p class="op-desc">All readings in the window plus a summary. Readings land every 5 minutes, so <code class="inline">hours=24</code> is roughly 288 of them — about 18&nbsp;KB. Too large for a microcontroller; use <code class="inline">bg_embed</code> there.</p>
+            <h4>Parameters</h4>
+            <div class="table-wrap">
+            <table>
+                <thead><tr><th>Name</th><th>Description</th><th>Value</th></tr></thead>
+                <tbody>
+                    <tr><td class="pname">hours<div class="ptype">integer 1–168</div></td><td>Window size. Defaults to 24</td><td><input data-param="hours" placeholder="24"></td></tr>
+                    <tr><td class="pname">low<div class="ptype">integer</div></td><td>Lower bound of the in-range band</td><td><input data-param="low" placeholder="70"></td></tr>
+                    <tr><td class="pname">high<div class="ptype">integer</div></td><td>Upper bound of the in-range band</td><td><input data-param="high" placeholder="180"></td></tr>
+                </tbody>
+            </table>
+            </div>
+            <h4>Example response · application/json</h4>
+<pre><code>{
+  "hours": 1,
+  "summary": {
+    "readings": 10, "avg_mgdl": 203, "min_mgdl": 132, "max_mgdl": 270,
+    "low_count": 0, "high_count": 6, "in_range_pct": 40,
+    "low_threshold": 70, "high_threshold": 180
+  },
+  "readings": [ { "at": "...", "mgdl": 132, "trend": "Flat" }, ... ]
+}</code></pre>
+            <div class="exec-row">
+                <button class="btn try" type="button">Try it out</button>
+                <span class="status"></span>
+            </div>
+            <pre class="result" hidden><code></code></pre>
         </div>
-        <p>A stalled poller and a dead sensor look identical from the device. Neither is worth distinguishing in firmware: both mean the number on the wall is old, and the staleness rule already covers it.</p>
+    </section>
 
-        <footer>
-            <a href="index.html">davenn.com</a> &nbsp;·&nbsp; <a href="privacy.html">Privacy</a> &nbsp;·&nbsp; <a href="terms.html">Terms</a>
-        </footer>
-    </main>
-</div>
+    <!-- bg_daily -->
+    <section class="op get" data-action="bg_daily">
+        <button class="op-head" type="button">
+            <span class="method">GET</span>
+            <span class="op-path">/api.php?action=bg_daily</span>
+            <span class="op-sum">One row per local day</span>
+            <span class="caret">▸</span>
+        </button>
+        <div class="op-body" hidden>
+            <p class="op-desc">Daily rollups in the server's local timezone. <code class="inline">coverage_pct</code> is the share of the day's 288 slots holding data — below about 70% the day has sensor gaps and its percentages should be read with that in mind. The current day is partial by definition.</p>
+            <h4>Parameters</h4>
+            <div class="table-wrap">
+            <table>
+                <thead><tr><th>Name</th><th>Description</th><th>Value</th></tr></thead>
+                <tbody>
+                    <tr><td class="pname">days<div class="ptype">integer 1–365</div></td><td>How many days back. Defaults to 30</td><td><input data-param="days" placeholder="7"></td></tr>
+                    <tr><td class="pname">low<div class="ptype">integer</div></td><td>Lower bound of the in-range band</td><td><input data-param="low" placeholder="70"></td></tr>
+                    <tr><td class="pname">high<div class="ptype">integer</div></td><td>Upper bound of the in-range band</td><td><input data-param="high" placeholder="180"></td></tr>
+                </tbody>
+            </table>
+            </div>
+            <h4>Example response · application/json</h4>
+<pre><code>{
+  "days": 2,
+  "timezone": "America/New_York",
+  "daily": [
+    {
+      "day": "2026-09-17", "readings": 237,
+      "avg_mgdl": 136, "min_mgdl": 72, "max_mgdl": 269,
+      "low_count": 0, "high_count": 44,
+      "in_range_pct": 81, "coverage_pct": 82
+    }
+  ]
+}</code></pre>
+            <div class="exec-row">
+                <button class="btn try" type="button">Try it out</button>
+                <span class="status"></span>
+            </div>
+            <pre class="result" hidden><code></code></pre>
+        </div>
+    </section>
+
+    <div class="tag">Control</div>
+
+    <!-- bg_refresh -->
+    <section class="op post" data-action="bg_refresh" data-method="POST">
+        <button class="op-head" type="button">
+            <span class="method">POST</span>
+            <span class="op-path">/api.php?action=bg_refresh</span>
+            <span class="op-sum">Force a live pull</span>
+            <span class="caret">▸</span>
+        </button>
+        <div class="op-body" hidden>
+            <p class="op-desc">Asks the poller to fetch from the CGM now, so the next read reflects live data. Rate-limited to once every 45 seconds; inside that window it returns <code class="inline">triggered: false</code> with a <code class="inline">retry_after</code> rather than calling out.</p>
+            <h4>Parameters</h4>
+            <p class="op-desc">None.</p>
+            <h4>Example response · application/json</h4>
+<pre><code>{ "triggered": true, "status": 200,
+  "poller": { "sent": 3, "stored": 3, "latest_observed": "..." } }
+
+{ "triggered": false, "reason": "cooling down", "retry_after": 44 }</code></pre>
+            <div class="exec-row">
+                <button class="btn try" type="button">Try it out</button>
+                <span class="status"></span>
+            </div>
+            <pre class="result" hidden><code></code></pre>
+        </div>
+    </section>
+
+    <div class="notes">
+        <div class="tag">Worth knowing</div>
+        <ul>
+            <li><strong>Never show an old number as current.</strong> Check <code class="inline">minutes_ago</code> — dim past 15 minutes, hide the number past 60. A stalled poller and a dead sensor look identical from the client.</li>
+            <li><strong>Pin the root CA, not the leaf.</strong> The site certificate rotates on renewal, so embedding it kills a device twice a year. Embed <em>Go Daddy Root Certificate Authority — G2</em>.</li>
+            <li><strong>Poll no faster than 60 seconds.</strong> New readings only arrive every 5 minutes.</li>
+            <li><strong>Trend codes:</strong> 0 unknown · 1 ↑↑ · 2 ↑ · 3 ↗ · 4 → · 5 ↘ · 6 ↓ · 7 ↓↓</li>
+        </ul>
+    </div>
+
+    <footer>
+        <a href="index.html">davenn.com</a> &nbsp;·&nbsp; <a href="privacy.html">Privacy</a> &nbsp;·&nbsp; <a href="terms.html">Terms</a>
+    </footer>
+</main>
 
 <script>
 (function () {
     'use strict';
 
+    var BASE = '/api.php';
+
+    /* theme */
     var toggle = document.getElementById('theme-toggle');
     var icon = document.getElementById('toggle-icon');
-
-    function applyTheme(t) {
+    icon.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '🌙' : '☀️';
+    toggle.addEventListener('click', function () {
+        var t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
         document.documentElement.setAttribute('data-theme', t);
         icon.textContent = t === 'dark' ? '🌙' : '☀️';
         try { localStorage.setItem('glucose_theme', t); } catch (e) {}
-    }
-    icon.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '🌙' : '☀️';
-    toggle.addEventListener('click', function () {
-        applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
     });
 
-    // Highlight the section currently in view. Falls back silently on browsers
-    // without IntersectionObserver — the links still work, they just don't light up.
-    if (!('IntersectionObserver' in window)) return;
-    var links = {};
-    Array.prototype.forEach.call(document.querySelectorAll('.toc a'), function (a) {
-        links[a.getAttribute('href').slice(1)] = a;
+    /* token — shared with the dashboard, so it carries over if you've used it */
+    var tokenInput = document.getElementById('token');
+    try { tokenInput.value = localStorage.getItem('bg_token') || ''; } catch (e) {}
+    document.getElementById('save-token').addEventListener('click', function () {
+        try { localStorage.setItem('bg_token', tokenInput.value.trim()); } catch (e) {}
+        this.textContent = 'Saved';
+        var btn = this;
+        setTimeout(function () { btn.textContent = 'Authorize'; }, 1400);
     });
-    var seen = {};
-    var observer = new IntersectionObserver(function (entries) {
-        entries.forEach(function (e) { seen[e.target.id] = e.isIntersecting; });
-        var current = null;
-        Object.keys(links).forEach(function (id) { if (seen[id] && !current) current = id; });
-        Object.keys(links).forEach(function (id) { links[id].classList.toggle('on', id === current); });
-    }, { rootMargin: '-80px 0px -70% 0px' });
-    Array.prototype.forEach.call(document.querySelectorAll('.doc h2[id]'), function (h) { observer.observe(h); });
+
+    /* expand / collapse */
+    Array.prototype.forEach.call(document.querySelectorAll('.op'), function (op) {
+        var head = op.querySelector('.op-head');
+        var body = op.querySelector('.op-body');
+        head.addEventListener('click', function () {
+            var open = op.classList.toggle('open');
+            body.hidden = !open;
+        });
+    });
+
+    /* try it out */
+    Array.prototype.forEach.call(document.querySelectorAll('.try'), function (btn) {
+        btn.addEventListener('click', function () {
+            var op = btn.closest('.op');
+            var status = op.querySelector('.status');
+            var result = op.querySelector('.result');
+            var out = result.querySelector('code');
+
+            var token = tokenInput.value.trim();
+            if (!token) { status.textContent = 'Enter a token first'; return; }
+
+            var url = BASE + '?action=' + encodeURIComponent(op.dataset.action) +
+                      '&token=' + encodeURIComponent(token);
+            Array.prototype.forEach.call(op.querySelectorAll('[data-param]'), function (input) {
+                var v = input.value.trim();
+                if (v !== '') url += '&' + input.dataset.param + '=' + encodeURIComponent(v);
+            });
+
+            btn.disabled = true;
+            status.textContent = 'Requesting…';
+            fetch(url, { method: op.dataset.method || 'GET', cache: 'no-store' })
+                .then(function (res) {
+                    status.textContent = res.status + ' ' + res.statusText;
+                    return res.text();
+                })
+                .then(function (text) {
+                    // Pretty-print JSON; leave plain text alone.
+                    try { text = JSON.stringify(JSON.parse(text), null, 2); } catch (e) {}
+                    out.textContent = text;
+                    result.hidden = false;
+                })
+                .catch(function (err) {
+                    status.textContent = 'Failed';
+                    out.textContent = String(err);
+                    result.hidden = false;
+                })
+                .then(function () { btn.disabled = false; });
+        });
+    });
 })();
 </script>
 </body>
