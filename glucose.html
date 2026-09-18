@@ -250,23 +250,32 @@
 
         /* ── NOTES ── */
         .events { display: grid; gap: 8px; }
+        /* Two columns: what happened and when on the left, what explains it on
+           the right. minmax(0,1fr) keeps a long unbroken word from widening the
+           grid and squeezing the left column. */
         .event-row {
-            display: block; width: 100%; text-align: left; font: inherit; color: inherit;
+            display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px;
+            align-items: start; width: 100%; text-align: left; font: inherit; color: inherit;
             cursor: pointer; background: var(--surface-2); border: 1px solid var(--border);
             border-radius: 10px; padding: 11px 13px;
         }
         .event-row:hover { border-color: var(--text-muted); }
-        /* Tag leads, time sits opposite it, note runs full width underneath —
-           so a long note is never squeezed into a narrow second column. */
-        .event-head {
-            display: flex; align-items: baseline; justify-content: space-between;
-            gap: 10px; flex-wrap: wrap;
+        .event-right { min-width: 0; }
+        .event-kind {
+            display: block; font-size: 15px; font-weight: 700;
+            letter-spacing: -0.01em; color: var(--text-primary);
         }
-        .event-tag { font-size: 13px; font-weight: 700; color: var(--text-primary); }
-        .event-when { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+        /* Paired with the word itself, never colour alone. */
+        .event-kind.high { color: var(--warn); }
+        .event-kind.low  { color: var(--crit); }
+        .event-when {
+            display: block; font-family: var(--font-mono); font-size: 11px;
+            color: var(--text-muted); margin-top: 3px;
+        }
+        .event-tag { display: block; font-size: 13px; font-weight: 700; color: var(--text-primary); }
         .event-note {
             display: block; font-size: 13px; color: var(--text-secondary);
-            margin-top: 5px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere;
+            margin-top: 4px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere;
         }
         .events-empty { font-size: 13px; color: var(--text-muted); text-align: center; padding: 16px 0; line-height: 1.6; }
 
@@ -929,6 +938,23 @@
         });
     }
 
+    // What the readings under this event were actually doing. Returns null when
+    // the span covers nothing out of range, which is the normal case for a note
+    // logged as a cause rather than attached to an excursion.
+    function eventKind(e) {
+        var s = new Date(e.start_at).getTime();
+        var en = e.end_at ? new Date(e.end_at).getTime() : s;
+        var highs = 0, lows = 0;
+        for (var i = 0; i < history.length; i++) {
+            var t = new Date(history[i].at).getTime();
+            if (t < s || t > en) continue;
+            if (history[i].mgdl > HIGH) highs++;
+            else if (history[i].mgdl < LOW) lows++;
+        }
+        if (!highs && !lows) return null;
+        return highs >= lows ? 'high' : 'low';
+    }
+
     function renderEvents() {
         el['events-count'].textContent = events.length ? String(events.length) : '';
 
@@ -947,12 +973,25 @@
         el['events-list'].innerHTML = sorted.map(function (e) {
             var start = new Date(e.start_at).getTime();
             var end = e.end_at ? new Date(e.end_at).getTime() : null;
+            // High/Low is derived from the readings, never stored — an event
+            // logged before anything happened (the pizza, not the high) has no
+            // kind, and there the tag becomes the headline instead.
+            // With a kind, the left column headlines High/Low and the tag heads
+            // the right column above its note. Without one, the tag is the
+            // headline and the right column carries the note alone.
+            var kind = eventKind(e);
+            var headline = kind
+                ? '<span class="event-kind ' + kind + '">' + (kind === 'high' ? 'High' : 'Low') + '</span>'
+                : '<span class="event-kind">' + esc(tagLabel(e.tag)) + '</span>';
+
             return '<button class="event-row" type="button" data-event="' + e.id + '">' +
-                   '<span class="event-head">' +
-                       '<span class="event-tag">' + esc(tagLabel(e.tag)) + '</span>' +
+                   '<span class="event-left">' + headline +
                        '<span class="event-when">' + esc(fmtWhen(start, end)) + '</span>' +
                    '</span>' +
-                   (e.note ? '<span class="event-note">' + esc(e.note) + '</span>' : '') +
+                   '<span class="event-right">' +
+                       (kind ? '<span class="event-tag">' + esc(tagLabel(e.tag)) + '</span>' : '') +
+                       (e.note ? '<span class="event-note">' + esc(e.note) + '</span>' : '') +
+                   '</span>' +
                    '</button>';
         }).join('');
     }
