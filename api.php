@@ -200,6 +200,29 @@ if (!in_array('observed_at', $bg_cols, true)) {
     $pdo->exec("ALTER TABLE bg_readings ADD COLUMN observed_at DATETIME NULL AFTER reading_at");
 }
 
+// Human annotations on the glucose record: why a stretch looked the way it did.
+// Kept apart from bg_readings because the two differ in every way that matters —
+// readings are machine-written and rewritten by the poller every few minutes,
+// events are hand-written and edited. An event also spans a range rather than a
+// row, carries more than one per period, and most usefully is logged BEFORE the
+// excursion it explains (the pizza, not the high), when no reading exists to
+// hang it on.
+//
+// No kind column: high/low is derivable from the readings in the range, and
+// storing it lets it drift from the data it describes. No foreign key either —
+// the link is time overlap, computed at render, so an event stays valid across
+// sensor gaps, which is exactly when knowing what happened matters most.
+$pdo->exec("CREATE TABLE IF NOT EXISTS bg_events (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    start_at   DATETIME     NOT NULL,
+    end_at     DATETIME     DEFAULT NULL,
+    tag        VARCHAR(32)  NOT NULL,
+    note       VARCHAR(500) DEFAULT NULL,
+    created_at DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_start (start_at)
+)");
+
 // ── HELPERS ────────────────────────────────────────────────────────────────
 function authUser(PDO $pdo): ?array {
     $token = $_SERVER['HTTP_X_AUTH_TOKEN'] ?? '';
