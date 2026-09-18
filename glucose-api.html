@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Glucose API — davenn.com</title>
+    <meta name="description" content="Read CGM glucose data over HTTP. Endpoints, formats and examples.">
+    <meta name="theme-color" content="#111110">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        (function () {
+            var t;
+            try { t = localStorage.getItem('glucose_theme'); } catch (e) {}
+            if (t !== 'light' && t !== 'dark') {
+                t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root, [data-theme="light"] {
+            color-scheme: light;
+            --page: #ffffff; --surface: #f7f6f3; --surface-2: #efeeea; --border: #e8e6e0;
+            --text-primary: #111110; --text-body: #333333; --text-muted: #898781; --accent: #0ca30c;
+        }
+        [data-theme="dark"] {
+            color-scheme: dark;
+            --page: #0a0a0a; --surface: #121212; --surface-2: #1a1a1a; --border: #2a2a2a;
+            --text-primary: #f0f0f0; --text-body: #c3c2b7; --text-muted: #898781; --accent: #0ca30c;
+        }
+        :root {
+            --nav-bg: #111110; --nav-border: rgba(255,255,255,0.08);
+            --font-ui: system-ui, -apple-system, 'Segoe UI', sans-serif;
+            --font-mono: 'DM Mono', ui-monospace, monospace;
+            --nav-h: 52px;
+        }
+
+        body {
+            font-family: var(--font-ui); background: var(--page); color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+            padding-top: calc(var(--nav-h) + env(safe-area-inset-top));
+            transition: background 0.2s, color 0.2s;
+        }
+
+        nav {
+            position: fixed; top: 0; left: 0; right: 0;
+            height: calc(var(--nav-h) + env(safe-area-inset-top));
+            padding: env(safe-area-inset-top) 1.5rem 0;
+            background: var(--nav-bg); border-bottom: 1px solid var(--nav-border);
+            display: flex; align-items: center; justify-content: space-between; z-index: 200;
+        }
+        .nav-logo { font-family: var(--font-mono); font-size: 13px; color: rgba(255,255,255,0.4); text-decoration: none; }
+        .nav-logo strong { color: #fff; }
+        .nav-right { display: flex; align-items: center; gap: 1.2rem; }
+        .nav-back {
+            font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.45);
+            text-decoration: none; letter-spacing: 0.05em; text-transform: uppercase;
+        }
+        .nav-back:hover { color: #fff; }
+        .theme-toggle { width: 44px; height: 24px; cursor: pointer; background: none; border: none; padding: 0; flex: none; }
+        .theme-toggle-track {
+            width: 44px; height: 24px; border-radius: 12px; background: #333; border: 1px solid #555;
+            display: flex; align-items: center; padding: 0 3px; transition: background 0.2s;
+        }
+        [data-theme="light"] .theme-toggle-track { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); }
+        .theme-toggle-thumb {
+            width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; font-size: 10px; transition: transform 0.2s, background 0.2s;
+        }
+        [data-theme="light"] .theme-toggle-thumb { transform: translateX(20px); background: #fff; }
+        [data-theme="dark"]  .theme-toggle-thumb { transform: translateX(0);    background: #666; }
+
+        main { max-width: 720px; margin: 0 auto; padding: 44px 1.5rem 88px; }
+        .eyebrow {
+            font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em;
+            text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px;
+        }
+        h1 { font-size: clamp(1.8rem, 4vw, 2.3rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
+        .lede { font-size: 1rem; color: var(--text-body); margin-top: 10px; line-height: 1.6; }
+
+        h2 { font-size: 1.1rem; font-weight: 700; margin: 44px 0 12px; letter-spacing: -0.01em; }
+        h3 { font-size: 0.9rem; font-weight: 700; margin: 24px 0 8px; }
+        p, li { font-size: 14px; line-height: 1.7; color: var(--text-body); margin-bottom: 10px; }
+        ul { padding-left: 20px; }
+        strong { color: var(--text-primary); font-weight: 700; }
+        a { color: var(--text-primary); }
+
+        code {
+            font-family: var(--font-mono); font-size: 0.88em; background: var(--surface-2);
+            border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; color: var(--text-primary);
+        }
+        pre {
+            background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+            padding: 14px 16px; margin: 12px 0 18px; overflow-x: auto;
+        }
+        pre code { background: none; border: none; padding: 0; font-size: 12.5px; line-height: 1.65; display: block; }
+        .out { color: var(--text-muted); }
+
+        .table-wrap { overflow-x: auto; margin: 12px 0 18px; }
+        table { border-collapse: collapse; width: 100%; font-size: 13px; }
+        th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+        th {
+            font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+            color: var(--text-muted); font-weight: 400; border-bottom: 1px solid var(--text-muted);
+        }
+        td { color: var(--text-body); }
+        td code { white-space: nowrap; }
+        .trend td { font-family: var(--font-mono); }
+
+        footer {
+            border-top: 1px solid var(--border); margin-top: 56px; padding-top: 18px;
+            font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);
+        }
+        footer a { color: var(--text-muted); }
+    </style>
+</head>
+<body>
+
+<nav>
+    <a class="nav-logo" href="index.html"><strong>davenn</strong>dotcom</a>
+    <div class="nav-right">
+        <button class="theme-toggle" id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
+            <div class="theme-toggle-track"><div class="theme-toggle-thumb" id="toggle-icon">🌙</div></div>
+        </button>
+        <a class="nav-back" href="index.html">← Back</a>
+    </div>
+</nav>
+
+<main>
+    <div class="eyebrow">API reference</div>
+    <h1>Glucose API</h1>
+    <p class="lede">Read continuous glucose monitor data over HTTP. Plain text for microcontrollers, JSON for everything else.</p>
+
+    <h2>Connect</h2>
+    <p>One base URL, one token, no session or handshake. Pass the token as <code>?token=</code> or as an <code>X-BG-Token</code> header.</p>
+<pre><code>curl "https://davenn.com/api.php?action=bg_embed&amp;token=$TOKEN"
+
+<span class="out">270,3,5,0</span></code></pre>
+    <p>All reads are <code>GET</code>. A missing or wrong token returns <code>401</code>; an unknown action returns <code>404</code>.</p>
+
+    <h2>Endpoints</h2>
+    <div class="table-wrap">
+    <table>
+        <thead><tr><th>Action</th><th>Returns</th><th>Parameters</th></tr></thead>
+        <tbody>
+            <tr>
+                <td><code>bg_embed</code></td>
+                <td>Plain text, one line. ~10 bytes</td>
+                <td><code>spark</code> 1–60, <code>low</code>, <code>high</code></td>
+            </tr>
+            <tr>
+                <td><code>bg_latest</code></td>
+                <td>JSON, newest reading</td>
+                <td>—</td>
+            </tr>
+            <tr>
+                <td><code>bg_history</code></td>
+                <td>JSON, every reading plus a summary</td>
+                <td><code>hours</code> 1–168, <code>low</code>, <code>high</code></td>
+            </tr>
+            <tr>
+                <td><code>bg_daily</code></td>
+                <td>JSON, one row per local day</td>
+                <td><code>days</code> 1–365, <code>low</code>, <code>high</code></td>
+            </tr>
+            <tr>
+                <td><code>bg_refresh</code></td>
+                <td>Forces a live pull. <code>POST</code></td>
+                <td>45-second cooldown</td>
+            </tr>
+        </tbody>
+    </table>
+    </div>
+    <p><code>low</code> and <code>high</code> set the in-range band, defaulting to 70 and 180. Readings are stored every 5 minutes, so <code>hours=24</code> is about 288 of them — roughly 18&nbsp;KB of JSON.</p>
+
+    <h2>Formats</h2>
+
+    <h3>bg_embed — plain text</h3>
+    <p>Four integers, then an optional sparkline row of mg/dL values, oldest first.</p>
+<pre><code>curl ".../api.php?action=bg_embed&amp;spark=4&amp;token=$TOKEN"
+
+<span class="out">270,3,5,0
+251,252,259,270</span></code></pre>
+    <div class="table-wrap">
+    <table>
+        <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+        <tbody>
+            <tr><td><code>mgdl</code></td><td>Glucose in mg/dL. <strong>0 = nothing stored</strong></td></tr>
+            <tr><td><code>trend</code></td><td>Direction, 0–7</td></tr>
+            <tr><td><code>minutes_ago</code></td><td>Age of the reading</td></tr>
+            <tr><td><code>in_range</code></td><td>1 inside the band, else 0</td></tr>
+        </tbody>
+    </table>
+    </div>
+    <div class="table-wrap">
+    <table class="trend">
+        <thead><tr><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th></tr></thead>
+        <tbody><tr><td>?</td><td>↑↑</td><td>↑</td><td>↗</td><td>→</td><td>↘</td><td>↓</td><td>↓↓</td></tr></tbody>
+    </table>
+    </div>
+
+    <h3>bg_latest — JSON</h3>
+<pre><code><span class="out">{"reading":{"at":"2026-09-18T13:46:47+00:00","mgdl":270,
+            "trend":"FortyFiveUp","minutes_ago":5}}</span></code></pre>
+
+    <h3>bg_daily — JSON</h3>
+    <p><code>coverage_pct</code> is the share of the day's 288 slots that have data. A day below ~70% has sensor gaps, and its percentages should be read with that in mind.</p>
+<pre><code><span class="out">{"day":"2026-09-17","readings":237,"avg_mgdl":136,
+ "min_mgdl":72,"max_mgdl":269,"low_count":0,"high_count":44,
+ "in_range_pct":81,"coverage_pct":82}</span></code></pre>
+
+    <h2>Examples</h2>
+
+    <h3>Shell</h3>
+<pre><code>curl -s ".../api.php?action=bg_daily&amp;days=7&amp;token=$TOKEN" | jq '.daily[].in_range_pct'</code></pre>
+
+    <h3>JavaScript</h3>
+<pre><code>const r = await fetch(`${BASE}?action=bg_latest&amp;token=${TOKEN}`).then(r =&gt; r.json());
+if (r.reading &amp;&amp; r.reading.minutes_ago &lt;= 15) render(r.reading.mgdl);</code></pre>
+
+    <h3>ESP32 / C</h3>
+    <p>No JSON parser, no allocation — a fixed stack buffer and one <code>sscanf</code>.</p>
+<pre><code>int mgdl, trend, mins, inRange;
+if (sscanf(buf, "%d,%d,%d,%d", &amp;mgdl, &amp;trend, &amp;mins, &amp;inRange) != 4) return;
+if (mgdl &lt;= 0) return;              // nothing stored yet
+drawArrow(ARROWS[trend]);
+drawNumber(mgdl, mins &gt; 15 ? DIM : BRIGHT);</code></pre>
+
+    <h2>Worth knowing</h2>
+    <ul>
+        <li><strong>Never show an old number as current.</strong> Check <code>minutes_ago</code> — dim past 15 minutes, hide the number past 60. A stalled poller and a dead sensor look identical from the client.</li>
+        <li><strong>Pin the root CA, not the leaf.</strong> The site certificate rotates on renewal; embedding it means a device dies twice a year. Embed <em>Go Daddy Root Certificate Authority&nbsp;— G2</em>.</li>
+        <li><strong>Reads never touch the CGM vendor.</strong> Everything is served from stored readings, so extra clients cost the upstream API nothing.</li>
+        <li><strong>Poll no faster than 60 seconds.</strong> New readings only arrive every 5 minutes.</li>
+    </ul>
+
+    <footer>
+        <a href="index.html">davenn.com</a> &nbsp;·&nbsp; <a href="privacy.html">Privacy</a> &nbsp;·&nbsp; <a href="terms.html">Terms</a>
+    </footer>
+</main>
+
+<script>
+(function () {
+    var toggle = document.getElementById('theme-toggle');
+    var icon = document.getElementById('toggle-icon');
+    function applyTheme(t) {
+        document.documentElement.setAttribute('data-theme', t);
+        icon.textContent = t === 'dark' ? '🌙' : '☀️';
+        try { localStorage.setItem('glucose_theme', t); } catch (e) {}
+    }
+    icon.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '🌙' : '☀️';
+    toggle.addEventListener('click', function () {
+        applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+    });
+})();
+</script>
+</body>
+</html>
