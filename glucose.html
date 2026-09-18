@@ -379,18 +379,20 @@
     // Every stretch of consecutive in-range readings in the window.
     //
     // One isolated excursion is tolerated: a single 181 shouldn't erase four
-    // hours, and sensors jitter. Two in a row ends the run. A sensor gap ends it
-    // too — we don't know what happened while the sensor was dark, so we don't
-    // get to count it as time in range.
+    // hours, and sensors jitter. Two in a row ends the run.
+    //
+    // A sensor gap does not end it. The run bridges missing data and keeps
+    // counting, so a stretch nobody observed still adds to the elapsed time.
+    // The chart still breaks its line at gaps — that is about not drawing points
+    // that don't exist, which is a separate question from whether a run survives.
     function runSpans(readings) {
-        var spans = [], start = null, lastIn = null, prev = null, out = 0;
+        var spans = [], start = null, lastIn = null, out = 0;
         function close() {
             if (start !== null && lastIn !== null) spans.push([start, lastIn]);
             start = null; lastIn = null; out = 0;
         }
         for (var i = 0; i < readings.length; i++) {
             var t = new Date(readings[i].at).getTime();
-            if (prev !== null && (t - prev) / 60000 > GAP_MIN) close();
             if (inRange(readings[i].mgdl)) {
                 if (start === null) start = t;
                 lastIn = t;
@@ -398,7 +400,6 @@
             } else if (++out >= 2) {
                 close();
             }
-            prev = t;
         }
         close();
         return spans;
