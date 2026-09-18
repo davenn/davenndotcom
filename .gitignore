@@ -1,3 +1,4 @@
 .env
 uploads/
 generate-icons.js
+.vscode/settings.json
