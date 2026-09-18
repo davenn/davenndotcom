@@ -8,7 +8,7 @@
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *'); // lock to 'https://davenn.com' in production
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, X-Auth-Token, X-BG-Token');
+header('Access-Control-Allow-Headers: Content-Type, X-Auth-Token, X-BG-Token, X-BG-Write-Token');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 
@@ -1612,6 +1612,173 @@ if ($method === 'GET' && $action === 'bg_daily') {
         'high_threshold' => $high,
         'daily'          => $out,
     ]); exit;
+}
+
+// ══════════════════════════════════════════════════════════════
+// GLUCOSE EVENTS
+// ══════════════════════════════════════════════════════════════
+// Human annotations: why a stretch of readings looked the way it did.
+//
+// These are the only endpoints here that accept input from a browser, so they
+// carry their own token. BG_READ_TOKEN is on wall displays and published in the
+// API docs — a token with that blast radius must not be able to write.
+
+// A closed set. An open text field would be unqueryable ("what causes his
+// highs?" is the whole point), and a whitelist is also the primary input
+// validation on a write path.
+function bgEventTags(): array {
+    return ['carbs', 'missed_dose', 'dose_timing', 'exercise', 'illness', 'stress', 'sensor', 'sleep', 'other'];
+}
+
+function bgRequireWrite(): void {
+    $token = $_ENV['BG_WRITE_TOKEN'] ?? '';
+    $given = $_SERVER['HTTP_X_BG_WRITE_TOKEN'] ?? ($_GET['token'] ?? '');
+    if (!$token || !is_string($given) || $given === '' || !hash_equals($token, $given)) {
+        http_response_code(401); echo json_encode(['error' => 'Unauthorized']); exit;
+    }
+}
+
+// Accepts anything strtotime understands, but only within a plausible window —
+// a typo or a bad client clock should be rejected, not stored forever.
+function bgParseEventTime($value, bool $required = true) {
+    if ($value === null || $value === '') {
+        if ($required) return false;
+        return null;
+    }
+    if (!is_string($value)) return false;
+    $ts = strtotime($value);
+    if ($ts === false) return false;
+    if ($ts < 1577836800 || $ts > time() + 86400) return false; // 2020-01-01 .. tomorrow
+    return $ts;
+}
+
+// GET ?action=bg_events&token=…&hours=24 → annotations overlapping the window.
+// Read token: anything that may read the readings may read what explains them.
+if ($method === 'GET' && $action === 'bg_events') {
+    bgRequireRead();
+
+    $hours = intval($_GET['hours'] ?? 24);
+    if ($hours < 1 || $hours > 8760) {
+        http_response_code(400); echo json_encode(['error' => 'hours must be 1-8760.']); exit;
+    }
+    $since = gmdate('Y-m-d H:i:s', time() - $hours * 3600);
+
+    // An event is in the window if it starts inside it, or started earlier and
+    // runs into it — a long excursion annotated last night still belongs today.
+    $stmt = $pdo->prepare(
+        "SELECT id, start_at, end_at, tag, note FROM bg_events
+         WHERE start_at >= ? OR (end_at IS NOT NULL AND end_at >= ?)
+         ORDER BY start_at"
+    );
+    $stmt->execute([$since, $since]);
+
+    $events = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $events[] = [
+            'id'       => (int)$row['id'],
+            'start_at' => gmdate('c', strtotime($row['start_at'] . ' UTC')),
+            'end_at'   => $row['end_at'] ? gmdate('c', strtotime($row['end_at'] . ' UTC')) : null,
+            'tag'      => $row['tag'],
+            'note'     => $row['note'],
+        ];
+    }
+
+    echo json_encode(['hours' => $hours, 'tags' => bgEventTags(), 'events' => $events]); exit;
+}
+
+// POST ?action=bg_event_save  header: X-BG-Write-Token (or ?token=)
+// body: { id?, start_at, end_at?, tag, note? }
+// Creates, or updates when id is given. Returns the stored row.
+if ($method === 'POST' && $action === 'bg_event_save') {
+    bgRequireWrite();
+
+    $body = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($body)) {
+        http_response_code(400); echo json_encode(['error' => 'Expected a JSON object.']); exit;
+    }
+
+    $tag = is_string($body['tag'] ?? null) ? $body['tag'] : '';
+    if (!in_array($tag, bgEventTags(), true)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Unknown tag.', 'tags' => bgEventTags()]); exit;
+    }
+
+    $start = bgParseEventTime($body['start_at'] ?? null, true);
+    if ($start === false) {
+        http_response_code(400); echo json_encode(['error' => 'start_at is missing or out of range.']); exit;
+    }
+
+    $end = bgParseEventTime($body['end_at'] ?? null, false);
+    if ($end === false) {
+        http_response_code(400); echo json_encode(['error' => 'end_at is not a valid time.']); exit;
+    }
+    if ($end !== null && $end < $start) {
+        http_response_code(400); echo json_encode(['error' => 'end_at is before start_at.']); exit;
+    }
+    // A span longer than a day is a mistake, not an annotation.
+    if ($end !== null && ($end - $start) > 86400) {
+        http_response_code(400); echo json_encode(['error' => 'end_at is more than 24h after start_at.']); exit;
+    }
+
+    $note = null;
+    if (isset($body['note']) && is_string($body['note'])) {
+        // Strip control characters, keeping newlines and tabs; the column is
+        // VARCHAR(500) so cut to length rather than letting MySQL truncate.
+        $note = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $body['note']);
+        $note = mb_substr(trim($note), 0, 500);
+        if ($note === '') $note = null;
+    }
+
+    $start_sql = gmdate('Y-m-d H:i:s', $start);
+    $end_sql   = $end === null ? null : gmdate('Y-m-d H:i:s', $end);
+    $id        = intval($body['id'] ?? 0);
+
+    if ($id > 0) {
+        $stmt = $pdo->prepare(
+            "UPDATE bg_events SET start_at = ?, end_at = ?, tag = ?, note = ? WHERE id = ?"
+        );
+        $stmt->execute([$start_sql, $end_sql, $tag, $note, $id]);
+        if ($stmt->rowCount() === 0) {
+            // Either it is gone, or nothing changed — say which.
+            $exists = $pdo->prepare("SELECT 1 FROM bg_events WHERE id = ?");
+            $exists->execute([$id]);
+            if (!$exists->fetchColumn()) {
+                http_response_code(404); echo json_encode(['error' => 'No event with that id.']); exit;
+            }
+        }
+    } else {
+        $stmt = $pdo->prepare(
+            "INSERT INTO bg_events (start_at, end_at, tag, note) VALUES (?, ?, ?, ?)"
+        );
+        $stmt->execute([$start_sql, $end_sql, $tag, $note]);
+        $id = (int)$pdo->lastInsertId();
+    }
+
+    echo json_encode(['success' => true, 'event' => [
+        'id'       => $id,
+        'start_at' => gmdate('c', $start),
+        'end_at'   => $end === null ? null : gmdate('c', $end),
+        'tag'      => $tag,
+        'note'     => $note,
+    ]]); exit;
+}
+
+// DELETE ?action=bg_event_delete&id=…  header: X-BG-Write-Token (or ?token=)
+if ($method === 'DELETE' && $action === 'bg_event_delete') {
+    bgRequireWrite();
+
+    $id = intval($_GET['id'] ?? 0);
+    if ($id <= 0) {
+        http_response_code(400); echo json_encode(['error' => 'Invalid id.']); exit;
+    }
+
+    $stmt = $pdo->prepare("DELETE FROM bg_events WHERE id = ?");
+    $stmt->execute([$id]);
+    if ($stmt->rowCount() === 0) {
+        http_response_code(404); echo json_encode(['error' => 'No event with that id.']); exit;
+    }
+
+    echo json_encode(['success' => true, 'deleted' => $id]); exit;
 }
 
 // =============================================================
