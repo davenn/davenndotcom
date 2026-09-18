@@ -1434,6 +1434,60 @@ if ($method === 'GET' && $action === 'bg_latest') {
     ]]); exit;
 }
 
+// GET ?action=bg_embed&token=…[&spark=N][&low=70][&high=180]
+//
+// Plain text for microcontrollers: no JSON parser, no heap allocation, a fixed
+// buffer and sscanf will do. Reads the stored rows only — a display never
+// reaches Dexcom, so hanging more of them on the wall costs the API nothing.
+//
+//   line 1   mgdl,trend,minutes_ago,in_range        e.g. 84,4,2,1
+//   line 2   with spark=N: the last N mg/dL values, oldest first
+//
+// mgdl 0 means nothing is stored yet. Trend follows Dexcom's own ordering, so a
+// device can index an arrow glyph straight off it:
+//   0 unknown · 1 up-up · 2 up · 3 up-45 · 4 flat · 5 down-45 · 6 down · 7 down-down
+if ($method === 'GET' && $action === 'bg_embed') {
+    bgRequireRead();
+    header('Content-Type: text/plain; charset=utf-8');
+    header('Cache-Control: no-store');
+
+    $codes = [
+        'DoubleUp'      => 1, 'SingleUp'   => 2, 'FortyFiveUp'   => 3, 'Flat' => 4,
+        'FortyFiveDown' => 5, 'SingleDown' => 6, 'DoubleDown'    => 7,
+    ];
+
+    $row = $pdo->query(
+        "SELECT reading_at, observed_at, mgdl, trend FROM bg_readings ORDER BY reading_at DESC LIMIT 1"
+    )->fetch();
+
+    if (!$row) { echo "0,0,-1,0\n"; exit; }
+
+    $low  = intval($_GET['low']  ?? 70);
+    $high = intval($_GET['high'] ?? 180);
+
+    // observed_at is the real reading time; reading_at is snapped to the grid and
+    // would make a fresh reading look up to 5 minutes stale.
+    $ts   = strtotime(($row['observed_at'] ?: $row['reading_at']) . ' UTC');
+    $mgdl = (int)$row['mgdl'];
+    $mins = (int)floor((time() - $ts) / 60);
+    $code = $codes[$row['trend']] ?? 0;
+    $in   = ($mgdl >= $low && $mgdl <= $high) ? 1 : 0;
+
+    echo "{$mgdl},{$code},{$mins},{$in}\n";
+
+    // Optional sparkline: the last N readings, oldest first. Capped so the
+    // response stays inside a small fixed buffer on the device.
+    $spark = intval($_GET['spark'] ?? 0);
+    if ($spark > 0) {
+        $spark = min($spark, 60);
+        $vals = $pdo->query(
+            "SELECT mgdl FROM bg_readings ORDER BY reading_at DESC LIMIT {$spark}"
+        )->fetchAll(PDO::FETCH_COLUMN);
+        echo implode(',', array_map('intval', array_reverse($vals))) . "\n";
+    }
+    exit;
+}
+
 // GET ?action=bg_history&token=…&hours=24&low=70&high=180 → raw readings + summary.
 if ($method === 'GET' && $action === 'bg_history') {
     bgRequireRead();
