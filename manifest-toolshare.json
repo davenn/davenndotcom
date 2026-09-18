@@ -3,6 +3,7 @@
   "short_name": "Toolshare",
   "description": "Tool library for sharing with friends",
   "id": "/toolshare.html",
+  "scope": "/toolshare.html",
   "start_url": "/toolshare.html",
   "display": "standalone",
   "orientation": "portrait",

@@ -3,6 +3,7 @@
   "short_name": "Cribbage",
   "description": "Simple offline cribbage scorekeeper with a pegging board",
   "id": "/cribbage.html",
+  "scope": "/cribbage.html",
   "start_url": "/cribbage.html",
   "display": "standalone",
   "orientation": "portrait",

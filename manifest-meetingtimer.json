@@ -3,6 +3,7 @@
   "short_name": "Meet Cost",
   "description": "Real-time salary burn calculator for meetings",
   "id": "/meetingtimer.html",
+  "scope": "/meetingtimer.html",
   "start_url": "/meetingtimer.html",
   "display": "standalone",
   "orientation": "portrait",

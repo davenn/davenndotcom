@@ -2,6 +2,7 @@
   "name": "Glucose",
   "short_name": "Glucose",
   "id": "/glucose.html",
+  "scope": "/glucose.html",
   "start_url": "/glucose.html",
   "display": "standalone",
   "orientation": "any",

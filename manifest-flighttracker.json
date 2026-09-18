@@ -2,6 +2,7 @@
   "name": "Flight Tracker",
   "short_name": "Flights",
   "id": "/flighttracker.html",
+  "scope": "/flighttracker.html",
   "start_url": "/flighttracker.html",
   "display": "standalone",
   "orientation": "any",

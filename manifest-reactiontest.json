@@ -3,6 +3,7 @@
   "short_name": "Reaction",
   "description": "Benchmark your reaction time across 5 rounds",
   "id": "/reactiontest.html",
+  "scope": "/reactiontest.html",
   "start_url": "/reactiontest.html",
   "display": "standalone",
   "theme_color": "#0a0a0a",

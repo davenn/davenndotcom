@@ -3,6 +3,7 @@
   "short_name": "Track Timer",
   "description": "Millisecond-accurate multi-athlete split timer",
   "id": "/tracktimer.html",
+  "scope": "/tracktimer.html",
   "start_url": "/tracktimer.html",
   "display": "standalone",
   "orientation": "portrait",
