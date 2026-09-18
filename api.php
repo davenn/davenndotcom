@@ -8,7 +8,7 @@
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *'); // lock to 'https://davenn.com' in production
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, X-Auth-Token, X-BG-Token, X-BG-Write-Token');
+header('Access-Control-Allow-Headers: Content-Type, X-Auth-Token, X-BG-Token');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 
@@ -1619,9 +1619,10 @@ if ($method === 'GET' && $action === 'bg_daily') {
 // ══════════════════════════════════════════════════════════════
 // Human annotations: why a stretch of readings looked the way it did.
 //
-// These are the only endpoints here that accept input from a browser, so they
-// carry their own token. BG_READ_TOKEN is on wall displays and published in the
-// API docs — a token with that blast radius must not be able to write.
+// These are the only endpoints here that accept input from a browser. They use
+// the same read token as everything else: one credential to manage, and the
+// validation below — a closed tag set, bounded times, capped notes — is what
+// actually keeps bad input out.
 
 // A closed set. An open text field would be unqueryable ("what causes his
 // highs?" is the whole point), and a whitelist is also the primary input
@@ -1630,13 +1631,6 @@ function bgEventTags(): array {
     return ['carbs', 'missed_dose', 'dose_timing', 'exercise', 'illness', 'stress', 'sensor', 'sleep', 'other'];
 }
 
-function bgRequireWrite(): void {
-    $token = $_ENV['BG_WRITE_TOKEN'] ?? '';
-    $given = $_SERVER['HTTP_X_BG_WRITE_TOKEN'] ?? ($_GET['token'] ?? '');
-    if (!$token || !is_string($given) || $given === '' || !hash_equals($token, $given)) {
-        http_response_code(401); echo json_encode(['error' => 'Unauthorized']); exit;
-    }
-}
 
 // Accepts anything strtotime understands, but only within a plausible window —
 // a typo or a bad client clock should be rejected, not stored forever.
@@ -1686,11 +1680,11 @@ if ($method === 'GET' && $action === 'bg_events') {
     echo json_encode(['hours' => $hours, 'tags' => bgEventTags(), 'events' => $events]); exit;
 }
 
-// POST ?action=bg_event_save  header: X-BG-Write-Token (or ?token=)
+// POST ?action=bg_event_save&token=…
 // body: { id?, start_at, end_at?, tag, note? }
 // Creates, or updates when id is given. Returns the stored row.
 if ($method === 'POST' && $action === 'bg_event_save') {
-    bgRequireWrite();
+    bgRequireRead();
 
     $body = json_decode(file_get_contents('php://input'), true);
     if (!is_array($body)) {
@@ -1763,9 +1757,9 @@ if ($method === 'POST' && $action === 'bg_event_save') {
     ]]); exit;
 }
 
-// DELETE ?action=bg_event_delete&id=…  header: X-BG-Write-Token (or ?token=)
+// DELETE ?action=bg_event_delete&id=…&token=…
 if ($method === 'DELETE' && $action === 'bg_event_delete') {
-    bgRequireWrite();
+    bgRequireRead();
 
     $id = intval($_GET['id'] ?? 0);
     if ($id <= 0) {

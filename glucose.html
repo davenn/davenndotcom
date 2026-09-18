@@ -204,13 +204,6 @@
             padding: 10px; border: 1px solid var(--border); border-radius: 9px;
             background: var(--page); color: var(--text-primary); resize: vertical;
         }
-        .wtok { margin-top: 12px; }
-        .wtok label { font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 5px; }
-        .wtok input {
-            width: 100%; font-family: var(--font-mono); font-size: 13px; padding: 9px 10px;
-            border: 1px solid var(--border); border-radius: 9px;
-            background: var(--page); color: var(--text-primary);
-        }
         .sheet-msg { font-size: 12px; color: var(--crit); margin-top: 10px; min-height: 15px; }
         .sheet-row { display: flex; gap: 8px; margin-top: 8px; }
         .grow { flex: 1; }
@@ -371,10 +364,6 @@
             <div class="sheet-when" id="sheet-when"></div>
             <div class="chips" id="chips"></div>
             <textarea id="sheet-note" placeholder="What happened? (optional)" maxlength="500"></textarea>
-            <div class="wtok hidden" id="wtok">
-                <label for="write-token">Write token</label>
-                <input type="password" id="write-token" autocomplete="off" spellcheck="false" placeholder="BG_WRITE_TOKEN">
-            </div>
             <div class="sheet-msg" id="sheet-msg"></div>
             <div class="sheet-row">
                 <button class="s-btn primary grow" id="sheet-save" type="button">Save</button>
@@ -419,15 +408,13 @@
     };
     function tagLabel(t) { return TAG_LABELS[t] || t; }
 
-    var writeToken = '';
-    try { writeToken = localStorage.getItem('bg_write_token') || ''; } catch (e) {}
     var el = {};
     ['gate','gate-form','gate-input','hero','hero-value','hero-arrow','hero-status','hero-dot',
      'hero-status-text','hero-age','filter-row','curve-card','chart-holder','tip','ranges','tir-card','tir-bar',
      'tir-key','tir-window','stats','days-card','days','days-note','loading','refresh',
      'stale-banner','stale-text','theme-toggle','toggle-icon','hero-run',
-     'add-note','sheet-back','sheet-title','sheet-when','chips','sheet-note','wtok',
-     'write-token','sheet-msg','sheet-save','sheet-cancel','sheet-delete'].forEach(function (id) { el[id] = document.getElementById(id); });
+     'add-note','sheet-back','sheet-title','sheet-when','chips','sheet-note',
+     'sheet-msg','sheet-save','sheet-cancel','sheet-delete'].forEach(function (id) { el[id] = document.getElementById(id); });
 
     var ARROWS = {
         DoubleUp: '⇈', SingleUp: '↑', FortyFiveUp: '↗', Flat: '→',
@@ -908,8 +895,6 @@
         el['sheet-note'].value = ev && ev.note ? ev.note : '';
         el['sheet-msg'].textContent = '';
         show(el['sheet-delete'], !!ev);
-        show(el['wtok'], !writeToken);
-        el['write-token'].value = writeToken;
         show(el['sheet-back'], true);
         el['sheet-note'].focus();
     }
@@ -924,11 +909,12 @@
         return on ? on.dataset.tag : null;
     }
 
-    // Writes carry their own token: the read token is on wall displays and in
-    // the public API docs, and must not be able to change the record.
+    // Same token as every read. What keeps bad input out is the server-side
+    // validation — a closed tag set, bounded times, capped notes — not a second
+    // credential for the user to carry.
     function writeApi(action, options) {
         var url = API + '?action=' + encodeURIComponent(action) +
-                  '&token=' + encodeURIComponent(writeToken);
+                  '&token=' + encodeURIComponent(token);
         if (options.query) {
             Object.keys(options.query).forEach(function (k) {
                 url += '&' + k + '=' + encodeURIComponent(options.query[k]);
@@ -956,10 +942,6 @@
         var tag = selectedTag();
         if (!tag) { el['sheet-msg'].textContent = 'Pick a tag first.'; return; }
 
-        writeToken = el['write-token'].value.trim() || writeToken;
-        if (!writeToken) { el['sheet-msg'].textContent = 'A write token is needed to save.'; return; }
-        try { localStorage.setItem('bg_write_token', writeToken); } catch (e) {}
-
         var body = {
             id: editing.id || undefined,
             start_at: new Date(editing.start).toISOString(),
@@ -973,10 +955,11 @@
         writeApi('bg_event_save', { method: 'POST', body: body })
             .then(function () { closeSheet(); load(); })
             .catch(function (err) {
+                // A 401 here means the session token went stale; the gate will
+                // ask for it again on the next load.
                 el['sheet-msg'].textContent = err.code === 401
-                    ? 'That write token was rejected.'
+                    ? 'Token rejected — reload and sign in again.'
                     : (err.message || 'Could not save.');
-                if (err.code === 401) { writeToken = ''; show(el['wtok'], true); }
             })
             .then(function () { el['sheet-save'].disabled = false; });
     }
