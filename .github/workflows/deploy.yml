@@ -16,7 +16,16 @@ jobs:
         with:
           fetch-depth: 0   # full history — needed so FTP diff and the CHANGELOG diff both work regardless of how many commits were pushed
 
-      # 2. Upload to GoDaddy via FTP
+      # 2. Refuse to deploy broken PHP. api.php serves every app on the site,
+      #    so a single syntax error takes all of them down at once — catching it
+      #    here costs seconds; catching it in production does not.
+      - name: Lint PHP
+        run: |
+          for f in $(git ls-files "*.php"); do
+            php -l "$f"
+          done
+
+      # 3. Upload to GoDaddy via FTP
       #    Only uploads files that changed in the push — fast and safe.
       - name: FTP Deploy
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
@@ -37,7 +46,7 @@ jobs:
             .env
             .env.*
 
-      # 3. Did this push change CHANGELOG.md?
+      # 4. Did this push change CHANGELOG.md?
       - name: Detect changelog update
         id: changelog
         run: |
@@ -47,7 +56,7 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # 4. If so, text/email everyone subscribed to updates with the newest entry
+      # 5. If so, text/email everyone subscribed to updates with the newest entry
       - name: Notify subscribers
         if: steps.changelog.outputs.changed == 'true'
         run: |
