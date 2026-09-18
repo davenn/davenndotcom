@@ -243,7 +243,7 @@
             font: inherit; font-family: var(--font-mono); text-align: left;
         }
         .ct-right { display: flex; align-items: center; gap: 8px; }
-        .card-caret { font-size: 9px; color: var(--text-muted); transition: transform 0.15s; }
+        .card-caret { font-size: 11px; line-height: 1; color: var(--text-muted); transition: transform 0.15s; }
         .card.collapsed .card-caret { transform: rotate(-90deg); }
         .card.collapsed .card-title { margin-bottom: 0; }
         .card.collapsed .card-body { display: none; }
@@ -251,15 +251,23 @@
         /* ── NOTES ── */
         .events { display: grid; gap: 8px; }
         .event-row {
-            display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start;
-            width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
-            background: var(--surface-2); border: 1px solid var(--border);
-            border-radius: 10px; padding: 10px 12px;
+            display: block; width: 100%; text-align: left; font: inherit; color: inherit;
+            cursor: pointer; background: var(--surface-2); border: 1px solid var(--border);
+            border-radius: 10px; padding: 11px 13px;
         }
         .event-row:hover { border-color: var(--text-muted); }
-        .event-when { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); white-space: nowrap; padding-top: 2px; }
-        .event-tag { font-size: 13px; font-weight: 600; }
-        .event-note { font-size: 13px; color: var(--text-secondary); margin-top: 3px; line-height: 1.5; white-space: pre-wrap; }
+        /* Tag leads, time sits opposite it, note runs full width underneath —
+           so a long note is never squeezed into a narrow second column. */
+        .event-head {
+            display: flex; align-items: baseline; justify-content: space-between;
+            gap: 10px; flex-wrap: wrap;
+        }
+        .event-tag { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+        .event-when { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+        .event-note {
+            display: block; font-size: 13px; color: var(--text-secondary);
+            margin-top: 5px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere;
+        }
         .events-empty { font-size: 13px; color: var(--text-muted); text-align: center; padding: 16px 0; line-height: 1.6; }
 
         /* ── TIME IN RANGE ── */
@@ -940,10 +948,12 @@
             var start = new Date(e.start_at).getTime();
             var end = e.end_at ? new Date(e.end_at).getTime() : null;
             return '<button class="event-row" type="button" data-event="' + e.id + '">' +
-                   '<span class="event-when">' + esc(fmtWhen(start, end)) + '</span>' +
-                   '<span><span class="event-tag">' + esc(tagLabel(e.tag)) + '</span>' +
+                   '<span class="event-head">' +
+                       '<span class="event-tag">' + esc(tagLabel(e.tag)) + '</span>' +
+                       '<span class="event-when">' + esc(fmtWhen(start, end)) + '</span>' +
+                   '</span>' +
                    (e.note ? '<span class="event-note">' + esc(e.note) + '</span>' : '') +
-                   '</span></button>';
+                   '</button>';
         }).join('');
     }
 
@@ -952,10 +962,19 @@
     function fmtWhen(startMs, endMs) {
         var opts = { hour: 'numeric', minute: '2-digit' };
         var d = new Date(startMs);
-        var day = d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+        // Today needs no date — most of what you annotate is today, and repeating
+        // it on every row is noise that crowds out the note itself.
+        var today = d.toDateString() === new Date().toDateString();
+        var day = today ? '' : d.toLocaleDateString([], { day: 'numeric', month: 'short' }) + ' · ';
         var from = d.toLocaleTimeString([], opts);
-        if (!endMs || endMs === startMs) return day + ' · ' + from;
-        return day + ' · ' + from + '–' + new Date(endMs).toLocaleTimeString([], opts);
+        if (!endMs || endMs === startMs) return day + from;
+        var to = new Date(endMs).toLocaleTimeString([], opts);
+        // Drop the repeated am/pm when both ends share it: "8:21–10:01 AM".
+        var m = from.match(/\s?([AP]M)$/i);
+        if (m && to.slice(-m[1].length).toUpperCase() === m[1].toUpperCase()) {
+            from = from.slice(0, m.index);
+        }
+        return day + from + '–' + to;
     }
 
     function renderChips(selected) {
