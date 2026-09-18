@@ -1001,10 +1001,10 @@
     function fmtWhen(startMs, endMs) {
         var opts = { hour: 'numeric', minute: '2-digit' };
         var d = new Date(startMs);
-        // Today needs no date — most of what you annotate is today, and repeating
-        // it on every row is noise that crowds out the note itself.
-        var today = d.toDateString() === new Date().toDateString();
-        var day = today ? '' : d.toLocaleDateString([], { day: 'numeric', month: 'short' }) + ' · ';
+        // Numeric M/D, always shown. A bare time is ambiguous the moment the
+        // window runs past a day, and on a dashboard left open overnight
+        // "today" is not something the reader can assume.
+        var day = (d.getMonth() + 1) + '/' + d.getDate() + ' · ';
         var from = d.toLocaleTimeString([], opts);
         if (!endMs || endMs === startMs) return day + from;
         var to = new Date(endMs).toLocaleTimeString([], opts);
