@@ -237,6 +237,31 @@
         }
         .tip.on { opacity: 1; }
 
+        /* ── COLLAPSIBLE PANELS ── */
+        button.card-title {
+            width: 100%; background: none; border: none; cursor: pointer;
+            font: inherit; font-family: var(--font-mono); text-align: left;
+        }
+        .ct-right { display: flex; align-items: center; gap: 8px; }
+        .card-caret { font-size: 9px; color: var(--text-muted); transition: transform 0.15s; }
+        .card.collapsed .card-caret { transform: rotate(-90deg); }
+        .card.collapsed .card-title { margin-bottom: 0; }
+        .card.collapsed .card-body { display: none; }
+
+        /* ── NOTES ── */
+        .events { display: grid; gap: 8px; }
+        .event-row {
+            display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start;
+            width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
+            background: var(--surface-2); border: 1px solid var(--border);
+            border-radius: 10px; padding: 10px 12px;
+        }
+        .event-row:hover { border-color: var(--text-muted); }
+        .event-when { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); white-space: nowrap; padding-top: 2px; }
+        .event-tag { font-size: 13px; font-weight: 600; }
+        .event-note { font-size: 13px; color: var(--text-secondary); margin-top: 3px; line-height: 1.5; white-space: pre-wrap; }
+        .events-empty { font-size: 13px; color: var(--text-muted); text-align: center; padding: 16px 0; line-height: 1.6; }
+
         /* ── TIME IN RANGE ── */
         .tir-bar { display: flex; gap: 2px; height: 22px; border-radius: 6px; overflow: hidden; margin-bottom: 12px; }
         .tir-seg { min-width: 2px; }
@@ -351,10 +376,26 @@
 
     <!-- Time in range -->
     <section class="card hidden" id="tir-card">
-        <div class="card-title"><span>Time in range</span><span id="tir-window"></span></div>
-        <div class="tir-bar" id="tir-bar"></div>
-        <div class="tir-key" id="tir-key"></div>
-        <div class="stats" id="stats"></div>
+        <button class="card-title" type="button" data-panel="tir" aria-expanded="true">
+            <span>Time in range</span>
+            <span class="ct-right"><span id="tir-window"></span><span class="card-caret">▾</span></span>
+        </button>
+        <div class="card-body">
+            <div class="tir-bar" id="tir-bar"></div>
+            <div class="tir-key" id="tir-key"></div>
+            <div class="stats" id="stats"></div>
+        </div>
+    </section>
+
+    <!-- Notes in the selected window -->
+    <section class="card hidden" id="events-card">
+        <button class="card-title" type="button" data-panel="events" aria-expanded="true">
+            <span>Notes</span>
+            <span class="ct-right"><span id="events-count"></span><span class="card-caret">▾</span></span>
+        </button>
+        <div class="card-body">
+            <div class="events" id="events-list"></div>
+        </div>
     </section>
 
     <!-- History -->
@@ -421,6 +462,7 @@
      'hero-status-text','hero-age','filter-row','curve-card','chart-holder','tip','ranges','tir-card','tir-bar',
      'tir-key','tir-window','stats','days-card','days','days-note','loading','refresh',
      'stale-banner','stale-text','theme-toggle','toggle-icon','hero-run',
+     'events-card','events-list','events-count',
      'add-note','sheet-back','sheet-title','sheet-when','chips','sheet-note',
      'sheet-msg','sheet-save','sheet-cancel','sheet-delete'].forEach(function (id) { el[id] = document.getElementById(id); });
 
@@ -870,6 +912,41 @@
         show(el['days-card'], true);
     }
 
+    /* ────────────────────────────── notes ───────────────────────────── */
+
+    // Notes are typed by hand and land in innerHTML, so they get escaped here.
+    function esc(str) {
+        return String(str).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+
+    function renderEvents() {
+        el['events-count'].textContent = events.length ? String(events.length) : '';
+
+        if (!events.length) {
+            el['events-list'].innerHTML =
+                '<div class="events-empty">Nothing noted in this window.<br>' +
+                'Tap a shaded patch on the chart, or use + Note.</div>';
+            return;
+        }
+
+        // Newest first: the thing you just logged should be at the top.
+        var sorted = events.slice().sort(function (a, b) {
+            return new Date(b.start_at) - new Date(a.start_at);
+        });
+
+        el['events-list'].innerHTML = sorted.map(function (e) {
+            var start = new Date(e.start_at).getTime();
+            var end = e.end_at ? new Date(e.end_at).getTime() : null;
+            return '<button class="event-row" type="button" data-event="' + e.id + '">' +
+                   '<span class="event-when">' + esc(fmtWhen(start, end)) + '</span>' +
+                   '<span><span class="event-tag">' + esc(tagLabel(e.tag)) + '</span>' +
+                   (e.note ? '<span class="event-note">' + esc(e.note) + '</span>' : '') +
+                   '</span></button>';
+        }).join('');
+    }
+
     /* ────────────────────────────── sheet ───────────────────────────── */
 
     function fmtWhen(startMs, endMs) {
@@ -1009,10 +1086,12 @@
             tagList = (res[3] && res[3].tags) || tagList;
             renderHero(res[0].reading);
             renderTir(res[1].summary);
+            renderEvents();
             renderDays(res[2]);
             show(el['hero'], true);
             show(el['filter-row'], true);
             show(el['curve-card'], true);
+            show(el['events-card'], true);
             drawCurve();
         }).catch(function (err) {
             if (err.code === 401) {
@@ -1033,7 +1112,7 @@
         if (on) closeSheet();
         show(el['gate'], on);
         show(el['loading'], !on && !history.length);
-        [ 'hero', 'filter-row', 'curve-card', 'tir-card', 'days-card' ].forEach(function (k) { if (on) show(el[k], false); });
+        [ 'hero', 'filter-row', 'curve-card', 'tir-card', 'events-card', 'days-card' ].forEach(function (k) { if (on) show(el[k], false); });
         if (on && note) el['gate-input'].placeholder = note;
     }
 
@@ -1080,6 +1159,35 @@
     }
 
     el['refresh'].addEventListener('click', forceRefresh);
+
+    // Panels remember whether they were open, per panel, so the layout stays
+    // how it was left rather than resetting on every visit.
+    function applyPanel(name, open) {
+        var head = document.querySelector('[data-panel="' + name + '"]');
+        if (!head) return;
+        head.closest('.card').classList.toggle('collapsed', !open);
+        head.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    ['tir', 'events'].forEach(function (name) {
+        var open = true;
+        try { open = localStorage.getItem('bg_panel_' + name) !== 'closed'; } catch (e) {}
+        applyPanel(name, open);
+    });
+    document.addEventListener('click', function (e) {
+        var head = e.target.closest ? e.target.closest('[data-panel]') : null;
+        if (!head) return;
+        var name = head.dataset.panel;
+        var open = head.getAttribute('aria-expanded') !== 'true';
+        applyPanel(name, open);
+        try { localStorage.setItem('bg_panel_' + name, open ? 'open' : 'closed'); } catch (err) {}
+    });
+
+    el['events-list'].addEventListener('click', function (e) {
+        var row = e.target.closest('.event-row');
+        if (!row) return;
+        var id = parseInt(row.dataset.event, 10);
+        for (var i = 0; i < events.length; i++) if (events[i].id === id) { openSheet(null, events[i]); break; }
+    });
 
     el['add-note'].addEventListener('click', function () { openSheet(null, null); });
     el['sheet-cancel'].addEventListener('click', closeSheet);
