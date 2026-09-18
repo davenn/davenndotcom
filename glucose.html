@@ -150,6 +150,10 @@
         }
         .hero-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
         .hero-age { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); margin-top: 12px; }
+        /* Same weight as the age line on purpose. It is an observation, not a
+           score — the hero number is already the loudest thing here. */
+        .hero-run { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
+        .dur-sub { font-size: 0.78em; color: var(--text-muted); }
         .hero-age.stale { color: var(--crit); font-weight: 500; }
 
         /* ── FILTER ROW ── */
@@ -188,7 +192,9 @@
         .tir-name { color: var(--text-secondary); }
         .tir-pct { margin-left: auto; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
-        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; margin-top: 16px; border-top: 1px solid var(--border); padding-top: 14px; }
+        /* Four tiles: 2x2 on a phone, one row once there is width for it. */
+        .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 2px; margin-top: 16px; border-top: 1px solid var(--border); padding-top: 14px; }
+        @media (min-width: 480px) { .stats { grid-template-columns: repeat(4, 1fr); gap: 2px; } }
         .stat { text-align: center; }
         .stat-v { font-size: 20px; font-weight: 700; }
         .stat-l { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 3px; }
@@ -266,6 +272,7 @@
             <span id="hero-status-text">—</span>
         </div>
         <div class="hero-age" id="hero-age"></div>
+        <div class="hero-run" id="hero-run"></div>
     </section>
 
     <!-- Window filter: scopes both the curve and the time-in-range card -->
@@ -328,7 +335,7 @@
     ['gate','gate-form','gate-input','hero','hero-value','hero-arrow','hero-status','hero-dot',
      'hero-status-text','hero-age','filter-row','curve-card','chart-holder','tip','ranges','tir-card','tir-bar',
      'tir-key','tir-window','stats','days-card','days','days-note','loading','refresh',
-     'stale-banner','stale-text','theme-toggle','toggle-icon'].forEach(function (id) { el[id] = document.getElementById(id); });
+     'stale-banner','stale-text','theme-toggle','toggle-icon','hero-run'].forEach(function (id) { el[id] = document.getElementById(id); });
 
     var ARROWS = {
         DoubleUp: '⇈', SingleUp: '↑', FortyFiveUp: '↗', Flat: '→',
@@ -348,6 +355,68 @@
 
     function show(node, on) { if (node) node.classList.toggle('hidden', !on); }
 
+    function inRange(mgdl) { return mgdl >= LOW && mgdl <= HIGH; }
+
+    // Under a day reads as hours and minutes. A day or more leads with whole
+    // days and keeps the exact total beside it, since "2d" alone loses the
+    // difference between just-past-two-days and nearly-three.
+    function fmtDurationParts(ms) {
+        var mins = Math.round(ms / 60000);
+        if (mins < 5) return { main: '<5m', sub: null };
+        var h = Math.floor(mins / 60), m = mins % 60;
+        var hm = h ? (m ? h + 'h ' + m + 'm' : h + 'h') : m + 'm';
+        if (h < 24) return { main: hm, sub: null };
+        return { main: Math.floor(h / 24) + 'd', sub: hm };
+    }
+
+    // Escaped, because '<5m' would otherwise be malformed inside innerHTML.
+    function durHtml(ms) {
+        var p = fmtDurationParts(ms);
+        var main = p.main.replace('<', '&lt;');
+        return p.sub ? main + ' <span class="dur-sub">(' + p.sub + ')</span>' : main;
+    }
+
+    // Every stretch of consecutive in-range readings in the window.
+    //
+    // One isolated excursion is tolerated: a single 181 shouldn't erase four
+    // hours, and sensors jitter. Two in a row ends the run. A sensor gap ends it
+    // too — we don't know what happened while the sensor was dark, so we don't
+    // get to count it as time in range.
+    function runSpans(readings) {
+        var spans = [], start = null, lastIn = null, prev = null, out = 0;
+        function close() {
+            if (start !== null && lastIn !== null) spans.push([start, lastIn]);
+            start = null; lastIn = null; out = 0;
+        }
+        for (var i = 0; i < readings.length; i++) {
+            var t = new Date(readings[i].at).getTime();
+            if (prev !== null && (t - prev) / 60000 > GAP_MIN) close();
+            if (inRange(readings[i].mgdl)) {
+                if (start === null) start = t;
+                lastIn = t;
+                out = 0;
+            } else if (++out >= 2) {
+                close();
+            }
+            prev = t;
+        }
+        close();
+        return spans;
+    }
+
+    // The run only counts as current if it reaches the newest reading.
+    function currentRun(readings, spans) {
+        if (!readings.length || !spans.length) return null;
+        var last = readings[readings.length - 1];
+        if (!inRange(last.mgdl)) return null;
+        var span = spans[spans.length - 1];
+        return span[1] === new Date(last.at).getTime() ? span[1] - span[0] : null;
+    }
+
+    function longestRun(spans) {
+        return spans.reduce(function (best, s) { return Math.max(best, s[1] - s[0]); }, 0);
+    }
+
     function api(action, params) {
         var q = '?action=' + encodeURIComponent(action) + '&token=' + encodeURIComponent(token);
         Object.keys(params || {}).forEach(function (k) {
@@ -364,6 +433,7 @@
 
     function renderHero(reading) {
         if (!reading) {
+            el['hero-run'].innerHTML = '';
             el['hero-value'].textContent = '—';
             el['hero-status-text'].textContent = 'No readings stored yet';
             el['hero-dot'].style.background = 'var(--text-muted)';
@@ -376,6 +446,17 @@
         el['hero-arrow'].setAttribute('aria-label', TREND_WORDS[reading.trend] || '');
         el['hero-dot'].style.background = st.color;
         el['hero-status-text'].textContent = st.name + ' · ' + (TREND_WORDS[reading.trend] || 'trend unknown');
+
+        var spans = runSpans(history);
+        var run = currentRun(history, spans);
+        var best = longestRun(spans);
+        if (run !== null) {
+            el['hero-run'].innerHTML = 'In range for ' + durHtml(run);
+        } else if (best > 0) {
+            el['hero-run'].innerHTML = 'Longest run ' + durHtml(best);
+        } else {
+            el['hero-run'].innerHTML = '';
+        }
 
         var age = reading.minutes_ago;
         var stale = age > STALE_MIN;
@@ -549,6 +630,7 @@
 
     function renderTir(summary) {
         if (!summary) { show(el['tir-card'], false); return; }
+        var best = longestRun(runSpans(history));
         var n = summary.readings;
         var low = summary.low_count, high = summary.high_count;
         var inr = n - low - high;
@@ -578,7 +660,10 @@
         el['stats'].innerHTML =
             '<div class="stat"><div class="stat-v">' + summary.avg_mgdl + '</div><div class="stat-l">Average</div></div>' +
             '<div class="stat"><div class="stat-v">' + summary.min_mgdl + '</div><div class="stat-l">Lowest</div></div>' +
-            '<div class="stat"><div class="stat-v">' + summary.max_mgdl + '</div><div class="stat-l">Highest</div></div>';
+            '<div class="stat"><div class="stat-v">' + summary.max_mgdl + '</div><div class="stat-l">Highest</div></div>' +
+            '<div class="stat"><div class="stat-v">' +
+            (history.length ? durHtml(best) : '—') +
+            '</div><div class="stat-l">Longest run</div></div>';
 
         show(el['tir-card'], true);
     }
@@ -630,8 +715,8 @@
         ]).then(function (res) {
             gate(false);
             show(el['loading'], false);
-            renderHero(res[0].reading);
             history = res[1].readings || [];
+            renderHero(res[0].reading);
             renderTir(res[1].summary);
             renderDays(res[2]);
             show(el['hero'], true);
