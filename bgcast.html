@@ -53,6 +53,18 @@ body.idle { cursor: none; }
 .spark { width: min(1100px, 82vw); height: clamp(48px, 12vh, 150px); }
 .spark svg { display: block; width: 100%; height: 100%; overflow: visible; }
 
+/* Today's summary. Quiet by design — it must not compete with the number. */
+.strip {
+  display: flex; align-items: baseline; gap: clamp(18px, 4vw, 56px);
+  font-family: ui-monospace, monospace;
+  font-size: clamp(11px, 1.7vw, 24px); letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--muted); min-height: 1.4em;
+}
+.strip b { color: var(--ink); font-weight: 700; font-size: 1.35em; letter-spacing: 0.02em; }
+/* A day the sensor mostly missed still reports a percentage; fading it keeps
+   that from reading as a real figure. */
+.strip.thin { opacity: 0.45; }
+
 .watermark {
   position: fixed; bottom: 3vh; right: 4vw;
   font-family: ui-monospace, monospace; font-size: clamp(10px, 1vw, 16px);
@@ -80,6 +92,7 @@ body.idle { cursor: none; }
     <div class="arrow" id="arrow"></div>
   </div>
   <div class="spark" id="spark"></div>
+  <div class="strip" id="strip"></div>
   <div class="age" id="age"></div>
 </div>
 
@@ -100,12 +113,13 @@ body.idle { cursor: none; }
   var POINTS = 48;              // 4 hours at one reading per 5 minutes
   var REFRESH_MS = 60000;
   var STALE_MIN = 15;           // dim past this
+  var DAILY_MS = 600000;        // today's summary moves slowly; no need to chase it
   var HIDE_MIN = 60;            // stop showing a number past this
 
   var ARROWS = ['', '⇈', '↑', '↗', '→', '↘', '↓', '⇊'];
 
   var el = {};
-  ['wrap', 'state', 'value', 'arrow', 'spark', 'age', 'gate', 'token'].forEach(function (id) {
+  ['wrap', 'state', 'value', 'arrow', 'spark', 'strip', 'age', 'gate', 'token'].forEach(function (id) {
     el[id] = document.getElementById(id);
   });
 
@@ -181,6 +195,26 @@ body.idle { cursor: none; }
     el['wrap'].classList.toggle('stale', stale);
 
     drawSpark(hidden ? null : spark);
+    el['strip'].hidden = hidden;
+  }
+
+  /* ── today's summary ── */
+  function fetchDaily() {
+    if (!token) return;
+    fetch(API + '?action=bg_daily&days=1&token=' + encodeURIComponent(token), { cache: 'no-store' })
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (data) {
+        var d = data && data.daily && data.daily[data.daily.length - 1];
+        if (!d || !d.readings) { el['strip'].innerHTML = ''; return; }
+        el['strip'].innerHTML =
+          '<span><b>' + d.in_range_pct + '%</b> in range</span>' +
+          '<span><b>' + d.avg_mgdl + '</b> avg</span>';
+        // The day is partial by definition; only flag it when the sensor has
+        // actually missed most of it, which is when the figures mislead.
+        el['strip'].classList.toggle('thin', d.coverage_pct < 50);
+      })
+      // Leave whatever was last shown rather than blanking on a blip.
+      .catch(function () {});
   }
 
   /* ── fetch ── */
@@ -224,7 +258,7 @@ body.idle { cursor: none; }
     }).catch(function () { /* denied or unsupported — nothing to do */ });
   }
   document.addEventListener('visibilitychange', function () {
-    if (!document.hidden) { if (!lock) holdScreen(); tick(); }
+    if (!document.hidden) { if (!lock) holdScreen(); tick(); fetchDaily(); }
   });
 
   /* ── kiosk niceties ── */
@@ -254,11 +288,13 @@ body.idle { cursor: none; }
     try { localStorage.setItem('bg_token', v); } catch (err) {}
     el['token'].value = '';
     tick();
+    fetchDaily();
   });
 
-  if (token) { show(el['wrap'], true); tick(); holdScreen(); }
+  if (token) { show(el['wrap'], true); tick(); fetchDaily(); holdScreen(); }
   else show(el['gate'], true);
   setInterval(tick, REFRESH_MS);
+  setInterval(fetchDaily, DAILY_MS);
 })();
 </script>
 </body>
