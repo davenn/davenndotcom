@@ -61,6 +61,9 @@ body.idle { cursor: none; }
   text-transform: uppercase; color: var(--muted); min-height: 1.4em;
 }
 .strip b { color: var(--ink); font-weight: 700; font-size: 1.35em; letter-spacing: 0.02em; }
+/* The label sits closer to the first figure than the figures do to each other,
+   so it reads as a prefix rather than a third column. */
+.strip-label { margin-right: calc(clamp(18px, 4vw, 56px) * -0.55); }
 /* A day the sensor mostly missed still reports a percentage; fading it keeps
    that from reading as a real figure. */
 .strip.thin { opacity: 0.45; }
@@ -207,6 +210,7 @@ body.idle { cursor: none; }
         var d = data && data.daily && data.daily[data.daily.length - 1];
         if (!d || !d.readings) { el['strip'].innerHTML = ''; return; }
         el['strip'].innerHTML =
+          '<span class="strip-label">Today:</span>' +
           '<span><b>' + d.in_range_pct + '%</b> in range</span>' +
           '<span><b>' + d.avg_mgdl + '</b> avg</span>';
         // The day is partial by definition; only flag it when the sensor has
