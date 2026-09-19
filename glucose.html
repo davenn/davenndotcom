@@ -1215,20 +1215,14 @@
             castReq = new PresentationRequest(['/bgcast.html?token=' + encodeURIComponent(token)]);
         } catch (e) { return; }
 
-        // Show it as soon as the API exists, then let discovery refine it.
-        // getAvailability can stay pending indefinitely while it looks for
-        // devices, and waiting on it means the button never appears at all.
+        // Visible wherever the API exists, and nothing takes it away again.
+        //
+        // getAvailability was gating this, which worked on desktop and hid the
+        // button on Android — it reports false there even when the picker finds
+        // devices perfectly well. A false from it is not evidence that casting
+        // will fail, so start() is the real test: it runs its own discovery, and
+        // if that finds nothing the tip offers the open-on-another-screen link.
         el['btn-cast'].classList.add('available');
-
-        castReq.getAvailability().then(function (avail) {
-            var update = function () { el['btn-cast'].classList.toggle('available', !!avail.value); };
-            update();
-            avail.addEventListener('change', update);
-        }).catch(function () {
-            // Unsupported in places; leave the button up and let start() decide,
-            // rather than hiding a feature that might work.
-            el['btn-cast'].classList.add('available');
-        });
     }
 
     function endCast() {
