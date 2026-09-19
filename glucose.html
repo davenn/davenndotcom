@@ -1215,13 +1215,18 @@
             castReq = new PresentationRequest(['/bgcast.html?token=' + encodeURIComponent(token)]);
         } catch (e) { return; }
 
+        // Show it as soon as the API exists, then let discovery refine it.
+        // getAvailability can stay pending indefinitely while it looks for
+        // devices, and waiting on it means the button never appears at all.
+        el['btn-cast'].classList.add('available');
+
         castReq.getAvailability().then(function (avail) {
             var update = function () { el['btn-cast'].classList.toggle('available', !!avail.value); };
             update();
             avail.addEventListener('change', update);
         }).catch(function () {
-            // getAvailability is unsupported in places; show the button and let
-            // start() decide, rather than hiding a feature that might work.
+            // Unsupported in places; leave the button up and let start() decide,
+            // rather than hiding a feature that might work.
             el['btn-cast'].classList.add('available');
         });
     }
