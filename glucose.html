@@ -101,6 +101,26 @@
         .nav-back:hover { color: #fff; }
         .nav-back:disabled { opacity: 0.4; cursor: default; }
 
+        /* ── CAST BUTTON (same shape as pomodoro's) ── */
+        .btn-cast {
+            display: none; align-items: center; justify-content: center;
+            background: none; border: none; cursor: pointer; padding: 3px;
+            color: rgba(255,255,255,0.45); transition: color 0.15s;
+        }
+        .btn-cast.available { display: flex; }
+        .btn-cast.casting { color: var(--good); }
+        .btn-cast:hover { color: rgba(255,255,255,0.9); }
+        .btn-cast svg { width: 20px; height: 20px; fill: currentColor; }
+        .cast-tip {
+            position: absolute; top: calc(var(--nav-h) + 6px); right: 16px;
+            background: #1c1c1c; border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 8px; padding: 10px 14px; max-width: min(320px, 82vw);
+            font-family: var(--font-mono); font-size: 12px; line-height: 1.5;
+            color: rgba(255,255,255,0.7); z-index: 210; display: none;
+        }
+        .cast-tip.show { display: block; }
+        .cast-tip a { color: #fff; }
+
         /* ── THEME TOGGLE ── */
         .theme-toggle { width: 44px; height: 24px; cursor: pointer; background: none; border: none; padding: 0; flex: none; }
         .theme-toggle-track {
@@ -331,6 +351,10 @@
     <a class="nav-logo" href="index.html"><strong>davenn</strong>dotcom</a>
     <div class="nav-right">
         <button class="nav-back" id="refresh" type="button">Refresh</button>
+        <button class="btn-cast" id="btn-cast" type="button" title="Cast to a display" aria-label="Cast to a display">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 18v3h3c0-1.66-1.34-3-3-3zm0-4v2c2.76 0 5 2.24 5 5h2c0-3.87-3.13-7-7-7zm18-7H5c-1.1 0-2 .9-2 2v3h2v-3h14v12h-5v2h5c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zm-18 3v2c4.97 0 9 4.03 9 9h2c0-6.08-4.93-11-11-11z"/></svg>
+        </button>
+        <div class="cast-tip" id="cast-tip"></div>
         <button class="theme-toggle" id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
             <div class="theme-toggle-track"><div class="theme-toggle-thumb" id="toggle-icon">🌙</div></div>
         </button>
@@ -479,7 +503,7 @@
      'hero-status-text','hero-age','filter-row','curve-card','chart-holder','tip','ranges','tir-card','tir-bar',
      'tir-key','tir-window','stats','days-card','days','days-note','loading','refresh',
      'stale-banner','stale-text','theme-toggle','toggle-icon','hero-run',
-     'events-card','events-list','events-count',
+     'events-card','events-list','events-count','btn-cast','cast-tip',
      'add-note','sheet-back','sheet-title','sheet-when','chips','sheet-note',
      'sheet-msg','sheet-save','sheet-cancel','sheet-delete'].forEach(function (id) { el[id] = document.getElementById(id); });
 
@@ -1148,6 +1172,7 @@
             show(el['filter-row'], true);
             show(el['curve-card'], true);
             show(el['events-card'], true);
+            setupCast();
             drawCurve();
         }).catch(function (err) {
             if (err.code === 401) {
@@ -1171,6 +1196,56 @@
         [ 'hero', 'filter-row', 'curve-card', 'tir-card', 'events-card', 'days-card' ].forEach(function (k) { if (on) show(el[k], false); });
         if (on && note) el['gate-input'].placeholder = note;
     }
+
+    /* ────────────────────────────── cast ────────────────────────────── */
+
+    var castReq = null, castConn = null, castTipTimer = null;
+
+    function castTip(html) {
+        clearTimeout(castTipTimer);
+        el['cast-tip'].innerHTML = html;
+        el['cast-tip'].classList.add('show');
+        castTipTimer = setTimeout(function () { el['cast-tip'].classList.remove('show'); }, 6000);
+    }
+
+    // Built only once a token exists: the receiving screen loads the URL cold,
+    // with no storage of its own, so the token has to travel in it.
+    function setupCast() {
+        if (castReq || !token || !('presentation' in navigator) || typeof PresentationRequest === 'undefined') return;
+        try {
+            castReq = new PresentationRequest(['/bgcast.html?token=' + encodeURIComponent(token)]);
+        } catch (e) { return; }
+
+        castReq.getAvailability().then(function (avail) {
+            var update = function () { el['btn-cast'].classList.toggle('available', !!avail.value); };
+            update();
+            avail.addEventListener('change', update);
+        }).catch(function () {
+            // getAvailability is unsupported in places; show the button and let
+            // start() decide, rather than hiding a feature that might work.
+            el['btn-cast'].classList.add('available');
+        });
+    }
+
+    function endCast() {
+        castConn = null;
+        el['btn-cast'].classList.remove('casting');
+    }
+
+    el['btn-cast'].addEventListener('click', function () {
+        if (castConn) { castConn.terminate(); return; }
+        if (!castReq) return;
+        castReq.start().then(function (conn) {
+            castConn = conn;
+            el['btn-cast'].classList.add('casting');
+            conn.addEventListener('close', endCast);
+            conn.addEventListener('terminate', endCast);
+        }).catch(function (err) {
+            if (err && err.name === 'AbortError') return;   // picker dismissed
+            castTip('No cast devices found. <a href="/bgcast.html?token=' +
+                    encodeURIComponent(token) + '" target="_blank" rel="noopener">Open on another screen ↗</a>');
+        });
+    });
 
     /* ───────────────────────────── wiring ───────────────────────────── */
 

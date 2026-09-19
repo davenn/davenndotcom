@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Glucose</title>
+<meta name="theme-color" content="#0a0a0a">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Dark only. This lives on a wall, often overnight. */
+:root {
+  --bg: #0a0a0a; --ink: #f0f0f0; --muted: rgba(255,255,255,0.32);
+  --good: #0ca30c; --warn: #fab219; --crit: #d03b3b;
+  --state: var(--ink);
+}
+html, body {
+  height: 100%; background: var(--bg); color: var(--ink);
+  font-family: system-ui, -apple-system, sans-serif;
+  overflow: hidden; user-select: none; -webkit-user-select: none;
+}
+body.idle { cursor: none; }
+
+.wrap {
+  height: 100vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 2vh; padding: 5vh 6vw;
+  transition: opacity 0.4s;
+}
+/* Stale readings fade rather than disappear, so the display never looks broken
+   — it looks old, which is the honest signal. */
+.wrap.stale { opacity: 0.45; }
+
+.row { display: flex; align-items: center; justify-content: center; gap: 3vw; }
+.value {
+  font-size: clamp(96px, 34vw, 660px); font-weight: 800;
+  letter-spacing: -0.05em; line-height: 0.9; color: var(--state);
+}
+.arrow { font-size: clamp(48px, 15vw, 280px); line-height: 1; color: var(--state); }
+
+.state {
+  font-family: ui-monospace, monospace;
+  font-size: clamp(13px, 2.4vw, 34px); letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--state); min-height: 1.4em;
+}
+.age {
+  font-family: ui-monospace, monospace;
+  font-size: clamp(11px, 1.6vw, 22px); letter-spacing: 0.12em;
+  color: var(--muted); min-height: 1.4em;
+}
+.age.warn { color: var(--warn); }
+
+.spark { width: min(1100px, 82vw); height: clamp(48px, 12vh, 150px); }
+.spark svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
+.watermark {
+  position: fixed; bottom: 3vh; right: 4vw;
+  font-family: ui-monospace, monospace; font-size: clamp(10px, 1vw, 16px);
+  color: rgba(255,255,255,0.1); letter-spacing: 0.06em;
+}
+
+/* Token entry, shown only when there is nothing stored. */
+.gate { display: flex; flex-direction: column; gap: 2vh; align-items: center; width: min(420px, 80vw); }
+.gate p { font-size: clamp(13px, 1.6vw, 18px); color: var(--muted); text-align: center; line-height: 1.6; }
+.gate input, .gate button {
+  width: 100%; font-family: ui-monospace, monospace; font-size: 16px;
+  padding: 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.18);
+  background: #141414; color: var(--ink);
+}
+.gate button { background: var(--ink); color: var(--bg); font-weight: 700; cursor: pointer; border: none; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="wrap" id="wrap" hidden>
+  <div class="state" id="state"></div>
+  <div class="row">
+    <div class="value" id="value">—</div>
+    <div class="arrow" id="arrow"></div>
+  </div>
+  <div class="spark" id="spark"></div>
+  <div class="age" id="age"></div>
+</div>
+
+<form class="gate" id="gate" hidden>
+  <p>Paste the read token to start casting.<br>It stays in this browser.</p>
+  <input type="password" id="token" placeholder="Read token" autocomplete="off" spellcheck="false">
+  <button type="submit">Start</button>
+</form>
+
+<div class="watermark">davenn.com</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var API = '/api.php';
+  var LOW = 70, HIGH = 180;
+  var POINTS = 48;              // 4 hours at one reading per 5 minutes
+  var REFRESH_MS = 60000;
+  var STALE_MIN = 15;           // dim past this
+  var HIDE_MIN = 60;            // stop showing a number past this
+
+  var ARROWS = ['', '⇈', '↑', '↗', '→', '↘', '↓', '⇊'];
+
+  var el = {};
+  ['wrap', 'state', 'value', 'arrow', 'spark', 'age', 'gate', 'token'].forEach(function (id) {
+    el[id] = document.getElementById(id);
+  });
+
+  // A kiosk is easiest to set up by URL. Take the token from the query string,
+  // store it, then strip it so it is not left sitting in the address bar.
+  var token = '';
+  try {
+    var q = new URLSearchParams(location.search).get('token');
+    if (q) {
+      localStorage.setItem('bg_token', q);
+      history.replaceState({}, '', location.pathname);
+    }
+    token = localStorage.getItem('bg_token') || '';
+  } catch (e) {}
+
+  function show(node, on) { node.hidden = !on; }
+
+  /* ── sparkline ── */
+  function drawSpark(values) {
+    if (!values || values.length < 2) { el['spark'].innerHTML = ''; return; }
+
+    var W = 1000, H = 200, pad = 8;
+    var lo = Math.min(LOW - 10, Math.min.apply(null, values) - 10);
+    var hi = Math.max(HIGH + 20, Math.max.apply(null, values) + 10);
+    var X = function (i) { return pad + (i / (values.length - 1)) * (W - pad * 2); };
+    var Y = function (v) { return pad + (1 - (v - lo) / (hi - lo)) * (H - pad * 2); };
+
+    var parts = ['<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">'];
+    // Target band, so the line reads as in or out by position, not colour alone.
+    parts.push('<rect x="0" y="' + Y(HIGH).toFixed(1) + '" width="' + W +
+               '" height="' + (Y(LOW) - Y(HIGH)).toFixed(1) + '" fill="rgba(12,163,12,0.14)"/>');
+
+    // 0 means no reading for that slot — break the line rather than invent one.
+    var run = [], segs = [];
+    values.forEach(function (v, i) {
+      if (v > 0) run.push(X(i).toFixed(1) + ',' + Y(v).toFixed(1));
+      else if (run.length) { segs.push(run); run = []; }
+    });
+    if (run.length) segs.push(run);
+    segs.forEach(function (pts) {
+      if (pts.length > 1) {
+        parts.push('<polyline points="' + pts.join(' ') + '" fill="none" stroke="rgba(255,255,255,0.5)" ' +
+                   'stroke-width="4" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>');
+      }
+    });
+    parts.push('</svg>');
+    el['spark'].innerHTML = parts.join('');
+  }
+
+  /* ── render ── */
+  function render(mgdl, trend, mins, inRangeFlag, spark) {
+    var hidden = mins > HIDE_MIN || mgdl <= 0;
+    var stale = mins > STALE_MIN;
+
+    var colour = mgdl <= 0 ? 'var(--muted)'
+      : mgdl < LOW ? 'var(--crit)'
+      : mgdl > HIGH ? 'var(--warn)'
+      : 'var(--good)';
+    document.documentElement.style.setProperty('--state', hidden ? 'var(--muted)' : colour);
+
+    // Past an hour old the number is not information any more, so it goes away
+    // entirely rather than sitting there looking current.
+    el['value'].textContent = hidden ? '—' : String(mgdl);
+    el['arrow'].textContent = hidden ? '' : (ARROWS[trend] || '');
+    el['state'].textContent = mgdl <= 0 ? 'No data'
+      : hidden ? 'Stale'
+      : mgdl < LOW ? 'Low' : mgdl > HIGH ? 'High' : 'In range';
+
+    el['age'].textContent = mgdl <= 0 ? 'nothing stored yet'
+      : mins <= 0 ? 'just now'
+      : mins + ' min ago';
+    el['age'].classList.toggle('warn', stale);
+    el['wrap'].classList.toggle('stale', stale);
+
+    drawSpark(hidden ? null : spark);
+  }
+
+  /* ── fetch ── */
+  function tick() {
+    if (!token) return;
+    fetch(API + '?action=bg_embed&spark=' + POINTS + '&token=' + encodeURIComponent(token), { cache: 'no-store' })
+      .then(function (res) {
+        if (res.status === 401) { var e = new Error('unauthorized'); e.code = 401; throw e; }
+        return res.text();
+      })
+      .then(function (text) {
+        var lines = text.trim().split('\n');
+        var f = lines[0].split(',').map(Number);
+        var spark = lines[1] ? lines[1].split(',').map(Number) : null;
+        render(f[0], f[1], f[2], f[3], spark);
+        show(el['wrap'], true);
+        show(el['gate'], false);
+      })
+      .catch(function (err) {
+        if (err.code === 401) {
+          try { localStorage.removeItem('bg_token'); } catch (e) {}
+          token = '';
+          show(el['wrap'], false);
+          show(el['gate'], true);
+        } else {
+          // A network blip should not blank the wall — hold the last reading and
+          // let the age climb, which already says the display is not current.
+          el['age'].textContent = 'offline';
+          el['age'].classList.add('warn');
+        }
+      });
+  }
+
+  /* ── keep the screen alive ── */
+  var lock = null;
+  function holdScreen() {
+    if (!navigator.wakeLock) return;
+    navigator.wakeLock.request('screen').then(function (l) {
+      lock = l;
+      l.addEventListener('release', function () { lock = null; });
+    }).catch(function () { /* denied or unsupported — nothing to do */ });
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) { if (!lock) holdScreen(); tick(); }
+  });
+
+  /* ── kiosk niceties ── */
+  var idleTimer;
+  function wake() {
+    document.body.classList.remove('idle');
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(function () { document.body.classList.add('idle'); }, 3000);
+  }
+  ['mousemove', 'touchstart', 'keydown'].forEach(function (ev) {
+    document.addEventListener(ev, wake, { passive: true });
+  });
+  wake();
+
+  // Double-tap or double-click for fullscreen; a single tap must do nothing, or
+  // brushing past the screen would toggle it.
+  document.addEventListener('dblclick', function () {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+  });
+
+  el['gate'].addEventListener('submit', function (e) {
+    e.preventDefault();
+    var v = el['token'].value.trim();
+    if (!v) return;
+    token = v;
+    try { localStorage.setItem('bg_token', v); } catch (err) {}
+    el['token'].value = '';
+    tick();
+  });
+
+  if (token) { show(el['wrap'], true); tick(); holdScreen(); }
+  else show(el['gate'], true);
+  setInterval(tick, REFRESH_MS);
+})();
+</script>
+</body>
+</html>
