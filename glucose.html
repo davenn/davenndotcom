@@ -1200,12 +1200,26 @@
 
     var castReq = null, castConn = null, castTipTimer = null;
 
+    function hideCastTip() {
+        clearTimeout(castTipTimer);
+        el['cast-tip'].classList.remove('show');
+    }
+
     function castTip(html) {
         clearTimeout(castTipTimer);
         el['cast-tip'].innerHTML = html;
         el['cast-tip'].classList.add('show');
-        castTipTimer = setTimeout(function () { el['cast-tip'].classList.remove('show'); }, 6000);
+        castTipTimer = setTimeout(hideCastTip, 6000);
     }
+
+    // Tap anywhere else to dismiss. Clicks inside the tip are spared so the
+    // open-on-another-screen link stays usable, and so is the cast button, which
+    // has its own behaviour.
+    document.addEventListener('click', function (e) {
+        if (!el['cast-tip'].classList.contains('show')) return;
+        if (el['cast-tip'].contains(e.target) || el['btn-cast'].contains(e.target)) return;
+        hideCastTip();
+    });
 
     // Built only once a token exists: the receiving screen loads the URL cold,
     // with no storage of its own, so the token has to travel in it.
@@ -1333,7 +1347,9 @@
         });
     });
     document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && !el['sheet-back'].classList.contains('hidden')) closeSheet();
+        if (e.key !== 'Escape') return;
+        if (!el['sheet-back'].classList.contains('hidden')) closeSheet();
+        hideCastTip();
     });
 
     // Theme. The head script already stamped data-theme before first paint;
