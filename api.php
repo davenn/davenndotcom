@@ -1940,56 +1940,107 @@ function cpCover(array $g): ?string {
  *
  * Returns ['body' => ?string, 'error' => ?string].
  */
-function cpHttpGet(string $url): array {
-    // A bare product token is rejected by some edge filters as a malformed
-    // user agent; this is the conventional, honest form for a site fetching a
-    // public feed.
-    $ua  = 'Mozilla/5.0 (compatible; davenn.com/1.0; +https://davenn.com)';
-    $why = 'curl unavailable';
-
+/** One GET attempt. Always reports the status, and the body even on failure. */
+function cpHttpTry(string $url, string $ua): array {
     if (function_exists('curl_init')) {
+        $headers = ['Accept: application/json'];
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => 15,
             CURLOPT_CONNECTTIMEOUT => 8,
-            CURLOPT_USERAGENT      => $ua,
-            CURLOPT_HTTPHEADER     => ['Accept: application/json'],
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_MAXREDIRS      => 3,
+            CURLOPT_HTTPHEADER     => $headers,
         ]);
+        if ($ua !== '') curl_setopt($ch, CURLOPT_USERAGENT, $ua);
         $res  = curl_exec($ch);
-        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $err  = curl_error($ch);
         curl_close($ch);
-        if ($res !== false && $code === 200) return ['body' => $res, 'error' => null];
-        $why = 'curl: ' . ($err ?: 'HTTP ' . $code);
+        return [
+            'body'  => is_string($res) ? $res : null,
+            'code'  => $code,
+            'error' => ($res !== false && $code === 200) ? null : ('curl: ' . ($err ?: 'HTTP ' . $code)),
+            'via'   => 'curl',
+        ];
     }
 
     if (ini_get('allow_url_fopen')) {
+        $hdr = "Accept: application/json\r\n" . ($ua !== '' ? "User-Agent: {$ua}\r\n" : '');
+        // ignore_errors keeps the body of a 4xx so it can be reported, but the
+        // status still has to be read back from $http_response_header —
+        // otherwise a block page is indistinguishable from a real response.
         $ctx = stream_context_create(['http' => [
-            'timeout'       => 15,
-            'ignore_errors' => true,
-            'header'        => "Accept: application/json\r\nUser-Agent: {$ua}\r\n",
+            'timeout' => 15, 'ignore_errors' => true, 'header' => $hdr,
         ]]);
-        $res = @file_get_contents($url, false, $ctx);
-        if ($res !== false && $res !== '') return ['body' => $res, 'error' => null];
-        return ['body' => null, 'error' => $why . '; stream fallback failed too'];
+        $res  = @file_get_contents($url, false, $ctx);
+        $code = 0;
+        foreach ($http_response_header ?? [] as $h) {
+            if (preg_match('#^HTTP/\S+\s+(\d{3})#', $h, $m)) $code = (int)$m[1];
+        }
+        return [
+            'body'  => $res === false ? null : $res,
+            'code'  => $code,
+            'error' => ($res !== false && $code === 200) ? null : ('stream: HTTP ' . $code),
+            'via'   => 'stream',
+        ];
     }
 
-    return ['body' => null, 'error' => $why];
+    return ['body' => null, 'code' => 0, 'error' => 'no outbound transport available', 'via' => 'none'];
+}
+
+/**
+ * GET a URL, keeping the reason on failure instead of discarding it.
+ *
+ * The polite identifying user agent is tried first. Public sports feeds sit
+ * behind edge filters that turn away unfamiliar agents from datacentre IPs, so
+ * a plain browser agent is the fallback rather than the default.
+ *
+ * Returns ['body' => ?string, 'error' => ?string, 'code' => int].
+ */
+function cpHttpGet(string $url): array {
+    foreach (cpUserAgents() as $ua) {
+        $r = cpHttpTry($url, $ua);
+        if ($r['error'] === null) return $r;
+        $last = $r;
+    }
+    return ['body' => null, 'error' => $last['error'] ?? 'request failed', 'code' => $last['code'] ?? 0];
+}
+
+function cpUserAgents(): array {
+    return [
+        'Mozilla/5.0 (compatible; davenn.com/1.0; +https://davenn.com)',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+    ];
+}
+
+/** The scoreboard, from either endpoint ESPN publishes it on. */
+function cpEspnSources(int $season, int $week): array {
+    return [
+        "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates={$season}&seasontype=2&week={$week}",
+        "https://cdn.espn.com/core/nfl/scoreboard?xhr=1&year={$season}&seasontype=2&week={$week}",
+    ];
+}
+
+/** Both endpoints carry the same event objects, just at different depths. */
+function cpEventsFrom(?array $data): ?array {
+    $events = $data['events'] ?? ($data['content']['sbData']['events'] ?? null);
+    return is_array($events) && $events ? $events : null;
 }
 
 /** Returns ['events' => ?array, 'error' => ?string]. */
 function cpFetchEspn(int $season, int $week): array {
-    $url = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
-         . "?dates={$season}&seasontype=2&week={$week}";
-    $r = cpHttpGet($url);
-    if ($r['body'] === null) return ['events' => null, 'error' => $r['error']];
-
-    $data = json_decode($r['body'], true);
-    if (!is_array($data['events'] ?? null)) {
-        return ['events' => null, 'error' => 'ESPN returned an unexpected response'];
+    $err = null;
+    foreach (cpEspnSources($season, $week) as $url) {
+        $r = cpHttpGet($url);
+        if ($r['body'] === null) { $err = $err ?? $r['error']; continue; }
+        $events = cpEventsFrom(json_decode($r['body'], true));
+        if ($events) return ['events' => $events, 'error' => null];
+        // Say what came back instead, so "unexpected" is actionable.
+        $err = $err ?? ('unexpected response: HTTP ' . $r['code'] . ', ' . strlen($r['body']) . ' bytes');
     }
-    return ['events' => $data['events'], 'error' => null];
+    return ['events' => null, 'error' => $err ?: 'no data from ESPN'];
 }
 
 /** Record (or clear) why the last score refresh did not land. */
@@ -2557,21 +2608,28 @@ if ($method === 'GET' && $action === 'cp_week') {
 if ($method === 'GET' && $action === 'cp_diag') {
     $season = intval($_GET['season'] ?? 0);
     $week_n = intval($_GET['week']   ?? 0);
-    $url = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
-         . "?dates={$season}&seasontype=2&week={$week_n}";
-    $started = microtime(true);
-    $r       = cpHttpGet($url);
-    $ms      = (int)round((microtime(true) - $started) * 1000);
-
-    $events = null; $sample = null;
-    if ($r['body'] !== null) {
-        $d = json_decode($r['body'], true);
-        if (is_array($d['events'] ?? null)) {
-            $events = count($d['events']);
-            $ev = $d['events'][0]['competitions'][0]['competitors'] ?? [];
-            foreach ($ev as $c) {
-                $sample[($c['homeAway'] ?? '?')] = (string)($c['team']['abbreviation'] ?? '');
-            }
+    // Every endpoint/agent pairing, each reporting what actually came back.
+    // Whatever is turning the request away is visible in the body, so a slice
+    // of it is included rather than being reduced to a byte count.
+    $attempts = [];
+    $names    = ['site.api', 'cdn.core'];
+    foreach (cpEspnSources($season, $week_n) as $i => $url) {
+        foreach (cpUserAgents() as $j => $ua) {
+            $started = microtime(true);
+            $r       = cpHttpTry($url, $ua);
+            $body    = (string)($r['body'] ?? '');
+            $events  = cpEventsFrom(json_decode($body, true));
+            $attempts[] = [
+                'source'     => $names[$i] ?? $i,
+                'agent'      => $j === 0 ? 'identifying' : 'browser',
+                'via'        => $r['via'],
+                'code'       => $r['code'],
+                'elapsed_ms' => (int)round((microtime(true) - $started) * 1000),
+                'bytes'      => strlen($body),
+                'events'     => $events ? count($events) : null,
+                'error'      => $r['error'],
+                'snippet'    => $events ? null : mb_substr(preg_replace('/\s+/', ' ', $body), 0, 320),
+            ];
         }
     }
     echo json_encode([
@@ -2581,12 +2639,9 @@ if ($method === 'GET' && $action === 'cp_diag') {
         'curl_version'    => function_exists('curl_version') ? (curl_version()['version'] ?? null) : null,
         'allow_url_fopen' => (bool)ini_get('allow_url_fopen'),
         'open_basedir'    => ini_get('open_basedir') ?: null,
-        'elapsed_ms'      => $ms,
-        'fetch_error'     => $r['error'],
-        'bytes'           => $r['body'] === null ? 0 : strlen($r['body']),
-        'events'          => $events,
-        'first_event'     => $sample,
-    ]);
+        'server_ip'       => $_SERVER['SERVER_ADDR'] ?? null,
+        'attempts'        => $attempts,
+    ], JSON_UNESCAPED_SLASHES);
     exit;
 }
 
