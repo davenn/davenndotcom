@@ -566,8 +566,8 @@ function renderPicks(s, games) {
         if (p.result === 'win'   && p.final) tag = '<span class="tag win">Won ' + p.confidence + '</span>';
         if (p.result === 'loss'  && p.final) tag = '<span class="tag loss">Lost ' + p.confidence + '</span>';
         if (p.result === 'push'  && p.final) tag = '<span class="tag push">Push, no points</span>';
-        if (!p.final && p.result === 'win')  tag = '<span class="tag leading">Covering</span>';
-        if (!p.final && p.result === 'loss') tag = '<span class="tag trailing">Not covering</span>';
+        if (!p.final && p.result === 'win')  tag = '<span class="tag leading">Covering ' + p.confidence + '</span>';
+        if (!p.final && p.result === 'loss') tag = '<span class="tag trailing">Not covering ' + p.confidence + '</span>';
         if (!p.final && p.result === 'push') tag = '<span class="tag push">On the number</span>';
         return `<div class="pickrow">
             <div class="pickconf">${p.confidence}</div>
