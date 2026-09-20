@@ -184,6 +184,28 @@
             display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
             margin-top: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);
         }
+        /* ── GAME STATE ──
+           The three states read as three levels of emphasis rather than three
+           hues: a game not yet played recedes, one in progress comes forward,
+           a finished one settles between them. The stripe is an accent over
+           the status text that is always present ("Final", "Q3 4:12", the
+           kickoff time), never the only way to tell them apart — which is what
+           keeps it legible to deutan vision and in both themes. */
+        .game { position: relative; }
+        .game::before {
+            content: ''; position: absolute; left: -16px; top: 0; bottom: 0;
+            width: 3px; border-radius: 0 2px 2px 0; background: transparent;
+        }
+        .game--pre::before  { background: var(--border); }
+        .game--pre .gteams  { color: var(--text-secondary); }
+        .game--pre .gscore  { color: var(--text-muted); }
+        .game--in::before   { background: var(--crit); }
+        .game--post::before { background: var(--text-muted); }
+
+        .gstate--pre  { color: var(--text-muted); }
+        .gstate--in   { color: var(--crit); font-weight: 500; }
+        .gstate--post { color: var(--text-secondary); }
+
         .live-dot {
             width: 7px; height: 7px; border-radius: 50%; background: var(--crit);
             display: inline-block; margin-right: 5px; animation: pulse 1.6s ease-in-out infinite;
@@ -606,12 +628,12 @@ function renderBoard(d) {
             ? '<span>' + c.away + '&ndash;' + c.home + ' on ' + esc(g.away_name) + '/' + esc(g.home_name) + '</span>'
             : '';
 
-        return `<div class="game">
+        return `<div class="game game--${g.state}">
             <div class="gline">
                 <div class="gteams">${esc(g.away_name)} <span style="color:var(--text-muted)">at</span> <b>${esc(g.home_name)}</b></div>
                 <div class="gscore">${score}</div>
             </div>
-            <div class="gmeta"><span>${line}</span><span>${status}</span>${cover}${split}</div>
+            <div class="gmeta"><span>${line}</span><span class="gstate--${g.state}">${status}</span>${cover}${split}</div>
         </div>`;
     }).join('');
 }
