@@ -319,6 +319,7 @@
 
     <section class="card hidden" id="board-card">
         <div class="card-title"><span>Games</span><span id="board-note"></span></div>
+        <div class="banner hidden" id="score-warning" style="margin-bottom:12px"></div>
         <div id="board"></div>
     </section>
 
@@ -556,6 +557,17 @@ function renderBoard(d) {
 
     const liveCount = d.games.filter(g => g.state === 'in').length;
     $('board-note').textContent = liveCount ? liveCount + ' in progress' : '';
+
+    // Never let a broken feed masquerade as a slate that has not kicked off.
+    const err = d.week && d.week.scores_error;
+    const stale = $('score-warning');
+    if (err) {
+        stale.className = 'banner warn';
+        stale.innerHTML = '<strong>Scores are not updating.</strong> ' + esc(err)
+            + (d.week.scores_at ? ' · last tried ' + esc(kickoffLabel(d.week.scores_at)) : '');
+    } else {
+        stale.className = 'banner hidden';
+    }
 
     $('board').innerHTML = d.games.map(g => {
         const fav = g.favorite === 'home' ? g.home_name : g.away_name;

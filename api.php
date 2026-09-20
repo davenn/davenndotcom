@@ -1838,6 +1838,10 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS cp_picks (
     FOREIGN KEY (game_id)  REFERENCES cp_games(id)   ON DELETE CASCADE
 )");
 
+// Added after cp_weeks shipped, so it needs the safe-migration treatment the
+// other tables in this file use rather than a change to the CREATE above.
+try { $pdo->exec("ALTER TABLE cp_weeks ADD COLUMN scores_error VARCHAR(200) DEFAULT NULL"); } catch (PDOException $e) {}
+
 /** City + nickname per team, keyed by the abbreviation ESPN uses. */
 function cpTeams(): array {
     static $t = [
@@ -1925,22 +1929,73 @@ function cpCover(array $g): ?string {
 }
 
 /** ESPN's public scoreboard. Returns null on any failure — scores just stay stale. */
-function cpFetchEspn(int $season, int $week): ?array {
+/**
+ * GET a URL, keeping the reason on failure instead of discarding it.
+ *
+ * Shared hosting is fussy about outbound requests, so this does not assume one
+ * transport works: some hosts ship curl disabled but allow_url_fopen on, or the
+ * reverse, and an edge filter in front of a public feed may turn away a request
+ * whose user agent is not in the conventional form. CURLOPT_FOLLOWLOCATION is
+ * gone because ESPN does not redirect, not because it is known to be a problem.
+ *
+ * Returns ['body' => ?string, 'error' => ?string].
+ */
+function cpHttpGet(string $url): array {
+    // A bare product token is rejected by some edge filters as a malformed
+    // user agent; this is the conventional, honest form for a site fetching a
+    // public feed.
+    $ua  = 'Mozilla/5.0 (compatible; davenn.com/1.0; +https://davenn.com)';
+    $why = 'curl unavailable';
+
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 15,
+            CURLOPT_CONNECTTIMEOUT => 8,
+            CURLOPT_USERAGENT      => $ua,
+            CURLOPT_HTTPHEADER     => ['Accept: application/json'],
+        ]);
+        $res  = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err  = curl_error($ch);
+        curl_close($ch);
+        if ($res !== false && $code === 200) return ['body' => $res, 'error' => null];
+        $why = 'curl: ' . ($err ?: 'HTTP ' . $code);
+    }
+
+    if (ini_get('allow_url_fopen')) {
+        $ctx = stream_context_create(['http' => [
+            'timeout'       => 15,
+            'ignore_errors' => true,
+            'header'        => "Accept: application/json\r\nUser-Agent: {$ua}\r\n",
+        ]]);
+        $res = @file_get_contents($url, false, $ctx);
+        if ($res !== false && $res !== '') return ['body' => $res, 'error' => null];
+        return ['body' => null, 'error' => $why . '; stream fallback failed too'];
+    }
+
+    return ['body' => null, 'error' => $why];
+}
+
+/** Returns ['events' => ?array, 'error' => ?string]. */
+function cpFetchEspn(int $season, int $week): array {
     $url = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
          . "?dates={$season}&seasontype=2&week={$week}";
-    $ch = curl_init($url);
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT        => 10,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_USERAGENT      => 'davenn.com confidence pool',
-    ]);
-    $res  = curl_exec($ch);
-    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    if (!$res || $code !== 200) return null;
-    $data = json_decode($res, true);
-    return is_array($data['events'] ?? null) ? $data['events'] : null;
+    $r = cpHttpGet($url);
+    if ($r['body'] === null) return ['events' => null, 'error' => $r['error']];
+
+    $data = json_decode($r['body'], true);
+    if (!is_array($data['events'] ?? null)) {
+        return ['events' => null, 'error' => 'ESPN returned an unexpected response'];
+    }
+    return ['events' => $data['events'], 'error' => null];
+}
+
+/** Record (or clear) why the last score refresh did not land. */
+function cpNoteScoreError(PDO $pdo, $week_id, ?string $err): void {
+    $pdo->prepare("UPDATE cp_weeks SET scores_error = ? WHERE id = ?")
+        ->execute([$err === null ? null : mb_substr($err, 0, 200), $week_id]);
 }
 
 /**
@@ -1955,11 +2010,11 @@ function cpRefreshScores(PDO $pdo, array $week, bool $force = false): void {
     $pdo->prepare("UPDATE cp_weeks SET scores_fetched_at = UTC_TIMESTAMP() WHERE id = ?")
         ->execute([$week['id']]);
 
-    $events = cpFetchEspn((int)$week['season'], (int)$week['week']);
-    if ($events === null) return;
+    $fetch = cpFetchEspn((int)$week['season'], (int)$week['week']);
+    if ($fetch['events'] === null) { cpNoteScoreError($pdo, $week['id'], $fetch['error']); return; }
 
     $live = [];
-    foreach ($events as $ev) {
+    foreach ($fetch['events'] as $ev) {
         $comp = $ev['competitions'][0] ?? null;
         if (!$comp) continue;
         $row = ['id' => (string)($ev['id'] ?? '')];
@@ -1976,16 +2031,25 @@ function cpRefreshScores(PDO $pdo, array $week, bool $force = false): void {
             $live[$row['away'] . '@' . $row['home']] = $row;
         }
     }
-    if (!$live) return;
+    if (!$live) { cpNoteScoreError($pdo, $week['id'], 'ESPN returned no usable games'); return; }
 
     $up = $pdo->prepare("UPDATE cp_games SET espn_id=?, away_score=?, home_score=?, state=?, detail=?, kickoff=? WHERE id=?");
     $gs = $pdo->prepare("SELECT * FROM cp_games WHERE week_id = ?");
     $gs->execute([$week['id']]);
+
+    $matched = 0; $missed = [];
     foreach ($gs->fetchAll() as $g) {
         $m = $live[$g['away_team'] . '@' . $g['home_team']] ?? null;
-        if (!$m) continue;
+        if (!$m) { $missed[] = $g['away_team'] . '@' . $g['home_team']; continue; }
         $up->execute([$m['id'], $m['awayScore'], $m['homeScore'], $m['state'], $m['detail'], $m['kickoff'], $g['id']]);
+        $matched++;
     }
+
+    // A week where nothing lines up is usually the wrong week number on the
+    // sheet, which looks exactly like "no games have started" unless it is said.
+    cpNoteScoreError($pdo, $week['id'], $matched === 0
+        ? 'None of these games are in ESPN\'s week ' . (int)$week['week'] . ' schedule'
+        : ($missed ? count($missed) . ' game(s) not found at ESPN: ' . implode(', ', array_slice($missed, 0, 4)) : null));
 }
 
 /** Week row plus games, entries and standings — the whole app state in one shape. */
@@ -2081,11 +2145,16 @@ function cpWeekPayload(PDO $pdo, array $week): array {
 
     return [
         'week' => [
-            'id'        => (int)$week['id'],
-            'season'    => (int)$week['season'],
-            'week'      => (int)$week['week'],
-            'push_rule' => $week['push_rule'],
-            'locked'    => count($entries) > 0,
+            'id'           => (int)$week['id'],
+            'season'       => (int)$week['season'],
+            'week'         => (int)$week['week'],
+            'push_rule'    => $week['push_rule'],
+            'locked'       => count($entries) > 0,
+            // Surfaced so a scoreboard that has quietly stopped updating says so
+            // instead of looking like a slate that has not kicked off yet.
+            'scores_error' => $week['scores_error'] ?? null,
+            'scores_at'    => $week['scores_fetched_at']
+                              ? gmdate('c', strtotime($week['scores_fetched_at'] . ' UTC')) : null,
         ],
         'games'     => $out_games,
         'standings' => $standings,
@@ -2479,6 +2548,45 @@ if ($method === 'GET' && $action === 'cp_week') {
     $week = $st->fetch();
 
     echo json_encode(['success' => true, 'exists' => true] + cpWeekPayload($pdo, $week));
+    exit;
+}
+
+// GET ?action=cp_diag&season=&week= — why are scores not updating?
+// Probes the outbound path from the web host itself, which is the one thing
+// that cannot be checked from a laptop. Reports no credentials or user data.
+if ($method === 'GET' && $action === 'cp_diag') {
+    $season = intval($_GET['season'] ?? 0);
+    $week_n = intval($_GET['week']   ?? 0);
+    $url = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
+         . "?dates={$season}&seasontype=2&week={$week_n}";
+    $started = microtime(true);
+    $r       = cpHttpGet($url);
+    $ms      = (int)round((microtime(true) - $started) * 1000);
+
+    $events = null; $sample = null;
+    if ($r['body'] !== null) {
+        $d = json_decode($r['body'], true);
+        if (is_array($d['events'] ?? null)) {
+            $events = count($d['events']);
+            $ev = $d['events'][0]['competitions'][0]['competitors'] ?? [];
+            foreach ($ev as $c) {
+                $sample[($c['homeAway'] ?? '?')] = (string)($c['team']['abbreviation'] ?? '');
+            }
+        }
+    }
+    echo json_encode([
+        'success'         => true,
+        'php'             => PHP_VERSION,
+        'curl'            => function_exists('curl_init'),
+        'curl_version'    => function_exists('curl_version') ? (curl_version()['version'] ?? null) : null,
+        'allow_url_fopen' => (bool)ini_get('allow_url_fopen'),
+        'open_basedir'    => ini_get('open_basedir') ?: null,
+        'elapsed_ms'      => $ms,
+        'fetch_error'     => $r['error'],
+        'bytes'           => $r['body'] === null ? 0 : strlen($r['body']),
+        'events'          => $events,
+        'first_event'     => $sample,
+    ]);
     exit;
 }
 
