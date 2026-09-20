@@ -542,7 +542,7 @@ function renderPicks(s, games) {
         const other  = p.pick === 'home' ? g.away_name : g.home_name;
         let tag = '<span class="tag">Not started</span>';
         if (p.result === 'win'   && p.final) tag = '<span class="tag win">Won ' + p.confidence + '</span>';
-        if (p.result === 'loss'  && p.final) tag = '<span class="tag loss">Lost</span>';
+        if (p.result === 'loss'  && p.final) tag = '<span class="tag loss">Lost ' + p.confidence + '</span>';
         if (p.result === 'push'  && p.final) tag = '<span class="tag push">Push, no points</span>';
         if (!p.final && p.result === 'win')  tag = '<span class="tag leading">Covering</span>';
         if (!p.final && p.result === 'loss') tag = '<span class="tag trailing">Not covering</span>';
