@@ -1,0 +1,15 @@
+{
+  "name": "Confidence Pool",
+  "short_name": "Pool",
+  "description": "NFL confidence pick pool — upload your sheet, watch the scores live",
+  "id": "/nflpool.html",
+  "scope": "/nflpool.html",
+  "start_url": "/nflpool.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#111110",
+  "background_color": "#ffffff",
+  "icons": [
+    { "src": "/icons/nflpool.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

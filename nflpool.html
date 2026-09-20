@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Confidence Pool — davenn.com</title>
+    <meta name="theme-color" content="#111110">
+    <link rel="manifest" href="/manifest-nflpool.json">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        // Stamp the theme before first paint so there is no flash of the wrong
+        // one. Stored choice wins; first visit follows the OS.
+        (function () {
+            var t;
+            try { t = localStorage.getItem('nflpool_theme'); } catch (e) {}
+            if (t !== 'light' && t !== 'dark') {
+                t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* Same token set as the other davenn apps. Status hues are fixed and
+           never themed, and each one is paired with a word — win/loss is exactly
+           the distinction deutan vision reads #d03b3b and #0ca30c alike on. */
+        :root, [data-theme="light"] {
+            color-scheme: light;
+            --page:           #ffffff;
+            --surface:        #f7f6f3;
+            --surface-2:      #efeeea;
+            --border:         #e8e6e0;
+            --text-primary:   #111110;
+            --text-secondary: #52514e;
+            --text-muted:     #898781;
+        }
+        [data-theme="dark"] {
+            color-scheme: dark;
+            --page:           #0a0a0a;
+            --surface:        #121212;
+            --surface-2:      #1a1a1a;
+            --border:         #2a2a2a;
+            --text-primary:   #f0f0f0;
+            --text-secondary: #c3c2b7;
+            --text-muted:     #898781;
+        }
+        :root {
+            --nav-bg:     #111110;
+            --nav-border: rgba(255,255,255,0.08);
+            --good:       #0ca30c;
+            --warn:       #fab219;
+            --crit:       #d03b3b;
+            --font-ui:    system-ui, -apple-system, 'Segoe UI', sans-serif;
+            --font-mono:  'DM Mono', ui-monospace, monospace;
+            --nav-h:      52px;
+        }
+
+        html, body { min-height: 100%; }
+        body {
+            font-family: var(--font-ui);
+            background: var(--page);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+            padding-top: calc(var(--nav-h) + env(safe-area-inset-top));
+            padding-bottom: env(safe-area-inset-bottom);
+            transition: background 0.2s, color 0.2s;
+        }
+
+        /* ── NAV ── */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0;
+            height: calc(var(--nav-h) + env(safe-area-inset-top));
+            padding-top: env(safe-area-inset-top);
+            background: var(--nav-bg);
+            border-bottom: 1px solid var(--nav-border);
+            display: flex; align-items: center; justify-content: space-between;
+            padding-left: 1.5rem; padding-right: 1.5rem; z-index: 200;
+        }
+        .nav-logo { font-family: var(--font-mono); font-size: 13px; color: rgba(255,255,255,0.4); text-decoration: none; }
+        .nav-logo strong { color: #fff; }
+        .nav-right { display: flex; align-items: center; gap: 1.2rem; }
+        .nav-back {
+            font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.45);
+            letter-spacing: 0.05em; text-transform: uppercase;
+            background: none; border: none; cursor: pointer; padding: 0; transition: color 0.15s;
+        }
+        .nav-back:hover { color: #fff; }
+        .nav-back:disabled { opacity: 0.4; cursor: default; }
+
+        .theme-toggle { width: 44px; height: 24px; cursor: pointer; background: none; border: none; padding: 0; flex: none; }
+        .theme-toggle-track {
+            width: 44px; height: 24px; border-radius: 12px; background: #333; border: 1px solid #555;
+            display: flex; align-items: center; padding: 0 3px; transition: background 0.2s;
+        }
+        [data-theme="light"] .theme-toggle-track { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); }
+        .theme-toggle-thumb {
+            width: 18px; height: 18px; border-radius: 50%; display: flex;
+            align-items: center; justify-content: center; font-size: 10px;
+            transition: transform 0.2s, background 0.2s;
+        }
+        [data-theme="light"] .theme-toggle-thumb { transform: translateX(20px); background: #fff; }
+        [data-theme="dark"]  .theme-toggle-thumb { transform: translateX(0);    background: #666; }
+
+        /* ── LAYOUT ── */
+        .wrap { max-width: 720px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
+        .card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 14px; padding: 16px;
+        }
+        .card-title {
+            font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em;
+            text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px;
+            display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+        }
+        .hidden { display: none !important; }
+        .msg { color: var(--text-secondary); font-size: 14px; line-height: 1.55; }
+        .msg + .msg { margin-top: 8px; }
+
+        /* ── WEEK BAR ── */
+        .weekbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .weekbar select, .weekbar input {
+            font-family: var(--font-mono); font-size: 13px; padding: 9px 10px;
+            background: var(--surface); color: var(--text-primary);
+            border: 1px solid var(--border); border-radius: 9px;
+        }
+        .spacer { flex: 1 1 auto; }
+
+        button.primary, button.ghost {
+            font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em;
+            padding: 10px 14px; border-radius: 9px; cursor: pointer; border: 1px solid transparent;
+            transition: opacity 0.15s, background 0.15s;
+        }
+        button.primary { background: var(--text-primary); color: var(--page); }
+        button.ghost   { background: transparent; color: var(--text-primary); border-color: var(--border); }
+        button.primary:hover, button.ghost:hover { opacity: 0.85; }
+        button:disabled { opacity: 0.4; cursor: default; }
+
+        /* ── STANDINGS ── */
+        .player {
+            border-top: 1px solid var(--border); padding: 12px 0;
+            display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: center;
+            cursor: pointer;
+        }
+        .player:first-of-type { border-top: none; }
+        .rank { font-family: var(--font-mono); font-size: 13px; color: var(--text-muted); }
+        .pname { font-size: 15px; font-weight: 600; }
+        .psub  { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+        .ppts  { font-family: var(--font-mono); font-size: 22px; text-align: right; line-height: 1; }
+        .pmax  { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); text-align: right; margin-top: 4px; }
+        .bar { grid-column: 2 / 4; height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
+        .bar span { display: block; height: 100%; background: var(--text-primary); border-radius: 2px; }
+
+        .picklist { grid-column: 1 / 4; padding: 4px 0 2px; display: grid; gap: 4px; }
+        .pickrow {
+            display: grid; grid-template-columns: 30px 1fr auto; gap: 8px; align-items: center;
+            font-size: 13px; padding: 4px 0;
+        }
+        .pickconf {
+            font-family: var(--font-mono); font-size: 12px; text-align: center;
+            background: var(--surface-2); border-radius: 5px; padding: 3px 0; color: var(--text-secondary);
+        }
+        .tag {
+            font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.05em;
+            text-transform: uppercase; padding: 2px 7px; border-radius: 20px;
+            border: 1px solid var(--border); color: var(--text-muted); white-space: nowrap;
+        }
+        .tag.win     { color: var(--good); border-color: var(--good); }
+        .tag.loss    { color: var(--crit); border-color: var(--crit); }
+        .tag.push    { color: var(--warn); border-color: var(--warn); }
+        .tag.leading { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, transparent); }
+        .tag.trailing{ color: var(--crit); border-color: color-mix(in srgb, var(--crit) 45%, transparent); }
+
+        /* ── GAME BOARD ── */
+        .game { border-top: 1px solid var(--border); padding: 12px 0; }
+        .game:first-of-type { border-top: none; }
+        .gline { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: baseline; }
+        .gteams { font-size: 15px; }
+        .gteams b { font-weight: 600; }
+        .gscore { font-family: var(--font-mono); font-size: 17px; white-space: nowrap; }
+        .gmeta {
+            display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+            margin-top: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);
+        }
+        .live-dot {
+            width: 7px; height: 7px; border-radius: 50%; background: var(--crit);
+            display: inline-block; margin-right: 5px; animation: pulse 1.6s ease-in-out infinite;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+        @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+
+        /* ── REVIEW OVERLAY ── */
+        .overlay {
+            position: fixed; inset: 0; z-index: 300; background: var(--page);
+            overflow-y: auto; padding: 16px calc(16px + env(safe-area-inset-right)) 100px calc(16px + env(safe-area-inset-left));
+            padding-top: calc(16px + env(safe-area-inset-top));
+        }
+        .overlay-inner { max-width: 720px; margin: 0 auto; display: grid; gap: 14px; }
+        .overlay h2 { font-size: 18px; font-weight: 600; }
+        .overlay-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+        .banner {
+            border-radius: 10px; padding: 11px 13px; font-size: 13px; line-height: 1.5;
+            border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary);
+        }
+        .banner.warn { border-color: var(--warn); }
+        .banner.bad  { border-color: var(--crit); color: var(--text-primary); }
+        .banner ul { margin: 6px 0 0 18px; }
+
+        .namefield { display: grid; gap: 6px; }
+        .namefield label { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+        .namefield input {
+            font-family: var(--font-ui); font-size: 16px; padding: 11px 12px;
+            background: var(--surface); color: var(--text-primary);
+            border: 1px solid var(--border); border-radius: 10px; width: 100%;
+        }
+
+        /* Which confidence values are still free. The single most useful thing
+           to see while fixing a misread sheet. */
+        .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+        .chip {
+            font-family: var(--font-mono); font-size: 11px; min-width: 26px; text-align: center;
+            padding: 4px 6px; border-radius: 6px; border: 1px solid var(--border); color: var(--text-muted);
+        }
+        .chip.used { background: var(--text-primary); color: var(--page); border-color: var(--text-primary); }
+        .chip.dupe { border-color: var(--crit); color: var(--crit); background: transparent; }
+
+        .rrow { border-top: 1px solid var(--border); padding: 10px 0; }
+        .rrow:first-of-type { border-top: none; }
+        .rpick { display: grid; grid-template-columns: 1fr 1fr 62px; gap: 7px; align-items: stretch; }
+        .side {
+            background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+            padding: 9px 8px; cursor: pointer; text-align: left; color: var(--text-primary);
+            font-family: var(--font-ui); font-size: 14px; line-height: 1.3;
+        }
+        .side small { display: block; font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-top: 3px; }
+        .side[aria-pressed="true"] {
+            background: var(--text-primary); color: var(--page); border-color: var(--text-primary);
+        }
+        .side[aria-pressed="true"] small { color: var(--page); opacity: 0.7; }
+        .conf {
+            font-family: var(--font-mono); font-size: 17px; text-align: center; width: 100%;
+            background: var(--surface); color: var(--text-primary);
+            border: 1px solid var(--border); border-radius: 10px; padding: 8px 2px;
+        }
+        .conf.bad { border-color: var(--crit); color: var(--crit); }
+        .rline {
+            display: flex; align-items: center; gap: 7px; margin-top: 7px;
+            font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);
+        }
+        .rline select, .rline input {
+            font-family: var(--font-mono); font-size: 12px; padding: 5px 7px;
+            background: var(--surface); color: var(--text-primary);
+            border: 1px solid var(--border); border-radius: 7px;
+        }
+        .rline input { width: 62px; text-align: center; }
+        .rowbad { color: var(--crit); font-family: var(--font-mono); font-size: 11px; margin-top: 6px; }
+
+        .actions {
+            position: fixed; left: 0; right: 0; bottom: 0; z-index: 310;
+            background: var(--page); border-top: 1px solid var(--border);
+            padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+            display: flex; gap: 10px; justify-content: flex-end;
+        }
+        .actions .spacer { flex: 1; }
+
+        .spinner {
+            width: 22px; height: 22px; border: 2px solid var(--border);
+            border-top-color: var(--text-primary); border-radius: 50%;
+            animation: spin 0.8s linear infinite; flex: none;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading { display: flex; align-items: center; gap: 12px; }
+
+        footer { text-align: center; padding: 28px 16px 40px; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+        footer a { color: var(--text-muted); }
+
+        @media (max-width: 420px) {
+            .rpick { grid-template-columns: 1fr 1fr 54px; }
+            .wrap { padding: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <a class="nav-logo" href="index.html"><strong>davenn</strong>dotcom</a>
+    <div class="nav-right">
+        <button class="nav-back" id="refresh" type="button">Refresh</button>
+        <button class="theme-toggle" id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
+            <div class="theme-toggle-track"><div class="theme-toggle-thumb" id="toggle-icon">🌙</div></div>
+        </button>
+    </div>
+</nav>
+
+<div class="wrap">
+
+    <div class="weekbar">
+        <select id="season" aria-label="Season"></select>
+        <select id="week" aria-label="Week"></select>
+        <span class="spacer"></span>
+        <button class="primary" id="upload-btn" type="button">Upload sheet</button>
+    </div>
+
+    <div class="banner hidden" id="page-error"></div>
+
+    <section class="card hidden" id="empty">
+        <div class="card-title">Week not set up</div>
+        <p class="msg">No sheets have been uploaded for this week yet.</p>
+        <p class="msg">Upload the first one and the matchups and spreads printed on it become this week's board — check them before saving, because every score is worked out from those lines.</p>
+    </section>
+
+    <section class="card hidden" id="standings-card">
+        <div class="card-title"><span>Standings</span><span id="standings-note"></span></div>
+        <div id="standings"></div>
+    </section>
+
+    <section class="card hidden" id="board-card">
+        <div class="card-title"><span>Games</span><span id="board-note"></span></div>
+        <div id="board"></div>
+    </section>
+
+</div>
+
+<footer>
+    Scores from ESPN · lines are whatever was printed on the sheet ·
+    <a href="index.html">more apps</a>
+</footer>
+
+<!-- Review overlay: the scanned sheet, editable, before anything is saved. -->
+<div class="overlay hidden" id="review">
+    <div class="overlay-inner">
+        <div class="overlay-head">
+            <h2 id="review-title">Check the sheet</h2>
+            <button class="ghost" id="review-close" type="button">Cancel</button>
+        </div>
+        <div id="review-body"></div>
+    </div>
+</div>
+<div class="actions hidden" id="review-actions">
+    <span class="spacer"></span>
+    <button class="ghost" id="save-cancel" type="button">Cancel</button>
+    <button class="primary" id="save" type="button">Save picks</button>
+</div>
+
+<!-- No capture attribute on purpose: people photograph the sheet once and then
+     upload it from the camera roll, often on a different device. -->
+<input type="file" id="file" accept="image/jpeg,image/png,image/webp" class="hidden">
+
+<script>
+const API = '/api.php';
+
+const $ = id => document.getElementById(id);
+
+// ── State ────────────────────────────────────────────────────────────────
+let state = {
+    season: 0,
+    week:   0,
+    data:   null,     // cp_week payload
+    rows:   null,     // rows being reviewed
+    mode:   'entry',  // 'setup' when this upload also defines the week
+    player: '',
+    photo:  null,
+    open:   null,     // expanded standings entry id
+    busy:   false,
+};
+
+// Nicknames for the correction dropdowns, keyed the way ESPN abbreviates.
+const TEAM_NAMES = {
+    ARI: 'Cardinals', ATL: 'Falcons',    BAL: 'Ravens',   BUF: 'Bills',
+    CAR: 'Panthers',  CHI: 'Bears',      CIN: 'Bengals',  CLE: 'Browns',
+    DAL: 'Cowboys',   DEN: 'Broncos',    DET: 'Lions',    GB:  'Packers',
+    HOU: 'Texans',    IND: 'Colts',      JAX: 'Jaguars',  KC:  'Chiefs',
+    LV:  'Raiders',   LAC: 'Chargers',   LAR: 'Rams',     MIA: 'Dolphins',
+    MIN: 'Vikings',   NE:  'Patriots',   NO:  'Saints',   NYG: 'Giants',
+    NYJ: 'Jets',      PHI: 'Eagles',     PIT: 'Steelers', SEA: 'Seahawks',
+    SF:  '49ers',     TB:  'Buccaneers', TEN: 'Titans',   WSH: 'Commanders',
+};
+const TEAM_ORDER = Object.keys(TEAM_NAMES).sort((a, b) => TEAM_NAMES[a].localeCompare(TEAM_NAMES[b]));
+
+// ── Week maths ───────────────────────────────────────────────────────────
+// Week 1 is the Thursday after Labor Day (the first Monday in September).
+function laborDay(year) {
+    const d = new Date(Date.UTC(year, 8, 1));
+    while (d.getUTCDay() !== 1) d.setUTCDate(d.getUTCDate() + 1);
+    return d;
+}
+function currentSeasonWeek() {
+    const now  = new Date();
+    let year   = now.getUTCFullYear();
+    let opener = new Date(laborDay(year).getTime() + 3 * 864e5);       // week 1 Thursday
+    if (now < opener) {                                                // still in last season
+        year -= 1;
+        opener = new Date(laborDay(year).getTime() + 3 * 864e5);
+    }
+    // Count from the Tuesday before kickoff so a week rolls over mid-week,
+    // not while Monday night is still being played.
+    const start = new Date(opener.getTime() - 2 * 864e5);
+    const week  = Math.floor((now - start) / (7 * 864e5)) + 1;
+    return { season: year, week: Math.min(18, Math.max(1, week)) };
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function spreadLabel(g, side) {
+    if (g.favorite !== side) return '';
+    return g.spread === 0 ? 'PK' : '-' + g.spread;
+}
+function kickoffLabel(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    return d.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+}
+function showError(msg) {
+    const el = $('page-error');
+    if (!msg) { el.classList.add('hidden'); return; }
+    el.className = 'banner bad';
+    el.textContent = msg;
+}
+
+async function api(path, opts) {
+    const res = await fetch(API + path, opts);
+    let body = null;
+    try { body = await res.json(); } catch (e) {}
+    if (!res.ok) throw new Error((body && body.error) || ('Request failed (' + res.status + ')'));
+    return body;
+}
+
+// ── Loading the week ─────────────────────────────────────────────────────
+let pollTimer = null;
+
+async function loadWeek(force) {
+    $('refresh').disabled = true;
+    try {
+        const d = await api('?action=cp_week&season=' + state.season + '&week=' + state.week + (force ? '&force=1' : ''));
+        state.data = d.exists ? d : null;
+        showError('');
+        render();
+        schedulePoll();
+    } catch (e) {
+        showError(e.message);
+    } finally {
+        $('refresh').disabled = false;
+    }
+}
+
+// Poll fast only while something is actually being played.
+function schedulePoll() {
+    clearTimeout(pollTimer);
+    const live = state.data && state.data.games.some(g => g.state === 'in');
+    const ms   = live ? 30000 : 150000;
+    pollTimer  = setTimeout(() => {
+        if (document.visibilityState === 'visible' && $('review').classList.contains('hidden')) loadWeek(false);
+        else schedulePoll();
+    }, ms);
+}
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && $('review').classList.contains('hidden')) loadWeek(false);
+});
+
+// ── Rendering ────────────────────────────────────────────────────────────
+function render() {
+    const d = state.data;
+    $('empty').classList.toggle('hidden', !!d);
+    $('standings-card').classList.toggle('hidden', !d);
+    $('board-card').classList.toggle('hidden', !d);
+    if (!d) return;
+    renderStandings(d);
+    renderBoard(d);
+}
+
+function renderStandings(d) {
+    const note = $('standings-note');
+    const anyLive = d.games.some(g => g.state === 'in');
+    note.textContent = d.standings.length
+        ? d.standings.length + (d.standings.length === 1 ? ' sheet' : ' sheets') + (anyLive ? ' · live' : '')
+        : '';
+
+    if (!d.standings.length) {
+        $('standings').innerHTML = '<p class="msg">No sheets uploaded yet. The board below is live either way.</p>';
+        return;
+    }
+
+    const gameById = {};
+    d.games.forEach(g => { gameById[g.id] = g; });
+    const top = Math.max(1, ...d.standings.map(s => s.max_points));
+
+    $('standings').innerHTML = d.standings.map((s, i) => {
+        const open = state.open === s.id;
+        const picks = open ? renderPicks(s, gameById) : '';
+        return `
+        <div class="player" data-entry="${s.id}" role="button" tabindex="0"
+             aria-expanded="${open}" aria-label="${esc(s.player_name)}, ${s.live_points} points">
+            <div class="rank">${i + 1}</div>
+            <div>
+                <div class="pname">${esc(s.player_name)}</div>
+                <div class="psub">${s.correct}/${s.decided} correct · ${s.max_points} still possible</div>
+            </div>
+            <div>
+                <div class="ppts">${s.live_points}</div>
+                <div class="pmax">${s.points} locked</div>
+            </div>
+            <div class="bar"><span style="width:${Math.round(s.live_points / top * 100)}%"></span></div>
+            ${picks}
+        </div>`;
+    }).join('');
+
+    $('standings').querySelectorAll('.player').forEach(el => {
+        const toggle = () => {
+            const id = Number(el.dataset.entry);
+            state.open = state.open === id ? null : id;
+            renderStandings(state.data);
+        };
+        el.addEventListener('click', ev => { if (!ev.target.closest('.picklist')) toggle(); });
+        el.addEventListener('keydown', ev => {
+            if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggle(); }
+        });
+    });
+}
+
+function renderPicks(s, gameById) {
+    if (!s.picks.length) return '';
+    const rows = s.picks.map(p => {
+        const g = gameById[p.game_id];
+        if (!g) return '';
+        const picked = p.pick === 'home' ? g.home_name : g.away_name;
+        const other  = p.pick === 'home' ? g.away_name : g.home_name;
+        let tag = '<span class="tag">Not started</span>';
+        if (p.result === 'win'   && p.final) tag = '<span class="tag win">Won ' + p.confidence + '</span>';
+        if (p.result === 'loss'  && p.final) tag = '<span class="tag loss">Lost</span>';
+        if (p.result === 'push'  && p.final) tag = '<span class="tag push">Push, no points</span>';
+        if (!p.final && p.result === 'win')  tag = '<span class="tag leading">Covering</span>';
+        if (!p.final && p.result === 'loss') tag = '<span class="tag trailing">Not covering</span>';
+        if (!p.final && p.result === 'push') tag = '<span class="tag push">On the number</span>';
+        return `<div class="pickrow">
+            <div class="pickconf">${p.confidence}</div>
+            <div>${esc(picked)} <span style="color:var(--text-muted)">over ${esc(other)}</span></div>
+            ${tag}
+        </div>`;
+    }).join('');
+    return '<div class="picklist">' + rows + '</div>';
+}
+
+function renderBoard(d) {
+    const counts = {};
+    d.standings.forEach(s => s.picks.forEach(p => {
+        counts[p.game_id] = counts[p.game_id] || { home: 0, away: 0 };
+        counts[p.game_id][p.pick]++;
+    }));
+
+    const liveCount = d.games.filter(g => g.state === 'in').length;
+    $('board-note').textContent = liveCount ? liveCount + ' in progress' : '';
+
+    $('board').innerHTML = d.games.map(g => {
+        const fav = g.favorite === 'home' ? g.home_name : g.away_name;
+        const line = g.spread === 0 ? 'Pick-em' : esc(fav) + ' -' + g.spread;
+
+        let status, score = '';
+        if (g.state === 'pre') {
+            status = kickoffLabel(g.kickoff) || 'Not started';
+        } else {
+            score = g.away_score + '&ndash;' + g.home_score;
+            status = g.state === 'in'
+                ? '<span class="live-dot"></span>' + esc(g.detail || 'In progress')
+                : esc(g.detail || 'Final');
+        }
+
+        let cover = '';
+        if (g.cover === 'push') {
+            cover = '<span class="tag push">On the number</span>';
+        } else if (g.cover) {
+            const name = g.cover === 'home' ? g.home_name : g.away_name;
+            cover = g.state === 'post'
+                ? '<span class="tag win">' + esc(name) + ' covered</span>'
+                : '<span class="tag leading">' + esc(name) + ' covering</span>';
+        }
+
+        const c = counts[g.id];
+        const split = c
+            ? '<span>' + c.away + '&ndash;' + c.home + ' on ' + esc(g.away_name) + '/' + esc(g.home_name) + '</span>'
+            : '';
+
+        return `<div class="game">
+            <div class="gline">
+                <div class="gteams">${esc(g.away_name)} <span style="color:var(--text-muted)">at</span> <b>${esc(g.home_name)}</b></div>
+                <div class="gscore">${score}</div>
+            </div>
+            <div class="gmeta"><span>${line}</span><span>${status}</span>${cover}${split}</div>
+        </div>`;
+    }).join('');
+}
+
+// ── Upload + scan ────────────────────────────────────────────────────────
+$('upload-btn').addEventListener('click', () => $('file').click());
+
+$('file').addEventListener('change', async ev => {
+    const f = ev.target.files && ev.target.files[0];
+    ev.target.value = '';
+    if (!f) return;
+
+    openOverlay('Reading the sheet', `<div class="card"><div class="loading">
+        <div class="spinner"></div>
+        <div><p class="msg">Reading the matchups, marks and confidence numbers.</p>
+        <p class="msg" style="color:var(--text-muted)">This takes a few seconds.</p></div>
+    </div>`);
+    $('review-actions').classList.add('hidden');
+
+    const fd = new FormData();
+    fd.append('photo', f);
+    fd.append('season', state.season);
+    fd.append('week', state.week);
+
+    try {
+        const r = await api('?action=cp_scan', { method: 'POST', body: fd });
+        if (!r.readable) {
+            openOverlay('Could not read that', `<div class="banner bad">${esc(r.note)}</div>
+                <p class="msg">Try again with the whole sheet in frame, lying flat, in even light.</p>`);
+            return;
+        }
+        // The week can exist on the server while this tab has not loaded it yet.
+        if (r.week_exists && !state.data) await loadWeek(false);
+
+        state.mode   = (r.week_exists && state.data) ? 'entry' : 'setup';
+        state.rows   = buildRows(r.rows);
+        state.photo  = r.photo_url || null;
+        state.player = r.player_name || lastPlayer();
+        renderReview(r.note, r.warnings || []);
+    } catch (e) {
+        openOverlay('Could not read that', `<div class="banner bad">${esc(e.message)}</div>`);
+    }
+});
+
+/**
+ * Turn a scan into editable rows.
+ *
+ * Setting up a week, the sheet IS the week, so its rows stand as read. Once the
+ * week exists the week's own games are the truth and the scan only fills them
+ * in — otherwise a row the reader garbled would quietly drop a pick instead of
+ * showing up as a game waiting to be marked.
+ */
+function buildRows(scanRows) {
+    if (state.mode === 'setup') {
+        return scanRows.map(r => ({
+            game_id: null,
+            away: r.away, home: r.home,
+            away_name: r.away_name, home_name: r.home_name,
+            favorite: r.favorite, spread: r.spread,
+            pick: r.pick, confidence: r.confidence,
+        }));
+    }
+    const scanned = {};
+    scanRows.forEach(r => { if (r.game_id) scanned[r.game_id] = r; });
+    return state.data.games.map(g => {
+        const r = scanned[g.id] || {};
+        return {
+            game_id: g.id,
+            away: g.away, home: g.home,
+            away_name: g.away_name, home_name: g.home_name,
+            favorite: g.favorite, spread: g.spread,
+            pick: r.pick || '', confidence: r.confidence || 0,
+        };
+    });
+}
+
+function openOverlay(title, html) {
+    $('review-title').textContent = title;
+    $('review-body').innerHTML = html;
+    $('review').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+function closeOverlay() {
+    $('review').classList.add('hidden');
+    $('review-actions').classList.add('hidden');
+    document.body.style.overflow = '';
+    state.rows = null;
+    schedulePoll();
+}
+$('review-close').addEventListener('click', closeOverlay);
+$('save-cancel').addEventListener('click', closeOverlay);
+
+function lastPlayer() {
+    try { return localStorage.getItem('nflpool_player') || ''; } catch (e) { return ''; }
+}
+
+// ── Review grid ──────────────────────────────────────────────────────────
+function renderReview(note, warnings) {
+    const setup = state.mode === 'setup';
+    $('review-title').textContent = setup ? 'Set up this week' : 'Check the sheet';
+
+    const issues = [];
+    if (note) issues.push(note);
+    warnings.forEach(w => issues.push(w));
+
+    const intro = setup
+        ? `<p class="msg">This is the first sheet for Week ${state.week}, so these matchups and spreads become the week. Fix anything that was misread — every score is worked out from these lines.</p>`
+        : `<p class="msg">Every game in Week ${state.week} is listed. Check the marks and confidence numbers against the paper before saving.</p>`;
+
+    $('review-body').innerHTML = `
+        ${issues.length ? `<div class="banner warn"><strong>Worth a look</strong><ul>${issues.map(i => '<li>' + esc(i) + '</li>').join('')}</ul></div>` : ''}
+        <div class="card">
+            ${intro}
+            <div class="namefield" style="margin-top:12px">
+                <label for="player">Whose sheet is this?</label>
+                <input id="player" type="text" maxlength="60" autocomplete="name"
+                       placeholder="Name" value="${esc(state.player)}">
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-title"><span>Confidence used</span><span id="conf-note"></span></div>
+            <div class="chips" id="chips"></div>
+        </div>
+        <div class="card" id="rows"></div>
+        <div class="banner hidden" id="review-error"></div>`;
+
+    $('player').addEventListener('input', e => { state.player = e.target.value; validate(); });
+    $('review-actions').classList.remove('hidden');
+    renderRows();
+}
+
+function teamOptions(selected) {
+    return '<option value="">— pick a team —</option>' + TEAM_ORDER.map(a =>
+        `<option value="${a}" ${a === selected ? 'selected' : ''}>${esc(TEAM_NAMES[a])}</option>`).join('');
+}
+
+function renderRows() {
+    const setup = state.mode === 'setup';
+    const n = state.rows.length;
+
+    $('rows').innerHTML = state.rows.map((r, i) => {
+        const awaySpread = r.favorite === 'away' ? (r.spread === 0 ? 'PK' : '-' + r.spread) : '';
+        const homeSpread = r.favorite === 'home' ? (r.spread === 0 ? 'PK' : '-' + r.spread) : '';
+        const known = !!(r.away && r.home);
+
+        // Setting up a week, a team the reader could not place has to be
+        // fixable here — there is nowhere else to correct it.
+        const fix = (setup && !known) ? `
+            <div class="rline">
+                <span>Teams</span>
+                <select data-team="${i}" data-slot="away" aria-label="Away team, game ${i + 1}">${teamOptions(r.away)}</select>
+                <span>at</span>
+                <select data-team="${i}" data-slot="home" aria-label="Home team, game ${i + 1}">${teamOptions(r.home)}</select>
+            </div>` : '';
+
+        const line = setup ? `
+            <div class="rline">
+                <span>Line</span>
+                <select data-fav="${i}" aria-label="Favourite, game ${i + 1}">
+                    <option value="away" ${r.favorite === 'away' ? 'selected' : ''}>${esc(r.away_name || 'Away')}</option>
+                    <option value="home" ${r.favorite === 'home' ? 'selected' : ''}>${esc(r.home_name || 'Home')}</option>
+                </select>
+                <span>by</span>
+                <input type="number" step="0.5" min="0" max="60" inputmode="decimal"
+                       data-spread="${i}" value="${r.spread}" aria-label="Spread, game ${i + 1}">
+            </div>` : '';
+
+        const unknown = (!known && !setup)
+            ? `<div class="rowbad">This matchup is not in this week and will be skipped.</div>` : '';
+
+        return `<div class="rrow">
+            <div class="rpick">
+                <button class="side" type="button" data-pick="${i}" data-side="away"
+                        ${known ? '' : 'disabled'} aria-pressed="${r.pick === 'away'}">
+                    ${esc(r.away_name || '—')}<small>away <span data-sp="${i}-away">${awaySpread}</span></small>
+                </button>
+                <button class="side" type="button" data-pick="${i}" data-side="home"
+                        ${known ? '' : 'disabled'} aria-pressed="${r.pick === 'home'}">
+                    ${esc(r.home_name || '—')}<small>home <span data-sp="${i}-home">${homeSpread}</span></small>
+                </button>
+                <input class="conf" type="number" inputmode="numeric" min="0" max="${n}"
+                       data-conf="${i}" value="${r.confidence || ''}" placeholder="–"
+                       aria-label="Confidence, game ${i + 1}">
+            </div>
+            ${fix}${line}${unknown}
+        </div>`;
+    }).join('');
+
+    $('rows').querySelectorAll('[data-pick]').forEach(b => b.addEventListener('click', () => {
+        const i = Number(b.dataset.pick);
+        state.rows[i].pick = state.rows[i].pick === b.dataset.side ? '' : b.dataset.side;
+        renderRows();
+    }));
+    $('rows').querySelectorAll('[data-conf]').forEach(inp => inp.addEventListener('input', () => {
+        state.rows[Number(inp.dataset.conf)].confidence = parseInt(inp.value, 10) || 0;
+        validate();
+    }));
+    $('rows').querySelectorAll('[data-fav]').forEach(sel => sel.addEventListener('change', () => {
+        state.rows[Number(sel.dataset.fav)].favorite = sel.value;
+        renderRows();
+    }));
+    $('rows').querySelectorAll('[data-team]').forEach(sel => sel.addEventListener('change', () => {
+        const r = state.rows[Number(sel.dataset.team)];
+        r[sel.dataset.slot] = sel.value;
+        r[sel.dataset.slot + '_name'] = TEAM_NAMES[sel.value] || '';
+        renderRows();
+    }));
+    // Spread edits repaint the two labels in place rather than re-rendering,
+    // so the number being typed keeps focus.
+    $('rows').querySelectorAll('[data-spread]').forEach(inp => inp.addEventListener('input', () => {
+        const i = Number(inp.dataset.spread);
+        const r = state.rows[i];
+        r.spread = Math.abs(parseFloat(inp.value) || 0);
+        const label = r.spread === 0 ? 'PK' : '-' + r.spread;
+        ['away', 'home'].forEach(side => {
+            const el = $('rows').querySelector(`[data-sp="${i}-${side}"]`);
+            if (el) el.textContent = r.favorite === side ? label : '';
+        });
+        validate();
+    }));
+
+    validate();
+}
+
+/** Returns true when the sheet is safe to save, and paints every problem. */
+function validate() {
+    const rows = state.rows;
+    const n    = rows.length;
+    const seen = {};
+    rows.forEach(r => { if (r.confidence > 0) seen[r.confidence] = (seen[r.confidence] || 0) + 1; });
+
+    // Confidence chips: which values are spoken for, which are doubled up.
+    $('chips').innerHTML = Array.from({ length: n }, (_, k) => {
+        const v = n - k;                                  // highest first, like the sheet
+        const c = seen[v] || 0;
+        return `<span class="chip ${c > 1 ? 'dupe' : c === 1 ? 'used' : ''}">${v}</span>`;
+    }).join('');
+
+    const setup = state.mode === 'setup';
+    const problems = [];
+    const teamUse = {};
+
+    rows.forEach((r, i) => {
+        const el = $('rows').querySelector(`[data-conf="${i}"]`);
+        const dup = r.confidence > 0 && seen[r.confidence] > 1;
+        const oor = r.confidence > n || r.confidence < 0;
+        if (el) el.classList.toggle('bad', dup || oor);
+
+        if (setup && !(r.away && r.home)) {
+            problems.push('Game ' + (i + 1) + ' still needs both teams chosen.');
+        } else if (setup && r.away === r.home) {
+            problems.push('Game ' + (i + 1) + ' has the same team on both sides.');
+        } else if (setup) {
+            // A team in two games means one matchup was misread.
+            [r.away, r.home].forEach(t => {
+                teamUse[t] = (teamUse[t] || 0) + 1;
+                if (teamUse[t] === 2) problems.push(TEAM_NAMES[t] + ' appears in more than one game.');
+            });
+        }
+        if (r.confidence > 0 && !r.pick && r.away && r.home) {
+            problems.push('Game ' + (i + 1) + ' has a confidence but no team marked.');
+        }
+        if (r.pick && !r.confidence) {
+            problems.push('Game ' + (i + 1) + ' has a team marked but no confidence.');
+        }
+    });
+    Object.keys(seen).forEach(v => {
+        if (seen[v] > 1) problems.push('Confidence ' + v + ' is used ' + seen[v] + ' times.');
+    });
+    if (rows.some(r => r.confidence > n)) problems.push('Confidence values cannot go above ' + n + '.');
+    if (!state.player.trim()) problems.push('Add a name for this sheet.');
+    if (!rows.some(r => r.pick && r.confidence > 0)) problems.push('No picks to save yet.');
+
+    const used = Object.keys(seen).filter(v => seen[v] === 1).length;
+    $('conf-note').textContent = used + ' of ' + n;
+
+    const box = $('review-error');
+    if (problems.length) {
+        box.className = 'banner bad';
+        box.innerHTML = '<ul>' + [...new Set(problems)].map(p => '<li>' + esc(p) + '</li>').join('') + '</ul>';
+    } else {
+        box.className = 'banner hidden';
+    }
+    $('save').disabled = problems.length > 0 || state.busy;
+    return problems.length === 0;
+}
+
+// ── Saving ───────────────────────────────────────────────────────────────
+$('save').addEventListener('click', async () => {
+    if (!validate() || state.busy) return;
+    state.busy = true;
+    $('save').disabled = true;
+    $('save').textContent = 'Saving…';
+
+    try {
+        // A first sheet defines the week before its own picks can reference it.
+        if (state.mode === 'setup') {
+            const games = state.rows.map(r => ({
+                away: r.away, home: r.home, favorite: r.favorite, spread: r.spread,
+            }));
+            await api('?action=cp_save_week', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ season: state.season, week: state.week, games: games }),
+            });
+            // Re-read the week so every pick carries the real game id.
+            const fresh = await api('?action=cp_week&season=' + state.season + '&week=' + state.week);
+            const byPair = {};
+            fresh.games.forEach(g => { byPair[g.away + '@' + g.home] = g.id; });
+            state.rows.forEach(r => { r.game_id = byPair[r.away + '@' + r.home] || null; });
+        }
+
+        const picks = state.rows
+            .filter(r => r.game_id && r.pick && r.confidence > 0)
+            .map(r => ({ game_id: r.game_id, pick: r.pick, confidence: r.confidence }));
+
+        await api('?action=cp_save_entry', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({
+                season:      state.season,
+                week:        state.week,
+                player_name: state.player.trim(),
+                photo_url:   state.photo,
+                picks:       picks,
+            }),
+        });
+
+        try { localStorage.setItem('nflpool_player', state.player.trim()); } catch (e) {}
+        closeOverlay();
+        await loadWeek(true);
+    } catch (e) {
+        const box = $('review-error');
+        box.className = 'banner bad';
+        box.textContent = e.message;
+        box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } finally {
+        state.busy = false;
+        $('save').textContent = 'Save picks';
+        if (state.rows) validate();
+    }
+});
+
+// ── Week pickers ─────────────────────────────────────────────────────────
+function buildPickers() {
+    const { season, week } = currentSeasonWeek();
+    state.season = season;
+    state.week   = week;
+
+    const sSel = $('season');
+    for (let y = season + 1; y >= season - 4; y--) {
+        sSel.insertAdjacentHTML('beforeend', `<option value="${y}" ${y === season ? 'selected' : ''}>${y}</option>`);
+    }
+    const wSel = $('week');
+    for (let w = 1; w <= 18; w++) {
+        wSel.insertAdjacentHTML('beforeend', `<option value="${w}" ${w === week ? 'selected' : ''}>Week ${w}</option>`);
+    }
+    sSel.addEventListener('change', () => { state.season = Number(sSel.value); state.open = null; loadWeek(true); });
+    wSel.addEventListener('change', () => { state.week   = Number(wSel.value); state.open = null; loadWeek(true); });
+}
+
+// ── Chrome ───────────────────────────────────────────────────────────────
+$('refresh').addEventListener('click', () => loadWeek(true));
+
+$('theme-toggle').addEventListener('click', () => {
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    $('toggle-icon').textContent = next === 'dark' ? '🌙' : '☀️';
+    try { localStorage.setItem('nflpool_theme', next); } catch (e) {}
+});
+$('toggle-icon').textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '🌙' : '☀️';
+
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(function () {});
+}
+
+buildPickers();
+loadWeek(false);
+</script>
+
+</body>
+</html>

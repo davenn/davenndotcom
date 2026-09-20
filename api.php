@@ -1776,5 +1776,745 @@ if ($method === 'DELETE' && $action === 'bg_event_delete') {
 }
 
 // =============================================================
+// CONFIDENCE POOL (nflpool.html) — actions prefixed cp_
+//
+// A week is defined by the first sheet photo uploaded for it: Claude reads the
+// matchups AND the printed spreads off the image, they get confirmed by hand,
+// and that becomes the week. Every later sheet is matched against those games.
+// Scoring deliberately uses the spread stored here, never a live line — the
+// sheet is printed once and the real line keeps moving after that.
+// =============================================================
+
+$pdo->exec("CREATE TABLE IF NOT EXISTS cp_weeks (
+    id                INT AUTO_INCREMENT PRIMARY KEY,
+    season            INT          NOT NULL,
+    week              INT          NOT NULL,
+    push_rule         ENUM('award','void') DEFAULT 'void',
+    scores_fetched_at DATETIME     DEFAULT NULL,
+    created_at        DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_season_week (season, week)
+)");
+
+$pdo->exec("CREATE TABLE IF NOT EXISTS cp_games (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    week_id    INT          NOT NULL,
+    sort_order INT          NOT NULL,
+    away_team  VARCHAR(8)   NOT NULL,
+    home_team  VARCHAR(8)   NOT NULL,
+    favorite   ENUM('home','away') NOT NULL,
+    spread     DECIMAL(4,1) NOT NULL,
+    espn_id    VARCHAR(24)  DEFAULT NULL,
+    away_score INT          DEFAULT 0,
+    home_score INT          DEFAULT 0,
+    state      ENUM('pre','in','post') DEFAULT 'pre',
+    detail     VARCHAR(60)  DEFAULT NULL,
+    kickoff    DATETIME     DEFAULT NULL,
+    UNIQUE KEY uk_week_order (week_id, sort_order),
+    FOREIGN KEY (week_id) REFERENCES cp_weeks(id) ON DELETE CASCADE
+)");
+
+$pdo->exec("CREATE TABLE IF NOT EXISTS cp_entries (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    week_id     INT          NOT NULL,
+    player_name VARCHAR(60)  NOT NULL,
+    photo_url   VARCHAR(255) DEFAULT NULL,
+    created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    updated_at  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_week_player (week_id, player_name),
+    FOREIGN KEY (week_id) REFERENCES cp_weeks(id) ON DELETE CASCADE
+)");
+
+// uk_entry_conf is what enforces "each confidence value once per week" at the
+// storage layer, so a bad sheet read can never quietly create a 16-and-16 entry.
+$pdo->exec("CREATE TABLE IF NOT EXISTS cp_picks (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    entry_id   INT NOT NULL,
+    game_id    INT NOT NULL,
+    pick       ENUM('home','away') NOT NULL,
+    confidence INT NOT NULL,
+    UNIQUE KEY uk_entry_game (entry_id, game_id),
+    UNIQUE KEY uk_entry_conf (entry_id, confidence),
+    FOREIGN KEY (entry_id) REFERENCES cp_entries(id) ON DELETE CASCADE,
+    FOREIGN KEY (game_id)  REFERENCES cp_games(id)   ON DELETE CASCADE
+)");
+
+/** City + nickname per team, keyed by the abbreviation ESPN uses. */
+function cpTeams(): array {
+    static $t = [
+        'ARI' => ['Arizona', 'Cardinals'],    'ATL' => ['Atlanta', 'Falcons'],
+        'BAL' => ['Baltimore', 'Ravens'],     'BUF' => ['Buffalo', 'Bills'],
+        'CAR' => ['Carolina', 'Panthers'],    'CHI' => ['Chicago', 'Bears'],
+        'CIN' => ['Cincinnati', 'Bengals'],   'CLE' => ['Cleveland', 'Browns'],
+        'DAL' => ['Dallas', 'Cowboys'],       'DEN' => ['Denver', 'Broncos'],
+        'DET' => ['Detroit', 'Lions'],        'GB'  => ['Green Bay', 'Packers'],
+        'HOU' => ['Houston', 'Texans'],       'IND' => ['Indianapolis', 'Colts'],
+        'JAX' => ['Jacksonville', 'Jaguars'], 'KC'  => ['Kansas City', 'Chiefs'],
+        'LV'  => ['Las Vegas', 'Raiders'],    'LAC' => ['Los Angeles', 'Chargers'],
+        'LAR' => ['Los Angeles', 'Rams'],     'MIA' => ['Miami', 'Dolphins'],
+        'MIN' => ['Minnesota', 'Vikings'],    'NE'  => ['New England', 'Patriots'],
+        'NO'  => ['New Orleans', 'Saints'],   'NYG' => ['New York', 'Giants'],
+        'NYJ' => ['New York', 'Jets'],        'PHI' => ['Philadelphia', 'Eagles'],
+        'PIT' => ['Pittsburgh', 'Steelers'],  'SEA' => ['Seattle', 'Seahawks'],
+        'SF'  => ['San Francisco', '49ers'],  'TB'  => ['Tampa Bay', 'Buccaneers'],
+        'TEN' => ['Tennessee', 'Titans'],     'WSH' => ['Washington', 'Commanders'],
+    ];
+    return $t;
+}
+
+/**
+ * Free text from a pick sheet ("K.C.", "Chiefs", "Kansas City") to an ESPN
+ * abbreviation, or '' when nothing matches. Nicknames are registered before
+ * cities because the two Los Angeles and two New York teams share a city.
+ */
+function cpTeamAbbr(string $raw): string {
+    static $map = null;
+    if ($map === null) {
+        $map = [];
+        foreach (cpTeams() as $abbr => $pair) {
+            foreach ([$abbr, $pair[1], $pair[0] . $pair[1]] as $alias) {
+                $map[preg_replace('/[^a-z0-9]/', '', strtolower($alias))] = $abbr;
+            }
+        }
+        // Cities last so they never overwrite a nickname key, plus the
+        // abbreviations and old city names people still write by hand.
+        $extra = [
+            'arizona' => 'ARI', 'arz' => 'ARI', 'atlanta' => 'ATL', 'baltimore' => 'BAL',
+            'buffalo' => 'BUF', 'carolina' => 'CAR', 'chicago' => 'CHI', 'cincinnati' => 'CIN',
+            'cincy' => 'CIN', 'cleveland' => 'CLE', 'dallas' => 'DAL', 'denver' => 'DEN',
+            'detroit' => 'DET', 'greenbay' => 'GB', 'gnb' => 'GB', 'houston' => 'HOU',
+            'indianapolis' => 'IND', 'indy' => 'IND', 'jacksonville' => 'JAX', 'jac' => 'JAX',
+            'kansascity' => 'KC', 'kan' => 'KC', 'lasvegas' => 'LV', 'lvr' => 'LV',
+            'oakland' => 'LV', 'oak' => 'LV', 'sandiego' => 'LAC', 'sd' => 'LAC', 'sdg' => 'LAC',
+            'stlouis' => 'LAR', 'stl' => 'LAR', 'la' => 'LAR', 'miami' => 'MIA',
+            'minnesota' => 'MIN', 'newengland' => 'NE', 'nwe' => 'NE', 'neworleans' => 'NO',
+            'nor' => 'NO', 'philadelphia' => 'PHI', 'philly' => 'PHI', 'pittsburgh' => 'PIT',
+            'seattle' => 'SEA', 'sanfrancisco' => 'SF', 'sfo' => 'SF', 'niners' => 'SF',
+            'tampabay' => 'TB', 'tampa' => 'TB', 'tam' => 'TB', 'bucs' => 'TB',
+            'tennessee' => 'TEN', 'washington' => 'WSH', 'was' => 'WSH',
+        ];
+        foreach ($extra as $k => $v) { if (!isset($map[$k])) $map[$k] = $v; }
+    }
+    $k = preg_replace('/[^a-z0-9]/', '', strtolower($raw));
+    if ($k === '') return '';
+    if (isset($map[$k])) return $map[$k];
+    // Last resort: longest alias contained in the string, so "at Buffalo Bills"
+    // still resolves. Longest wins to keep "la" from beating "chargers".
+    $best = ''; $len = 0;
+    foreach ($map as $alias => $abbr) {
+        if (strlen($alias) > $len && strlen($alias) >= 4 && str_contains($k, $alias)) {
+            $best = $abbr; $len = strlen($alias);
+        }
+    }
+    return $best;
+}
+
+/**
+ * Which side covered, given the spread printed on the sheet.
+ * Returns 'home' | 'away' | 'push', or null before the game has any score.
+ * It runs on in-progress games too — that is what makes the board live.
+ */
+function cpCover(array $g): ?string {
+    if ($g['state'] === 'pre') return null;
+    $margin = (int)$g['home_score'] - (int)$g['away_score'];   // positive: home ahead
+    $edge   = $g['favorite'] === 'home'
+            ? $margin - (float)$g['spread']
+            : -$margin - (float)$g['spread'];
+    if (abs($edge) < 0.001) return 'push';
+    $dog = $g['favorite'] === 'home' ? 'away' : 'home';
+    return $edge > 0 ? $g['favorite'] : $dog;
+}
+
+/** ESPN's public scoreboard. Returns null on any failure — scores just stay stale. */
+function cpFetchEspn(int $season, int $week): ?array {
+    $url = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
+         . "?dates={$season}&seasontype=2&week={$week}";
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 10,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_USERAGENT      => 'davenn.com confidence pool',
+    ]);
+    $res  = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if (!$res || $code !== 200) return null;
+    $data = json_decode($res, true);
+    return is_array($data['events'] ?? null) ? $data['events'] : null;
+}
+
+/**
+ * Pull live scores into cp_games. The fetch timestamp is written *before* the
+ * network call, so a burst of family members polling at once produces one ESPN
+ * request rather than one per phone.
+ */
+function cpRefreshScores(PDO $pdo, array $week, bool $force = false): void {
+    $last = $week['scores_fetched_at'] ? strtotime($week['scores_fetched_at'] . ' UTC') : 0;
+    if (!$force && $last && (time() - $last) < 25) return;
+
+    $pdo->prepare("UPDATE cp_weeks SET scores_fetched_at = UTC_TIMESTAMP() WHERE id = ?")
+        ->execute([$week['id']]);
+
+    $events = cpFetchEspn((int)$week['season'], (int)$week['week']);
+    if ($events === null) return;
+
+    $live = [];
+    foreach ($events as $ev) {
+        $comp = $ev['competitions'][0] ?? null;
+        if (!$comp) continue;
+        $row = ['id' => (string)($ev['id'] ?? '')];
+        foreach ($comp['competitors'] ?? [] as $c) {
+            $side = ($c['homeAway'] ?? '') === 'home' ? 'home' : 'away';
+            $row[$side]           = cpTeamAbbr((string)($c['team']['abbreviation'] ?? ''));
+            $row[$side . 'Score'] = (int)($c['score'] ?? 0);
+        }
+        $state = $ev['status']['type']['state'] ?? 'pre';
+        $row['state']   = in_array($state, ['pre', 'in', 'post'], true) ? $state : 'pre';
+        $row['detail']  = mb_substr((string)($ev['status']['type']['shortDetail'] ?? ''), 0, 60);
+        $row['kickoff'] = isset($ev['date']) ? gmdate('Y-m-d H:i:s', strtotime($ev['date'])) : null;
+        if (!empty($row['home']) && !empty($row['away'])) {
+            $live[$row['away'] . '@' . $row['home']] = $row;
+        }
+    }
+    if (!$live) return;
+
+    $up = $pdo->prepare("UPDATE cp_games SET espn_id=?, away_score=?, home_score=?, state=?, detail=?, kickoff=? WHERE id=?");
+    $gs = $pdo->prepare("SELECT * FROM cp_games WHERE week_id = ?");
+    $gs->execute([$week['id']]);
+    foreach ($gs->fetchAll() as $g) {
+        $m = $live[$g['away_team'] . '@' . $g['home_team']] ?? null;
+        if (!$m) continue;
+        $up->execute([$m['id'], $m['awayScore'], $m['homeScore'], $m['state'], $m['detail'], $m['kickoff'], $g['id']]);
+    }
+}
+
+/** Week row plus games, entries and standings — the whole app state in one shape. */
+function cpWeekPayload(PDO $pdo, array $week): array {
+    $teams = cpTeams();
+
+    $gs = $pdo->prepare("SELECT * FROM cp_games WHERE week_id = ? ORDER BY sort_order");
+    $gs->execute([$week['id']]);
+    $games = $gs->fetchAll();
+
+    $cover = []; $state_of = []; $out_games = [];
+    foreach ($games as $g) {
+        $c = cpCover($g);
+        $cover[$g['id']]    = $c;
+        $state_of[$g['id']] = $g['state'];
+        $out_games[] = [
+            'id'         => (int)$g['id'],
+            'sort_order' => (int)$g['sort_order'],
+            'away'       => $g['away_team'],
+            'home'       => $g['home_team'],
+            'away_name'  => $teams[$g['away_team']][1] ?? $g['away_team'],
+            'home_name'  => $teams[$g['home_team']][1] ?? $g['home_team'],
+            'favorite'   => $g['favorite'],
+            'spread'     => (float)$g['spread'],
+            'away_score' => (int)$g['away_score'],
+            'home_score' => (int)$g['home_score'],
+            'state'      => $g['state'],
+            'detail'     => $g['detail'],
+            'kickoff'    => $g['kickoff'] ? gmdate('c', strtotime($g['kickoff'] . ' UTC')) : null,
+            'cover'      => $c,
+        ];
+    }
+
+    $es = $pdo->prepare("SELECT * FROM cp_entries WHERE week_id = ? ORDER BY player_name");
+    $es->execute([$week['id']]);
+    $entries = $es->fetchAll();
+
+    $ps = $pdo->prepare("SELECT p.* FROM cp_picks p JOIN cp_entries e ON e.id = p.entry_id WHERE e.week_id = ?");
+    $ps->execute([$week['id']]);
+    $by_entry = [];
+    foreach ($ps->fetchAll() as $p) $by_entry[$p['entry_id']][] = $p;
+
+    // A push pays nobody by default: the result landed exactly on the printed
+    // number, so the pick was neither right nor wrong.
+    $award_push = $week['push_rule'] === 'award';
+    $standings  = [];
+
+    foreach ($entries as $e) {
+        $locked = 0; $live = 0; $pending = 0; $hits = 0; $decided = 0; $rows = [];
+        foreach ($by_entry[$e['id']] ?? [] as $p) {
+            $gid   = (int)$p['game_id'];
+            $conf  = (int)$p['confidence'];
+            $c     = $cover[$gid] ?? null;
+            $final = ($state_of[$gid] ?? 'pre') === 'post';
+            $won   = $c === null ? null : ($c === 'push' ? $award_push : $c === $p['pick']);
+            $pts   = $won ? $conf : 0;
+            // A push that pays nobody stays out of the win/loss record too,
+            // rather than being counted against the player as a miss.
+            $void  = $c === 'push' && !$award_push;
+
+            if ($final) {
+                $locked += $pts; $live += $pts;
+                if (!$void) { $decided++; if ($won) $hits++; }
+            } else {
+                // Undecided: count it live only while it is currently covering,
+                // and keep its full value in the still-winnable pile either way.
+                $live    += $pts;
+                $pending += $conf;
+            }
+            $rows[] = [
+                'game_id'    => $gid,
+                'pick'       => $p['pick'],
+                'confidence' => $conf,
+                'result'     => $c === null ? 'pending' : ($c === 'push' ? 'push' : ($won ? 'win' : 'loss')),
+                'final'      => $final,
+            ];
+        }
+        usort($rows, fn($a, $b) => $b['confidence'] <=> $a['confidence']);
+        $standings[] = [
+            'id'          => (int)$e['id'],
+            'player_name' => $e['player_name'],
+            'photo_url'   => $e['photo_url'],
+            'points'      => $locked,            // games that are final
+            'live_points' => $live,              // final + currently covering
+            'max_points'  => $live + $pending,   // if every undecided pick lands
+            'correct'     => $hits,
+            'decided'     => $decided,
+            'picks'       => $rows,
+        ];
+    }
+    usort($standings, fn($a, $b) => [$b['live_points'], $b['max_points'], $a['player_name']]
+                                <=> [$a['live_points'], $a['max_points'], $b['player_name']]);
+
+    return [
+        'week' => [
+            'id'        => (int)$week['id'],
+            'season'    => (int)$week['season'],
+            'week'      => (int)$week['week'],
+            'push_rule' => $week['push_rule'],
+            'locked'    => count($entries) > 0,
+        ],
+        'games'     => $out_games,
+        'standings' => $standings,
+    ];
+}
+
+// POST ?action=cp_scan  (multipart: photo, optional season + week)
+// Reads a filled-in sheet. Saves no picks — the app shows the result for
+// correction first, because a misread confidence number costs more than a
+// misread team name and both happen.
+if ($method === 'POST' && $action === 'cp_scan') {
+    $api_key = $_ENV['ANTHROPIC_API_KEY'] ?? '';
+    if (!$api_key) { http_response_code(500); echo json_encode(['error' => 'Sheet reading is not configured on the server.']); exit; }
+
+    if (empty($_FILES['photo']['tmp_name'])) {
+        http_response_code(400); echo json_encode(['error' => 'No image provided.']); exit;
+    }
+    $ext      = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
+    $mime_map = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp'];
+    if (!isset($mime_map[$ext])) { http_response_code(400); echo json_encode(['error' => 'Use a JPG, PNG or WebP photo.']); exit; }
+    if ($_FILES['photo']['size'] > 10 * 1024 * 1024) { http_response_code(400); echo json_encode(['error' => 'Photo must be under 10 MB.']); exit; }
+
+    $tmp        = $_FILES['photo']['tmp_name'];
+    $media_type = $mime_map[$ext];
+    $bytes      = file_get_contents($tmp);
+
+    // A phone photo of a sheet is far bigger than the model can use. 1568px on
+    // the long edge is the documented ceiling — past it you pay for pixels that
+    // get resized away server-side anyway.
+    if (function_exists('imagecreatefromstring')) {
+        $img = @imagecreatefromstring($bytes);
+        if ($img !== false) {
+            $w = imagesx($img); $h = imagesy($img);
+            if (max($w, $h) > 1568) {
+                $scale  = 1568 / max($w, $h);
+                $scaled = imagescale($img, (int)round($w * $scale), (int)round($h * $scale));
+                if ($scaled !== false) {
+                    ob_start(); imagejpeg($scaled, null, 90); $bytes = ob_get_clean();
+                    $media_type = 'image/jpeg';
+                    imagedestroy($scaled);
+                }
+            }
+            imagedestroy($img);
+        }
+    }
+
+    $prompt = 'This is a photo of a filled-in NFL confidence pool pick sheet.
+
+Each row is one game with a point spread. The player marks the team they pick — circled, ticked, boxed, highlighted or otherwise marked — and writes a confidence number for that row. Confidence numbers run from 1 up to the number of games, and each number is used exactly once.
+
+For every game row, report:
+- away_team and home_team as written on the sheet. The away team is normally listed first, or is the one with "@" or "at" before the home team.
+- favorite: "home" or "away" — which team the spread favours. The favourite is the team the negative number sits beside, so "Bills -3.5" means Buffalo is the favourite.
+- spread: the size of the spread as a positive number, so 3.5 for "-3.5". Use 0 for a pick-em.
+- pick: "home" or "away" for the team this player marked, or "" if the row is not marked.
+- confidence: the number written for that row, or 0 if you cannot read one.
+
+Also report player_name if a name is written on the sheet, otherwise "".
+
+Read carefully and do not guess. A wrong confidence number is worse than a 0, so use 0 whenever a digit is ambiguous and say so in note. List the games in the order they appear on the sheet. Set readable to false only if this is not a pick sheet or is too unclear to read at all.';
+
+    $schema = [
+        'type'       => 'object',
+        'properties' => [
+            'readable'    => ['type' => 'boolean'],
+            'player_name' => ['type' => 'string'],
+            'note'        => ['type' => 'string', 'description' => 'Anything unclear, or "" if the read was clean.'],
+            'games'       => [
+                'type'  => 'array',
+                'items' => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'away_team'  => ['type' => 'string'],
+                        'home_team'  => ['type' => 'string'],
+                        'favorite'   => ['type' => 'string', 'enum' => ['home', 'away']],
+                        'spread'     => ['type' => 'number'],
+                        'pick'       => ['type' => 'string', 'enum' => ['home', 'away', '']],
+                        'confidence' => ['type' => 'integer'],
+                    ],
+                    'required'             => ['away_team', 'home_team', 'favorite', 'spread', 'pick', 'confidence'],
+                    'additionalProperties' => false,
+                ],
+            ],
+        ],
+        'required'             => ['readable', 'player_name', 'note', 'games'],
+        'additionalProperties' => false,
+    ];
+
+    $payload = json_encode([
+        'model'         => 'claude-opus-5',
+        'max_tokens'    => 8000,
+        'output_config' => ['format' => ['type' => 'json_schema', 'schema' => $schema]],
+        'messages'      => [[
+            'role'    => 'user',
+            'content' => [
+                ['type' => 'image', 'source' => ['type' => 'base64', 'media_type' => $media_type, 'data' => base64_encode($bytes)]],
+                ['type' => 'text',  'text'   => $prompt],
+            ],
+        ]],
+    ]);
+
+    $ch = curl_init('https://api.anthropic.com/v1/messages');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => $payload,
+        CURLOPT_HTTPHEADER     => [
+            'x-api-key: ' . $api_key,
+            'anthropic-version: 2023-06-01',
+            'content-type: application/json',
+        ],
+        CURLOPT_TIMEOUT => 180,
+    ]);
+    $response  = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if (!$response || $http_code !== 200) {
+        http_response_code(502);
+        echo json_encode(['error' => 'Could not read the sheet — the reading service did not respond.']); exit;
+    }
+    $data = json_decode($response, true);
+    $text = '';
+    foreach ($data['content'] ?? [] as $blk) {
+        if (($blk['type'] ?? '') === 'text') { $text = trim($blk['text']); break; }
+    }
+    $result = json_decode($text, true);
+    if (!is_array($result)) {
+        http_response_code(502); echo json_encode(['error' => 'Could not read the sheet.']); exit;
+    }
+    if (empty($result['readable']) || !is_array($result['games'] ?? null) || !count($result['games'])) {
+        echo json_encode([
+            'success'  => true,
+            'readable' => false,
+            'note'     => (string)($result['note'] ?? '') ?: 'No games could be read from that photo.',
+        ]); exit;
+    }
+
+    // Keep the photo so an entry can be checked against the paper later.
+    $photo_url = null;
+    if ($upload_url) {
+        $dir = rtrim($upload_dir, '/') . '/';
+        if (!is_dir($dir)) mkdir($dir, 0755, true);
+        $fname = uniqid('sheet_', true) . '.' . $ext;
+        if (move_uploaded_file($tmp, $dir . $fname)) $photo_url = $upload_url . $fname;
+    }
+
+    // Match against the week when one already exists, so the browser never has
+    // to reconcile team names itself.
+    $season   = intval($_POST['season'] ?? $_GET['season'] ?? 0);
+    $week_n   = intval($_POST['week']   ?? $_GET['week']   ?? 0);
+    $existing = [];
+    $week_row = null;
+    if ($season && $week_n) {
+        $st = $pdo->prepare("SELECT * FROM cp_weeks WHERE season = ? AND week = ?");
+        $st->execute([$season, $week_n]);
+        $week_row = $st->fetch() ?: null;
+        if ($week_row) {
+            $gs = $pdo->prepare("SELECT * FROM cp_games WHERE week_id = ? ORDER BY sort_order");
+            $gs->execute([$week_row['id']]);
+            foreach ($gs->fetchAll() as $g) $existing[$g['away_team'] . '@' . $g['home_team']] = $g;
+        }
+    }
+
+    $teams = cpTeams();
+    $rows = []; $warnings = []; $seen_conf = [];
+    foreach ($result['games'] as $i => $g) {
+        $away = cpTeamAbbr((string)($g['away_team'] ?? ''));
+        $home = cpTeamAbbr((string)($g['home_team'] ?? ''));
+        if (!$away || !$home) {
+            $warnings[] = 'Row ' . ($i + 1) . ': could not recognise "'
+                        . trim(($g['away_team'] ?? '') . ' vs ' . ($g['home_team'] ?? '')) . '".';
+        }
+        $conf = (int)($g['confidence'] ?? 0);
+        if ($conf > 0) {
+            if (isset($seen_conf[$conf])) $warnings[] = 'Confidence ' . $conf . ' was read on more than one row.';
+            $seen_conf[$conf] = true;
+        }
+        $match = ($away && $home) ? ($existing[$away . '@' . $home] ?? null) : null;
+        if ($existing && $away && $home && !$match) {
+            $warnings[] = ($teams[$away][1] ?? $away) . ' at ' . ($teams[$home][1] ?? $home) . ' is not a game in this week.';
+        }
+        $rows[] = [
+            'game_id'    => $match ? (int)$match['id'] : null,
+            'away'       => $away,
+            'home'       => $home,
+            'away_name'  => $teams[$away][1] ?? (string)($g['away_team'] ?? ''),
+            'home_name'  => $teams[$home][1] ?? (string)($g['home_team'] ?? ''),
+            // An established week's own spread always beats a fresh read of it.
+            'favorite'   => $match ? $match['favorite']      : (($g['favorite'] ?? 'home') === 'away' ? 'away' : 'home'),
+            'spread'     => $match ? (float)$match['spread'] : round(abs((float)($g['spread'] ?? 0)) * 2) / 2,
+            'pick'       => in_array($g['pick'] ?? '', ['home', 'away'], true) ? $g['pick'] : '',
+            'confidence' => $conf,
+        ];
+    }
+    $n = count($rows);
+    foreach ($rows as $r) {
+        if ($r['confidence'] > $n) { $warnings[] = 'A confidence above ' . $n . ' was read — check the numbers.'; break; }
+    }
+
+    echo json_encode([
+        'success'     => true,
+        'readable'    => true,
+        'player_name' => trim((string)($result['player_name'] ?? '')),
+        'note'        => (string)($result['note'] ?? ''),
+        'photo_url'   => $photo_url,
+        'week_exists' => (bool)$week_row,
+        'rows'        => $rows,
+        'warnings'    => array_values(array_unique($warnings)),
+    ]);
+    exit;
+}
+
+// POST ?action=cp_save_week  {season, week, push_rule, games:[{away,home,favorite,spread}]}
+// Creates the week, or updates the spreads on one that already has entries.
+if ($method === 'POST' && $action === 'cp_save_week') {
+    $body   = json_decode(file_get_contents('php://input'), true);
+    $season = intval($body['season'] ?? 0);
+    $week_n = intval($body['week']   ?? 0);
+    $games  = is_array($body['games'] ?? null) ? $body['games'] : [];
+    $push   = ($body['push_rule'] ?? 'void') === 'award' ? 'award' : 'void';
+
+    if ($season < 2000 || $week_n < 1 || $week_n > 22) {
+        http_response_code(400); echo json_encode(['error' => 'Season and week are out of range.']); exit;
+    }
+    if (count($games) < 1 || count($games) > 20) {
+        http_response_code(400); echo json_encode(['error' => 'A week needs between 1 and 20 games.']); exit;
+    }
+
+    $clean = []; $seen = [];
+    foreach ($games as $i => $g) {
+        $away = cpTeamAbbr((string)($g['away'] ?? ''));
+        $home = cpTeamAbbr((string)($g['home'] ?? ''));
+        if (!$away || !$home || $away === $home) {
+            http_response_code(400); echo json_encode(['error' => 'Game ' . ($i + 1) . ' needs two different teams.']); exit;
+        }
+        foreach ([$away, $home] as $t) {
+            if (isset($seen[$t])) {
+                http_response_code(400);
+                echo json_encode(['error' => (cpTeams()[$t][1] ?? $t) . ' appears in more than one game.']); exit;
+            }
+            $seen[$t] = true;
+        }
+        $clean[] = [
+            'away'     => $away,
+            'home'     => $home,
+            'favorite' => ($g['favorite'] ?? 'home') === 'away' ? 'away' : 'home',
+            'spread'   => max(0, min(60, round(abs((float)($g['spread'] ?? 0)) * 2) / 2)),
+        ];
+    }
+
+    $st = $pdo->prepare("SELECT * FROM cp_weeks WHERE season = ? AND week = ?");
+    $st->execute([$season, $week_n]);
+    $week = $st->fetch();
+
+    $pdo->beginTransaction();
+    try {
+        if (!$week) {
+            $pdo->prepare("INSERT INTO cp_weeks (season, week, push_rule) VALUES (?,?,?)")
+                ->execute([$season, $week_n, $push]);
+            $week_id = (int)$pdo->lastInsertId();
+        } else {
+            $week_id = (int)$week['id'];
+            $pdo->prepare("UPDATE cp_weeks SET push_rule = ? WHERE id = ?")->execute([$push, $week_id]);
+
+            $cnt = $pdo->prepare("SELECT COUNT(*) FROM cp_entries WHERE week_id = ?");
+            $cnt->execute([$week_id]);
+            if ((int)$cnt->fetchColumn() > 0) {
+                // Picks point at game rows, so replacing the list would orphan
+                // them. Once anyone has entered, only the lines stay editable.
+                $gs = $pdo->prepare("SELECT * FROM cp_games WHERE week_id = ? ORDER BY sort_order");
+                $gs->execute([$week_id]);
+                $current = $gs->fetchAll();
+                if (count($current) !== count($clean)) {
+                    $pdo->rollBack(); http_response_code(409);
+                    echo json_encode(['error' => 'Picks are already in for this week, so games cannot be added or removed.']); exit;
+                }
+                $up = $pdo->prepare("UPDATE cp_games SET favorite = ?, spread = ? WHERE id = ?");
+                foreach ($current as $i => $g) {
+                    if ($g['away_team'] !== $clean[$i]['away'] || $g['home_team'] !== $clean[$i]['home']) {
+                        $pdo->rollBack(); http_response_code(409);
+                        echo json_encode(['error' => 'Picks are already in, so the matchups cannot change — only the spreads.']); exit;
+                    }
+                    $up->execute([$clean[$i]['favorite'], $clean[$i]['spread'], $g['id']]);
+                }
+                $pdo->commit();
+                echo json_encode(['success' => true, 'week_id' => $week_id, 'updated' => 'spreads']); exit;
+            }
+            $pdo->prepare("DELETE FROM cp_games WHERE week_id = ?")->execute([$week_id]);
+        }
+
+        $ins = $pdo->prepare("INSERT INTO cp_games (week_id, sort_order, away_team, home_team, favorite, spread) VALUES (?,?,?,?,?,?)");
+        foreach ($clean as $i => $g) {
+            $ins->execute([$week_id, $i, $g['away'], $g['home'], $g['favorite'], $g['spread']]);
+        }
+        $pdo->commit();
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        http_response_code(500); echo json_encode(['error' => 'Could not save the week.']); exit;
+    }
+
+    echo json_encode(['success' => true, 'week_id' => $week_id]);
+    exit;
+}
+
+// POST ?action=cp_save_entry  {season, week, player_name, photo_url, picks:[{game_id,pick,confidence}]}
+if ($method === 'POST' && $action === 'cp_save_entry') {
+    $body   = json_decode(file_get_contents('php://input'), true);
+    $season = intval($body['season'] ?? 0);
+    $week_n = intval($body['week']   ?? 0);
+    $name   = trim((string)($body['player_name'] ?? ''));
+    $photo  = trim((string)($body['photo_url'] ?? '')) ?: null;
+    $picks  = is_array($body['picks'] ?? null) ? $body['picks'] : [];
+
+    if ($name === '' || mb_strlen($name) > 60) {
+        http_response_code(400); echo json_encode(['error' => 'Enter a name for this sheet.']); exit;
+    }
+
+    $st = $pdo->prepare("SELECT * FROM cp_weeks WHERE season = ? AND week = ?");
+    $st->execute([$season, $week_n]);
+    $week = $st->fetch();
+    if (!$week) { http_response_code(404); echo json_encode(['error' => 'That week has not been set up yet.']); exit; }
+
+    $gs = $pdo->prepare("SELECT id FROM cp_games WHERE week_id = ?");
+    $gs->execute([$week['id']]);
+    $valid = array_map('intval', $gs->fetchAll(PDO::FETCH_COLUMN));
+    $n     = count($valid);
+
+    $clean = []; $used_conf = []; $used_game = [];
+    foreach ($picks as $p) {
+        $gid  = intval($p['game_id'] ?? 0);
+        $conf = intval($p['confidence'] ?? 0);
+        $side = ($p['pick'] ?? '') === 'away' ? 'away' : (($p['pick'] ?? '') === 'home' ? 'home' : '');
+        if ($conf === 0 || $side === '') continue;              // a deliberately blank row
+        if (!in_array($gid, $valid, true)) {
+            http_response_code(400); echo json_encode(['error' => 'A pick refers to a game that is not in this week.']); exit;
+        }
+        if ($conf < 1 || $conf > $n) {
+            http_response_code(400); echo json_encode(['error' => 'Confidence values must be between 1 and ' . $n . '.']); exit;
+        }
+        if (isset($used_game[$gid])) {
+            http_response_code(400); echo json_encode(['error' => 'One game has two picks on it.']); exit;
+        }
+        if (isset($used_conf[$conf])) {
+            http_response_code(400); echo json_encode(['error' => 'Confidence ' . $conf . ' is used twice — each value can only be used once.']); exit;
+        }
+        $used_game[$gid] = true; $used_conf[$conf] = true;
+        $clean[] = ['game_id' => $gid, 'pick' => $side, 'confidence' => $conf];
+    }
+    if (!$clean) { http_response_code(400); echo json_encode(['error' => 'No picks to save.']); exit; }
+
+    $pdo->beginTransaction();
+    try {
+        $find = $pdo->prepare("SELECT id FROM cp_entries WHERE week_id = ? AND player_name = ?");
+        $find->execute([$week['id'], $name]);
+        $entry_id = $find->fetchColumn();
+        if ($entry_id) {
+            // Re-uploading a sheet replaces that player's picks rather than
+            // stacking a second entry beside the first.
+            $entry_id = (int)$entry_id;
+            $pdo->prepare("UPDATE cp_entries SET photo_url = COALESCE(?, photo_url) WHERE id = ?")->execute([$photo, $entry_id]);
+            $pdo->prepare("DELETE FROM cp_picks WHERE entry_id = ?")->execute([$entry_id]);
+        } else {
+            $pdo->prepare("INSERT INTO cp_entries (week_id, player_name, photo_url) VALUES (?,?,?)")
+                ->execute([$week['id'], $name, $photo]);
+            $entry_id = (int)$pdo->lastInsertId();
+        }
+        $ins = $pdo->prepare("INSERT INTO cp_picks (entry_id, game_id, pick, confidence) VALUES (?,?,?,?)");
+        foreach ($clean as $p) $ins->execute([$entry_id, $p['game_id'], $p['pick'], $p['confidence']]);
+        $pdo->commit();
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        http_response_code(500); echo json_encode(['error' => 'Could not save these picks.']); exit;
+    }
+
+    echo json_encode(['success' => true, 'entry_id' => $entry_id, 'saved' => count($clean)]);
+    exit;
+}
+
+// GET ?action=cp_week&season=&week=
+if ($method === 'GET' && $action === 'cp_week') {
+    $season = intval($_GET['season'] ?? 0);
+    $week_n = intval($_GET['week']   ?? 0);
+    $st = $pdo->prepare("SELECT * FROM cp_weeks WHERE season = ? AND week = ?");
+    $st->execute([$season, $week_n]);
+    $week = $st->fetch();
+    if (!$week) { echo json_encode(['success' => true, 'exists' => false]); exit; }
+
+    cpRefreshScores($pdo, $week, !empty($_GET['force']));
+    $st->execute([$season, $week_n]);
+    $week = $st->fetch();
+
+    echo json_encode(['success' => true, 'exists' => true] + cpWeekPayload($pdo, $week));
+    exit;
+}
+
+// GET ?action=cp_weeks — every week that has been set up, newest first.
+if ($method === 'GET' && $action === 'cp_weeks') {
+    $rows = $pdo->query("SELECT w.season, w.week,
+                                (SELECT COUNT(*) FROM cp_games   g WHERE g.week_id = w.id) AS games,
+                                (SELECT COUNT(*) FROM cp_entries e WHERE e.week_id = w.id) AS entries
+                         FROM cp_weeks w ORDER BY w.season DESC, w.week DESC")->fetchAll();
+    echo json_encode(['success' => true, 'weeks' => array_map(fn($r) => [
+        'season'  => (int)$r['season'],
+        'week'    => (int)$r['week'],
+        'games'   => (int)$r['games'],
+        'entries' => (int)$r['entries'],
+    ], $rows)]);
+    exit;
+}
+
+// DELETE ?action=cp_entry&id=X
+if ($method === 'DELETE' && $action === 'cp_entry') {
+    $stmt = $pdo->prepare("DELETE FROM cp_entries WHERE id = ?");
+    $stmt->execute([intval($_GET['id'] ?? 0)]);
+    if ($stmt->rowCount() === 0) { http_response_code(404); echo json_encode(['error' => 'No such entry.']); exit; }
+    echo json_encode(['success' => true]);
+    exit;
+}
+
+// DELETE ?action=cp_week&season=&week=
+if ($method === 'DELETE' && $action === 'cp_week') {
+    $stmt = $pdo->prepare("DELETE FROM cp_weeks WHERE season = ? AND week = ?");
+    $stmt->execute([intval($_GET['season'] ?? 0), intval($_GET['week'] ?? 0)]);
+    if ($stmt->rowCount() === 0) { http_response_code(404); echo json_encode(['error' => 'No such week.']); exit; }
+    echo json_encode(['success' => true]);
+    exit;
+}
+
+// =============================================================
 http_response_code(404);
 echo json_encode(['error' => 'Unknown action.']);
