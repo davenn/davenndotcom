@@ -2111,11 +2111,12 @@ function cpWeekPayload(PDO $pdo, array $week): array {
     $gs->execute([$week['id']]);
     $games = $gs->fetchAll();
 
-    $cover = []; $state_of = []; $out_games = [];
+    $cover = []; $state_of = []; $order_of = []; $out_games = [];
     foreach ($games as $g) {
         $c = cpCover($g);
         $cover[$g['id']]    = $c;
         $state_of[$g['id']] = $g['state'];
+        $order_of[$g['id']] = (int)$g['sort_order'];
         $out_games[] = [
             'id'         => (int)$g['id'],
             'sort_order' => (int)$g['sort_order'],
@@ -2178,7 +2179,9 @@ function cpWeekPayload(PDO $pdo, array $week): array {
                 'final'      => $final,
             ];
         }
-        usort($rows, fn($a, $b) => $b['confidence'] <=> $a['confidence']);
+        // Sheet order, not confidence order: someone checking their entry is
+        // reading down the paper in their hand, row by row.
+        usort($rows, fn($a, $b) => ($order_of[$a['game_id']] ?? 0) <=> ($order_of[$b['game_id']] ?? 0));
         $standings[] = [
             'id'          => (int)$e['id'],
             'player_name' => $e['player_name'],

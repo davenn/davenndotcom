@@ -488,13 +488,11 @@ function renderStandings(d) {
         return;
     }
 
-    const gameById = {};
-    d.games.forEach(g => { gameById[g.id] = g; });
     const top = Math.max(1, ...d.standings.map(s => s.max_points));
 
     $('standings').innerHTML = d.standings.map((s, i) => {
         const open = state.open === s.id;
-        const picks = open ? renderPicks(s, gameById) : '';
+        const picks = open ? renderPicks(s, d.games) : '';
         return `
         <div class="player" data-entry="${s.id}" role="button" tabindex="0"
              aria-expanded="${open}" aria-label="${esc(s.player_name)}, ${s.live_points} points">
@@ -525,11 +523,21 @@ function renderStandings(d) {
     });
 }
 
-function renderPicks(s, gameById) {
+// Walks the week's games rather than the picks, so the list reads down in the
+// same order as the paper sheet — including any row that came back unmarked,
+// which would otherwise drop out and put everything below it out of step.
+function renderPicks(s, games) {
     if (!s.picks.length) return '';
-    const rows = s.picks.map(p => {
-        const g = gameById[p.game_id];
-        if (!g) return '';
+    const byGame = {};
+    s.picks.forEach(p => { byGame[p.game_id] = p; });
+
+    const rows = games.map(g => {
+        const p = byGame[g.id];
+        if (!p) return `<div class="pickrow">
+            <div class="pickconf">–</div>
+            <div style="color:var(--text-muted)">${esc(g.away_name)} at ${esc(g.home_name)}</div>
+            <span class="tag">No pick</span>
+        </div>`;
         const picked = p.pick === 'home' ? g.home_name : g.away_name;
         const other  = p.pick === 'home' ? g.away_name : g.home_name;
         let tag = '<span class="tag">Not started</span>';
