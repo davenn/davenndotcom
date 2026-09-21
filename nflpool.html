@@ -176,9 +176,15 @@
         /* ── GAME BOARD ── */
         .game { border-top: 1px solid var(--border); padding: 12px 0; }
         .game:first-of-type { border-top: none; }
-        .gline { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; }
-        .gteams { display: flex; align-items: center; font-size: 15px; }
-        .gteams b { font-weight: 600; }
+        /* Logos, then the two-line readout beside them, then the score. */
+        .gline { display: grid; grid-template-columns: auto 1fr auto; gap: 11px; align-items: center; }
+        .gteams { display: flex; align-items: center; }
+        .ginfo { display: grid; gap: 2px; min-width: 0; }
+        .gspread {
+            font-size: 15px; font-weight: 600; line-height: 1.25;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .gstatus { font-family: var(--font-mono); font-size: 11px; line-height: 1.35; }
 
         /* ── TEAM LOGO TILES ──
            The two tiles butt together as one unit, away on the left. The
@@ -187,7 +193,7 @@
            broken-image box. */
         .tlogo {
             position: relative; flex: none;
-            width: 54px; height: 42px;
+            width: 64px; height: 50px;
             background: var(--surface-2); border: 1px solid var(--border);
             display: inline-flex; align-items: center; justify-content: center;
             overflow: hidden;
@@ -217,10 +223,6 @@
         /* Keeps the not-yet-played rows recessed, as the text used to be. */
         .game--pre .tlogo { opacity: 0.6; }
         .gscore { font-family: var(--font-mono); font-size: 17px; white-space: nowrap; }
-        .gmeta {
-            display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
-            margin-top: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);
-        }
         /* ── GAME STATE ──
            The three states read as three levels of emphasis rather than three
            hues: a game not yet played recedes, one in progress comes forward,
@@ -234,7 +236,7 @@
             width: 3px; border-radius: 0 2px 2px 0; background: transparent;
         }
         .game--pre::before  { background: var(--border); }
-        .game--pre .gteams  { color: var(--text-secondary); }
+        .game--pre .gspread { color: var(--text-secondary); }
         .game--pre .gscore  { color: var(--text-muted); }
         .game--in::before   { background: var(--crit); }
         .game--post::before { background: var(--text-muted); }
@@ -339,6 +341,10 @@
         @media (max-width: 420px) {
             .rpick { grid-template-columns: 1fr 1fr 54px; }
             .wrap { padding: 12px; }
+            /* Give the readout its room back before a long favourite like
+               "Commanders -13.5" starts getting clipped. */
+            .tlogo { width: 54px; height: 44px; }
+            .gline { gap: 9px; }
         }
     </style>
 </head>
@@ -491,11 +497,16 @@ function logoTile(abbr, name, side, covering) {
     </span>`;
 }
 
+// Date as well as time: the board can hold a Thursday game and the following
+// Monday's at once, so a weekday alone is ambiguous at a glance.
 function kickoffLabel(iso) {
     if (!iso) return '';
     const d = new Date(iso);
     if (isNaN(d)) return '';
-    return d.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+    const day  = d.toLocaleDateString([], { weekday: 'short' });
+    const date = (d.getMonth() + 1) + '/' + d.getDate();
+    const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    return `${day} ${date} · ${time}`;
 }
 function showError(msg) {
     const el = $('page-error');
@@ -677,9 +688,12 @@ function renderBoard(d) {
                     ${logoTile(g.away, g.away_name, 'away', covering === 'away')}
                     ${logoTile(g.home, g.home_name, 'home', covering === 'home')}
                 </div>
+                <div class="ginfo">
+                    <div class="gspread">${line}</div>
+                    <div class="gstatus gstate--${g.state}">${status}</div>
+                </div>
                 <div class="gscore">${score}</div>
             </div>
-            <div class="gmeta"><span>${line}</span><span class="gstate--${g.state}">${status}</span></div>
         </div>`;
     }).join('');
 }
