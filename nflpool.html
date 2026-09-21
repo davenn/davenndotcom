@@ -1068,8 +1068,11 @@ function buildPickers() {
     SEASONS.forEach(y => {
         sSel.insertAdjacentHTML('beforeend', `<option value="${y}" ${y === season ? 'selected' : ''}>${y}</option>`);
     });
+    // Only weeks that have arrived. currentSeasonWeek() counts from the Tuesday
+    // before Week 1, so this list gains an entry each Tuesday rather than
+    // mid-slate while Monday night is still being played.
     const wSel = $('week');
-    for (let w = 1; w <= 18; w++) {
+    for (let w = 1; w <= week; w++) {
         wSel.insertAdjacentHTML('beforeend', `<option value="${w}" ${w === week ? 'selected' : ''}>Week ${w}</option>`);
     }
     sSel.addEventListener('change', () => { state.season = Number(sSel.value); state.open = null; loadWeek(true); });
