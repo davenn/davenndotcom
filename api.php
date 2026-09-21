@@ -240,10 +240,15 @@ function requireAuth(PDO $pdo): array {
 
 function sendEmail(string $to, string $to_name, string $subject, string $body_html,
                    string $from, string $from_name): void {
+    // The From stays a send-only address, but replies are pointed at a mailbox
+    // somebody actually reads. A support channel that silently swallows replies
+    // is worse than none, and messaging compliance expects a working one.
+    $reply_to = $_ENV['MAIL_REPLY_TO'] ?? 'support@davenn.com';
+
     $headers  = "MIME-Version: 1.0\r\n";
     $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
     $headers .= "From: {$from_name} <{$from}>\r\n";
-    $headers .= "Reply-To: {$from}\r\n";
+    $headers .= "Reply-To: {$reply_to}\r\n";
     $headers .= "X-Mailer: PHP/" . phpversion();
     @mail($to, $subject, $body_html, $headers);
 }
@@ -1817,7 +1822,6 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS cp_entries (
     id          INT AUTO_INCREMENT PRIMARY KEY,
     week_id     INT          NOT NULL,
     player_name VARCHAR(60)  NOT NULL,
-    photo_url   VARCHAR(255) DEFAULT NULL,
     created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP,
     updated_at  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uk_week_player (week_id, player_name),
@@ -1841,6 +1845,10 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS cp_picks (
 // Added after cp_weeks shipped, so it needs the safe-migration treatment the
 // other tables in this file use rather than a change to the CREATE above.
 try { $pdo->exec("ALTER TABLE cp_weeks ADD COLUMN scores_error VARCHAR(200) DEFAULT NULL"); } catch (PDOException $e) {}
+
+// Sheet photos are no longer kept, so the column that pointed at them goes too.
+// Succeeds once on an existing install, then fails harmlessly forever after.
+try { $pdo->exec("ALTER TABLE cp_entries DROP COLUMN photo_url"); } catch (PDOException $e) {}
 
 /** City + nickname per team, keyed by the abbreviation ESPN uses. */
 function cpTeams(): array {
@@ -2185,7 +2193,6 @@ function cpWeekPayload(PDO $pdo, array $week): array {
         $standings[] = [
             'id'          => (int)$e['id'],
             'player_name' => $e['player_name'],
-            'photo_url'   => $e['photo_url'],
             'points'      => $locked,            // games that are final
             'live_points' => $live,              // final + currently covering
             'max_points'  => $live + $pending,   // if every undecided pick lands
@@ -2215,46 +2222,37 @@ function cpWeekPayload(PDO $pdo, array $week): array {
     ];
 }
 
-// POST ?action=cp_scan  (multipart: photo, optional season + week)
-// Reads a filled-in sheet. Saves no picks — the app shows the result for
-// correction first, because a misread confidence number costs more than a
-// misread team name and both happen.
-if ($method === 'POST' && $action === 'cp_scan') {
-    $api_key = $_ENV['ANTHROPIC_API_KEY'] ?? '';
-    if (!$api_key) { http_response_code(500); echo json_encode(['error' => 'Sheet reading is not configured on the server.']); exit; }
+// ── Reading a sheet ──────────────────────────────────────────────────────
+// Split out of the cp_scan action so the texting path reads a sheet through
+// exactly the same code the web uploader does. One reader, one prompt, one set
+// of quirks to reason about.
 
-    if (empty($_FILES['photo']['tmp_name'])) {
-        http_response_code(400); echo json_encode(['error' => 'No image provided.']); exit;
-    }
-    $ext      = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
-    $mime_map = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp'];
-    if (!isset($mime_map[$ext])) { http_response_code(400); echo json_encode(['error' => 'Use a JPG, PNG or WebP photo.']); exit; }
-    if ($_FILES['photo']['size'] > 10 * 1024 * 1024) { http_response_code(400); echo json_encode(['error' => 'Photo must be under 10 MB.']); exit; }
+/**
+ * Downscale to the 1568px long edge the model actually uses. A phone photo is
+ * far larger, and the extra pixels are resized away server-side anyway.
+ * Returns [bytes, mediaType].
+ */
+function cpPrepareImage(string $bytes, string $media_type): array {
+    if (!function_exists('imagecreatefromstring')) return [$bytes, $media_type];
+    $img = @imagecreatefromstring($bytes);
+    if ($img === false) return [$bytes, $media_type];
 
-    $tmp        = $_FILES['photo']['tmp_name'];
-    $media_type = $mime_map[$ext];
-    $bytes      = file_get_contents($tmp);
-
-    // A phone photo of a sheet is far bigger than the model can use. 1568px on
-    // the long edge is the documented ceiling — past it you pay for pixels that
-    // get resized away server-side anyway.
-    if (function_exists('imagecreatefromstring')) {
-        $img = @imagecreatefromstring($bytes);
-        if ($img !== false) {
-            $w = imagesx($img); $h = imagesy($img);
-            if (max($w, $h) > 1568) {
-                $scale  = 1568 / max($w, $h);
-                $scaled = imagescale($img, (int)round($w * $scale), (int)round($h * $scale));
-                if ($scaled !== false) {
-                    ob_start(); imagejpeg($scaled, null, 90); $bytes = ob_get_clean();
-                    $media_type = 'image/jpeg';
-                    imagedestroy($scaled);
-                }
-            }
-            imagedestroy($img);
+    $w = imagesx($img); $h = imagesy($img);
+    if (max($w, $h) > 1568) {
+        $scale  = 1568 / max($w, $h);
+        $scaled = imagescale($img, (int)round($w * $scale), (int)round($h * $scale));
+        if ($scaled !== false) {
+            ob_start(); imagejpeg($scaled, null, 90); $bytes = ob_get_clean();
+            $media_type = 'image/jpeg';
+            imagedestroy($scaled);
         }
     }
+    imagedestroy($img);
+    return [$bytes, $media_type];
+}
 
+/** Ask Claude to read the sheet. Returns the decoded object, or null. */
+function cpReadSheet(string $bytes, string $media_type, string $api_key): ?array {
     $prompt = 'This is a photo of a filled-in NFL confidence pool pick sheet.
 
 Each row is one game with a point spread. The player marks the team they pick — circled, ticked, boxed, highlighted or otherwise marked — and writes a confidence number for that row. Confidence numbers run from 1 up to the number of games, and each number is used exactly once.
@@ -2325,52 +2323,27 @@ Read carefully and do not guess. A wrong confidence number is worse than a 0, so
     $response  = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
+    if (!$response || $http_code !== 200) return null;
 
-    if (!$response || $http_code !== 200) {
-        http_response_code(502);
-        echo json_encode(['error' => 'Could not read the sheet — the reading service did not respond.']); exit;
-    }
     $data = json_decode($response, true);
     $text = '';
     foreach ($data['content'] ?? [] as $blk) {
         if (($blk['type'] ?? '') === 'text') { $text = trim($blk['text']); break; }
     }
     $result = json_decode($text, true);
-    if (!is_array($result)) {
-        http_response_code(502); echo json_encode(['error' => 'Could not read the sheet.']); exit;
-    }
-    if (empty($result['readable']) || !is_array($result['games'] ?? null) || !count($result['games'])) {
-        echo json_encode([
-            'success'  => true,
-            'readable' => false,
-            'note'     => (string)($result['note'] ?? '') ?: 'No games could be read from that photo.',
-        ]); exit;
-    }
+    return is_array($result) ? $result : null;
+}
 
-    // Keep the photo so an entry can be checked against the paper later.
-    $photo_url = null;
-    if ($upload_url) {
-        $dir = rtrim($upload_dir, '/') . '/';
-        if (!is_dir($dir)) mkdir($dir, 0755, true);
-        $fname = uniqid('sheet_', true) . '.' . $ext;
-        if (move_uploaded_file($tmp, $dir . $fname)) $photo_url = $upload_url . $fname;
-    }
-
-    // Match against the week when one already exists, so the browser never has
-    // to reconcile team names itself.
-    $season   = intval($_POST['season'] ?? $_GET['season'] ?? 0);
-    $week_n   = intval($_POST['week']   ?? $_GET['week']   ?? 0);
+/**
+ * Turn what the model read into rows, matched against the week when one
+ * exists. Returns ['rows' => [...], 'warnings' => [...]].
+ */
+function cpMatchRows(PDO $pdo, array $result, ?array $week_row): array {
     $existing = [];
-    $week_row = null;
-    if ($season && $week_n) {
-        $st = $pdo->prepare("SELECT * FROM cp_weeks WHERE season = ? AND week = ?");
-        $st->execute([$season, $week_n]);
-        $week_row = $st->fetch() ?: null;
-        if ($week_row) {
-            $gs = $pdo->prepare("SELECT * FROM cp_games WHERE week_id = ? ORDER BY sort_order");
-            $gs->execute([$week_row['id']]);
-            foreach ($gs->fetchAll() as $g) $existing[$g['away_team'] . '@' . $g['home_team']] = $g;
-        }
+    if ($week_row) {
+        $gs = $pdo->prepare("SELECT * FROM cp_games WHERE week_id = ? ORDER BY sort_order");
+        $gs->execute([$week_row['id']]);
+        foreach ($gs->fetchAll() as $g) $existing[$g['away_team'] . '@' . $g['home_team']] = $g;
     }
 
     $teams = cpTeams();
@@ -2408,16 +2381,60 @@ Read carefully and do not guess. A wrong confidence number is worse than a 0, so
     foreach ($rows as $r) {
         if ($r['confidence'] > $n) { $warnings[] = 'A confidence above ' . $n . ' was read — check the numbers.'; break; }
     }
+    return ['rows' => $rows, 'warnings' => array_values(array_unique($warnings))];
+}
+
+// POST ?action=cp_scan  (multipart: photo, optional season + week)
+// Reads a filled-in sheet. Saves no picks — the app shows the result for
+// correction first, because a misread confidence number costs more than a
+// misread team name and both happen.
+if ($method === 'POST' && $action === 'cp_scan') {
+    $api_key = $_ENV['ANTHROPIC_API_KEY'] ?? '';
+    if (!$api_key) { http_response_code(500); echo json_encode(['error' => 'Sheet reading is not configured on the server.']); exit; }
+
+    if (empty($_FILES['photo']['tmp_name'])) {
+        http_response_code(400); echo json_encode(['error' => 'No image provided.']); exit;
+    }
+    $ext      = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
+    $mime_map = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp'];
+    if (!isset($mime_map[$ext])) { http_response_code(400); echo json_encode(['error' => 'Use a JPG, PNG or WebP photo.']); exit; }
+    if ($_FILES['photo']['size'] > 10 * 1024 * 1024) { http_response_code(400); echo json_encode(['error' => 'Photo must be under 10 MB.']); exit; }
+
+    // The sheet photo is deliberately never written to disk. It is read from
+    // PHP's upload temp file, which is discarded when this request ends.
+    [$bytes, $media_type] = cpPrepareImage(file_get_contents($_FILES['photo']['tmp_name']), $mime_map[$ext]);
+
+    $result = cpReadSheet($bytes, $media_type, $api_key);
+    if ($result === null) {
+        http_response_code(502); echo json_encode(['error' => 'Could not read the sheet.']); exit;
+    }
+    if (empty($result['readable']) || !is_array($result['games'] ?? null) || !count($result['games'])) {
+        echo json_encode([
+            'success'  => true,
+            'readable' => false,
+            'note'     => (string)($result['note'] ?? '') ?: 'No games could be read from that photo.',
+        ]); exit;
+    }
+
+    $season   = intval($_POST['season'] ?? $_GET['season'] ?? 0);
+    $week_n   = intval($_POST['week']   ?? $_GET['week']   ?? 0);
+    $week_row = null;
+    if ($season && $week_n) {
+        $st = $pdo->prepare("SELECT * FROM cp_weeks WHERE season = ? AND week = ?");
+        $st->execute([$season, $week_n]);
+        $week_row = $st->fetch() ?: null;
+    }
+
+    $matched = cpMatchRows($pdo, $result, $week_row);
 
     echo json_encode([
         'success'     => true,
         'readable'    => true,
         'player_name' => trim((string)($result['player_name'] ?? '')),
         'note'        => (string)($result['note'] ?? ''),
-        'photo_url'   => $photo_url,
         'week_exists' => (bool)$week_row,
-        'rows'        => $rows,
-        'warnings'    => array_values(array_unique($warnings)),
+        'rows'        => $matched['rows'],
+        'warnings'    => $matched['warnings'],
     ]);
     exit;
 }
@@ -2514,13 +2531,12 @@ if ($method === 'POST' && $action === 'cp_save_week') {
     exit;
 }
 
-// POST ?action=cp_save_entry  {season, week, player_name, photo_url, picks:[{game_id,pick,confidence}]}
+// POST ?action=cp_save_entry  {season, week, player_name, picks:[{game_id,pick,confidence}]}
 if ($method === 'POST' && $action === 'cp_save_entry') {
     $body   = json_decode(file_get_contents('php://input'), true);
     $season = intval($body['season'] ?? 0);
     $week_n = intval($body['week']   ?? 0);
     $name   = trim((string)($body['player_name'] ?? ''));
-    $photo  = trim((string)($body['photo_url'] ?? '')) ?: null;
     $picks  = is_array($body['picks'] ?? null) ? $body['picks'] : [];
 
     if ($name === '' || mb_strlen($name) > 60) {
@@ -2569,11 +2585,10 @@ if ($method === 'POST' && $action === 'cp_save_entry') {
             // Re-uploading a sheet replaces that player's picks rather than
             // stacking a second entry beside the first.
             $entry_id = (int)$entry_id;
-            $pdo->prepare("UPDATE cp_entries SET photo_url = COALESCE(?, photo_url) WHERE id = ?")->execute([$photo, $entry_id]);
             $pdo->prepare("DELETE FROM cp_picks WHERE entry_id = ?")->execute([$entry_id]);
         } else {
-            $pdo->prepare("INSERT INTO cp_entries (week_id, player_name, photo_url) VALUES (?,?,?)")
-                ->execute([$week['id'], $name, $photo]);
+            $pdo->prepare("INSERT INTO cp_entries (week_id, player_name) VALUES (?,?)")
+                ->execute([$week['id'], $name]);
             $entry_id = (int)$pdo->lastInsertId();
         }
         $ins = $pdo->prepare("INSERT INTO cp_picks (entry_id, game_id, pick, confidence) VALUES (?,?,?,?)");
@@ -2602,6 +2617,312 @@ if ($method === 'GET' && $action === 'cp_week') {
     $week = $st->fetch();
 
     echo json_encode(['success' => true, 'exists' => true] + cpWeekPayload($pdo, $week));
+    exit;
+}
+
+// =============================================================
+// TEXTING A SHEET IN — actions prefixed cp_sms / cp_pending / cp_roster
+//
+// The number a sheet arrives from is the identity. That is strictly better
+// than the name someone types into the web form: no typos splitting one player
+// into two, and nobody entering picks under somebody else's name.
+//
+// Nothing a text produces is ever filed straight into the standings. The read
+// is staged and a link comes back, because a misread confidence number is
+// silent and corrupts everyone's score, not just the sender's.
+// =============================================================
+
+$pdo->exec("CREATE TABLE IF NOT EXISTS cp_players (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    phone       VARCHAR(20)  NOT NULL UNIQUE,
+    player_name VARCHAR(60)  NOT NULL,
+    opted_out   TINYINT(1)   DEFAULT 0,
+    created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    updated_at  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+)");
+
+// A sheet read from a text, waiting for its sender to confirm it. The token is
+// the only thing that opens it, so it is long, random, and short-lived.
+$pdo->exec("CREATE TABLE IF NOT EXISTS cp_pending (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    token       VARCHAR(40)  NOT NULL UNIQUE,
+    week_id     INT          NOT NULL,
+    player_name VARCHAR(60)  NOT NULL,
+    phone       VARCHAR(20)  DEFAULT NULL,
+    rows_json   LONGTEXT     NOT NULL,
+    note        VARCHAR(255) DEFAULT NULL,
+    claimed_at  DATETIME     DEFAULT NULL,
+    created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_week (week_id),
+    FOREIGN KEY (week_id) REFERENCES cp_weeks(id) ON DELETE CASCADE
+)");
+
+/**
+ * Twilio signs every webhook: HMAC-SHA1 over the exact URL it called plus each
+ * POST field in key order, keyed by the account auth token.
+ *
+ * Without this the webhook is an open endpoint that files data into the pool
+ * and spends Anthropic credits for anyone who finds the URL.
+ */
+function cpTwilioSignatureValid(string $auth_token, string $url, array $post, string $signature): bool {
+    if ($auth_token === '' || $signature === '') return false;
+    ksort($post);
+    $data = $url;
+    foreach ($post as $k => $v) {
+        if (is_array($v)) continue;               // Twilio never sends these
+        $data .= $k . $v;
+    }
+    $expected = base64_encode(hash_hmac('sha1', $data, $auth_token, true));
+    return hash_equals($expected, $signature);
+}
+
+/**
+ * The URL Twilio signed. Proxies routinely rewrite the scheme, and a mismatch
+ * here fails every signature, so an explicit value wins when one is configured.
+ */
+function cpWebhookUrl(): string {
+    if (!empty($_ENV['TWILIO_WEBHOOK_URL'])) {
+        $base = $_ENV['TWILIO_WEBHOOK_URL'];
+        $qs   = $_SERVER['QUERY_STRING'] ?? '';
+        return $qs !== '' && !str_contains($base, '?') ? $base . '?' . $qs : $base;
+    }
+    $https  = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+           || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+    $scheme = $https ? 'https' : 'http';
+    $host   = $_SERVER['HTTP_HOST'] ?? 'davenn.com';
+    return $scheme . '://' . $host . ($_SERVER['REQUEST_URI'] ?? '');
+}
+
+/** A TwiML reply. Twilio speaks XML back on the webhook response. */
+function cpTwiml(string $message): void {
+    header('Content-Type: text/xml; charset=UTF-8');
+    echo '<?xml version="1.0" encoding="UTF-8"?><Response><Message>'
+       . htmlspecialchars($message, ENT_XML1 | ENT_QUOTES, 'UTF-8')
+       . '</Message></Response>';
+    exit;
+}
+
+/** No reply at all — the correct answer to a message we should stay quiet on. */
+function cpTwimlSilent(): void {
+    header('Content-Type: text/xml; charset=UTF-8');
+    echo '<?xml version="1.0" encoding="UTF-8"?><Response></Response>';
+    exit;
+}
+
+/** Best-effort E.164 tidy-up so the same phone is one row, not several. */
+function cpNormalisePhone(string $raw): string {
+    $digits = preg_replace('/[^0-9]/', '', $raw);
+    if ($digits === '') return '';
+    if (strlen($digits) === 10) return '+1' . $digits;                 // bare US
+    if (strlen($digits) === 11 && $digits[0] === '1') return '+' . $digits;
+    return '+' . $digits;
+}
+
+/** Fetch Twilio-hosted media. The URL needs the account credentials. */
+function cpFetchTwilioMedia(string $url, string $sid, string $token): array {
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 30,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_USERPWD        => $sid . ':' . $token,
+    ]);
+    $body = curl_exec($ch);
+    $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    return ['body' => ($body !== false && $code === 200) ? $body : null, 'code' => $code];
+}
+
+// POST ?action=cp_sms — Twilio inbound webhook.
+if ($method === 'POST' && $action === 'cp_sms') {
+    $sid   = $_ENV['TWILIO_ACCOUNT_SID'] ?? '';
+    $token = $_ENV['TWILIO_AUTH_TOKEN']  ?? '';
+
+    if (!cpTwilioSignatureValid($token, cpWebhookUrl(), $_POST, $_SERVER['HTTP_X_TWILIO_SIGNATURE'] ?? '')) {
+        http_response_code(403);
+        header('Content-Type: text/plain');
+        echo 'Invalid signature';
+        exit;
+    }
+
+    $from  = cpNormalisePhone((string)($_POST['From'] ?? ''));
+    $body  = trim((string)($_POST['Body'] ?? ''));
+    $count = intval($_POST['NumMedia'] ?? 0);
+    if ($from === '') cpTwimlSilent();
+
+    $find = $pdo->prepare("SELECT * FROM cp_players WHERE phone = ?");
+    $find->execute([$from]);
+    $player = $find->fetch() ?: null;
+
+    // ── Keywords ─────────────────────────────────────────────────────────
+    // Carriers act on STOP before it reaches us, but our own record has to
+    // agree or we would keep the number linked after someone opted out.
+    $word = strtoupper(preg_replace('/[^A-Za-z]/', '', $body));
+    if (in_array($word, ['STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT'], true)) {
+        if ($player) $pdo->prepare("UPDATE cp_players SET opted_out = 1 WHERE id = ?")->execute([$player['id']]);
+        cpTwimlSilent();   // the carrier sends its own confirmation
+    }
+    if (in_array($word, ['START', 'UNSTOP', 'YES'], true)) {
+        if ($player) $pdo->prepare("UPDATE cp_players SET opted_out = 0 WHERE id = ?")->execute([$player['id']]);
+        cpTwiml('You are set up again. Text a photo of your pick sheet any time.');
+    }
+    if ($word === 'HELP' || $word === 'INFO') {
+        cpTwiml('davenn.com Confidence Pool: text a photo of your filled-in pick sheet and I will read it and send back a link to check it. Reply STOP to opt out. Help: support@davenn.com');
+    }
+    if ($player && $player['opted_out']) cpTwimlSilent();
+
+    // ── Registering a number ─────────────────────────────────────────────
+    if (!$player) {
+        // A plain bit of text from an unknown number is taken as their name.
+        if ($count === 0 && $body !== '' && mb_strlen($body) <= 60) {
+            $name = trim(preg_replace('/\s+/', ' ', $body));
+            try {
+                $pdo->prepare("INSERT INTO cp_players (phone, player_name) VALUES (?,?)")->execute([$from, $name]);
+            } catch (PDOException $e) {
+                cpTwiml('That name is already taken in the pool. Reply with a different one.');
+            }
+            cpTwiml('Thanks ' . $name . ' — this number is now linked to your picks. Text a photo of your sheet whenever you are ready.');
+        }
+        cpTwiml('I do not recognise this number yet. Reply with your name first, then text a photo of your sheet.');
+    }
+
+    if ($count === 0) {
+        cpTwiml('Send a photo of your filled-in pick sheet and I will read it. Reply HELP for more.');
+    }
+
+    // ── A sheet ──────────────────────────────────────────────────────────
+    $api_key = $_ENV['ANTHROPIC_API_KEY'] ?? '';
+    if (!$api_key) cpTwiml('Sheet reading is offline right now — try the website instead: ' . ($_ENV['APP_URL'] ?? 'https://davenn.com') . '/nflpool.html');
+
+    $media_url  = (string)($_POST['MediaUrl0'] ?? '');
+    $media_type = (string)($_POST['MediaContentType0'] ?? '');
+    if (!in_array($media_type, ['image/jpeg', 'image/png', 'image/webp'], true)) {
+        cpTwiml('That attachment is not a photo I can read (' . ($media_type ?: 'unknown type') . '). Send a JPG or PNG.');
+    }
+
+    $fetched = cpFetchTwilioMedia($media_url, $sid, $token);
+    if ($fetched['body'] === null) cpTwiml('I could not download that photo. Try sending it again.');
+
+    [$bytes, $mt] = cpPrepareImage($fetched['body'], $media_type);
+    $result = cpReadSheet($bytes, $mt, $api_key);
+    if ($result === null || empty($result['readable']) || !is_array($result['games'] ?? null) || !count($result['games'])) {
+        cpTwiml('I could not read that sheet. Try again with the whole page in frame, flat, in even light.');
+    }
+
+    // Stage it against the newest week that has been set up. A text carries no
+    // week number, and guessing from the calendar would file a late sheet into
+    // the wrong week.
+    $week_row = $pdo->query("SELECT * FROM cp_weeks ORDER BY season DESC, week DESC LIMIT 1")->fetch();
+    if (!$week_row) cpTwiml('No week is set up yet. The first sheet has to be entered on the website: ' . ($_ENV['APP_URL'] ?? 'https://davenn.com') . '/nflpool.html');
+
+    $matched = cpMatchRows($pdo, $result, $week_row);
+    $picked  = 0;
+    foreach ($matched['rows'] as $r) if ($r['pick'] !== '' && $r['confidence'] > 0) $picked++;
+
+    $token_str = bin2hex(random_bytes(16));
+    $pdo->prepare("INSERT INTO cp_pending (token, week_id, player_name, phone, rows_json, note) VALUES (?,?,?,?,?,?)")
+        ->execute([
+            $token_str, $week_row['id'], $player['player_name'], $from,
+            json_encode($matched['rows']),
+            mb_substr(trim((string)($result['note'] ?? '')), 0, 255) ?: null,
+        ]);
+
+    $link  = rtrim($_ENV['APP_URL'] ?? 'https://davenn.com', '/') . '/nflpool.html?review=' . $token_str;
+    $reply = 'Read ' . $picked . ' of ' . count($matched['rows']) . ' picks for Week ' . (int)$week_row['week'] . '.';
+    if ($matched['warnings']) $reply .= ' ' . count($matched['warnings']) . ' thing(s) to check.';
+    $reply .= ' Nothing is saved yet — open this to confirm: ' . $link;
+    cpTwiml($reply);
+}
+
+// GET ?action=cp_pending&token=… — collect a staged sheet for review.
+if ($method === 'GET' && $action === 'cp_pending') {
+    $t = (string)($_GET['token'] ?? '');
+    if (!preg_match('/^[a-f0-9]{32}$/', $t)) {
+        http_response_code(400); echo json_encode(['error' => 'Bad link.']); exit;
+    }
+    $st = $pdo->prepare("SELECT p.*, w.season, w.week FROM cp_pending p JOIN cp_weeks w ON w.id = p.week_id WHERE p.token = ?");
+    $st->execute([$t]);
+    $row = $st->fetch();
+    if (!$row) { http_response_code(404); echo json_encode(['error' => 'That link has expired or was already used.']); exit; }
+
+    echo json_encode([
+        'success'     => true,
+        'season'      => (int)$row['season'],
+        'week'        => (int)$row['week'],
+        'player_name' => $row['player_name'],
+        'note'        => $row['note'],
+        'rows'        => json_decode($row['rows_json'], true) ?: [],
+    ]);
+    exit;
+}
+
+// DELETE ?action=cp_pending&token=… — drop a staged sheet once it is saved.
+if ($method === 'DELETE' && $action === 'cp_pending') {
+    $t = (string)($_GET['token'] ?? '');
+    if (preg_match('/^[a-f0-9]{32}$/', $t)) {
+        $pdo->prepare("DELETE FROM cp_pending WHERE token = ?")->execute([$t]);
+    }
+    echo json_encode(['success' => true]);
+    exit;
+}
+
+// GET ?action=cp_roster  header: X-Admin-Secret — who is linked to what number.
+// Admin-guarded because this is the one table that maps a person to a phone
+// number, which is the most sensitive thing the pool holds.
+if ($method === 'GET' && $action === 'cp_roster') {
+    $admin_secret = $_ENV['ADMIN_SECRET'] ?? '';
+    if (!$admin_secret || !hash_equals($admin_secret, $_SERVER['HTTP_X_ADMIN_SECRET'] ?? '')) {
+        http_response_code(401); echo json_encode(['error' => 'Unauthorized']); exit;
+    }
+    $rows = $pdo->query("SELECT id, phone, player_name, opted_out, created_at FROM cp_players ORDER BY player_name")->fetchAll();
+    echo json_encode(['success' => true, 'players' => array_map(fn($r) => [
+        'id'          => (int)$r['id'],
+        'phone'       => $r['phone'],
+        'player_name' => $r['player_name'],
+        'opted_out'   => (bool)$r['opted_out'],
+        'created_at'  => $r['created_at'],
+    ], $rows)]);
+    exit;
+}
+
+// DELETE ?action=cp_roster&id=…  header: X-Admin-Secret — unlink a number.
+if ($method === 'DELETE' && $action === 'cp_roster') {
+    $admin_secret = $_ENV['ADMIN_SECRET'] ?? '';
+    if (!$admin_secret || !hash_equals($admin_secret, $_SERVER['HTTP_X_ADMIN_SECRET'] ?? '')) {
+        http_response_code(401); echo json_encode(['error' => 'Unauthorized']); exit;
+    }
+    $stmt = $pdo->prepare("DELETE FROM cp_players WHERE id = ?");
+    $stmt->execute([intval($_GET['id'] ?? 0)]);
+    echo json_encode(['success' => true, 'deleted' => $stmt->rowCount()]);
+    exit;
+}
+
+// POST ?action=cp_purge_photos  header: X-Admin-Secret
+// One-shot cleanup for sheet photos written before the app stopped keeping
+// them. Nothing creates these files any more, so this should report 0 on every
+// run after the first.
+if ($method === 'POST' && $action === 'cp_purge_photos') {
+    $admin_secret = $_ENV['ADMIN_SECRET'] ?? '';
+    $given        = $_SERVER['HTTP_X_ADMIN_SECRET'] ?? '';
+    if (!$admin_secret || !hash_equals($admin_secret, $given)) {
+        http_response_code(401); echo json_encode(['error' => 'Unauthorized']); exit;
+    }
+
+    $dir     = rtrim($upload_dir, '/') . '/';
+    $deleted = 0; $failed = [];
+    // Only ever touches the sheet_ prefix this app used — Toolshare's photos
+    // live in the same directory and are not ours to remove.
+    foreach (glob($dir . 'sheet_*') ?: [] as $file) {
+        if (is_file($file) && @unlink($file)) $deleted++;
+        else $failed[] = basename($file);
+    }
+
+    echo json_encode([
+        'success'   => true,
+        'deleted'   => $deleted,
+        'failed'    => $failed,
+        'directory' => $dir,
+    ]);
     exit;
 }
 

@@ -61,7 +61,7 @@
     <div class="content">
         <div class="page-eyebrow">Legal</div>
         <h1>Privacy Policy</h1>
-        <div class="updated">Last updated July 2026</div>
+        <div class="updated">Last updated September 2026</div>
 
         <p>davenn.com is a small collection of independent utilities. This page explains what information the site collects, why, and how you can have it removed.</p>
 
@@ -78,24 +78,30 @@
             <li><strong>Toolshare</strong> — an account (username, hashed password, display name, email), any tools you list (including photos you upload), and borrow-request messages between friends.</li>
             <li><strong>Flight Tracker</strong> — an account (username, hashed password, display name) and the flight log entries you add.</li>
             <li><strong>Leaderboards</strong> (Meeting Cost Timer, Track Timer, Reaction Test, Face Breaker, Daily Tasks) — the name or title you type in when saving a result, plus the score/time itself. No account or contact info is required to appear on a leaderboard.</li>
+            <li><strong>Confidence Pool</strong> — the name written on or entered with each pick sheet, and the picks and confidence points read from it. <strong>The sheet photo itself is never stored.</strong> It is read once to extract the picks and discarded when that request finishes — there is no copy on our server to retain, expire, or hand over. If you send a sheet by text, we store the phone number it came from so the sheet can be filed against the right person and replied to. Everyone in the pool can see every entered sheet and can delete one.</li>
+            <li><strong>Glucose</strong> — continuous glucose readings uploaded from a linked CGM account, along with any notes or events added in the app. This is health information; it is stored on our server and the dashboard requires an access token to read.</li>
         </ul>
-        <p>Passwords are never stored in plain text. Tool photos you upload to Toolshare are stored on our hosting server and are visible to friends you've connected with in the app.</p>
+        <p>Passwords are never stored in plain text. Tool photos you upload to Toolshare are stored on our hosting server and are visible to friends you've connected with in the app. Confidence Pool sheet photos are not stored at all.</p>
+        <p>Apps not listed here — including Cribbage, Sign Spotter, and Pomodoro — don't send anything to our server at all.</p>
 
         <h2>Third-party services we use</h2>
         <ul>
-            <li><strong>Twilio</strong> — delivers the SMS update notifications. Your phone number is shared with Twilio only to send that message.</li>
-            <li><strong>Anthropic (Claude API)</strong> — when you use Toolshare's photo auto-identify feature, the photo you upload is sent to Anthropic's API to detect the tool name/brand. It is not stored by Anthropic beyond processing the request.</li>
+            <li><strong>Twilio</strong> — carries the SMS update notifications we send, and the Confidence Pool messages sent to and from the pool's number. For the pool, that means Twilio also handles photos you text in and the number you sent them from.</li>
+            <li><strong>Anthropic (Claude API)</strong> — photos are sent to Anthropic's API to be read: tool name and brand for Toolshare's auto-identify, and matchups, marks and confidence numbers for Confidence Pool sheets. Photos are not retained by Anthropic beyond processing the request, and are not used to train its models.</li>
+            <li><strong>ESPN</strong> — the Confidence Pool reads live NFL scores from ESPN's public scoreboard, and team logos load in your browser directly from ESPN's image servers, which means ESPN can see your IP address when you view the scoreboard. No account or pool information is sent to ESPN.</li>
             <li><strong>GoDaddy</strong> — our web host and database provider for davenn.com.</li>
         </ul>
+        <p>We don't use analytics, advertising, or third-party tracking cookies anywhere on this site.</p>
 
         <h2>Local storage</h2>
         <p>Some apps (Pomodoro, Daily Tasks, Track Timer, and others) save your in-progress session or theme preference in your browser's local storage so it survives a page refresh. This data never leaves your device and isn't something we can see or access.</p>
 
         <h2>Data removal</h2>
         <p>To remove your update-notification contact info, use the unsubscribe link/reply included in any message we send, or email us at the address below. To delete a Toolshare or Flight Tracker account, or remove a leaderboard entry, contact us and we'll take care of it.</p>
+        <p>For the Confidence Pool, press and hold a name in the standings to delete that sheet and its picks. There is no photo to remove — the image was never kept. Replying STOP to the pool's number stops all replies to you and unlinks your phone number from the pool.</p>
 
         <h2>Contact</h2>
-        <p>Questions about this policy or your data? Reach out at <a href="mailto:noreply@davenn.com">noreply@davenn.com</a>.</p>
+        <p>Questions about this policy or your data? Reach out at <a href="mailto:support@davenn.com">support@davenn.com</a>.</p>
     </div>
 
 </body>

@@ -515,7 +515,7 @@ let state = {
     rows:   null,     // rows being reviewed
     mode:   'entry',  // 'setup' when this upload also defines the week
     player: '',
-    photo:  null,
+    pendingToken: null,   // set when reviewing a sheet that arrived by text
     open:   null,     // expanded standings entry id
     busy:   false,
 };
@@ -916,7 +916,6 @@ async function scanSheet(ev) {
 
         state.mode   = (r.week_exists && state.data) ? 'entry' : 'setup';
         state.rows   = buildRows(r.rows);
-        state.photo  = r.photo_url || null;
         state.player = r.player_name || lastPlayer();
         renderReview(r.note, r.warnings || []);
     } catch (e) {
@@ -967,6 +966,7 @@ function closeOverlay() {
     $('review-actions').classList.add('hidden');
     document.body.style.overflow = '';
     state.rows = null;
+    state.pendingToken = null;
     schedulePoll();
 }
 $('review-close').addEventListener('click', closeOverlay);
@@ -1203,12 +1203,21 @@ $('save').addEventListener('click', async () => {
                 season:      state.season,
                 week:        state.week,
                 player_name: state.player.trim(),
-                photo_url:   state.photo,
                 picks:       picks,
             }),
         });
 
         try { localStorage.setItem('nflpool_player', state.player.trim()); } catch (e) {}
+
+        // A texted sheet is single use: retire the staged copy so the link in
+        // the reply cannot re-open it. Failing here is not worth blocking on —
+        // the picks are already saved.
+        if (state.pendingToken) {
+            try {
+                await api('?action=cp_pending&token=' + encodeURIComponent(state.pendingToken), { method: 'DELETE' });
+            } catch (e) { /* the entry saved; a stale staged row is harmless */ }
+        }
+
         closeOverlay();
         await loadWeek(true);
     } catch (e) {
@@ -1266,8 +1275,53 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(function () {});
 }
 
+/**
+ * A sheet texted in is read but never filed — it waits behind a one-time token
+ * and the reply links here. Same review grid as an upload, so there is exactly
+ * one place where picks get confirmed.
+ */
+async function openPendingSheet(token) {
+    openOverlay('Loading your sheet', `<div class="card"><div class="loading">
+        <div class="spinner"></div>
+        <div><p class="msg">Fetching the sheet you texted in.</p></div>
+    </div>`);
+    $('review-actions').classList.add('hidden');
+    try {
+        const r = await api('?action=cp_pending&token=' + encodeURIComponent(token));
+
+        // The staged sheet knows its own week; follow it rather than whatever
+        // the pickers happen to be showing.
+        if (r.season !== state.season || r.week !== state.week) {
+            state.season = r.season;
+            state.week   = r.week;
+            const sSel = $('season'), wSel = $('week');
+            if (sSel) sSel.value = String(r.season);
+            if (wSel) wSel.value = String(r.week);
+            await loadWeek(false);
+        }
+
+        state.mode        = 'entry';
+        state.rows        = buildRows(r.rows);
+        state.player      = r.player_name || '';
+        state.pendingToken = token;
+        renderReview(r.note || '', []);
+    } catch (e) {
+        openOverlay('That link did not work', `<div class="banner bad">${esc(e.message)}</div>
+            <p class="msg">Texted links are single use. Send the sheet again to get a fresh one.</p>`);
+    }
+}
+
 buildPickers();
-loadWeek(false);
+
+const reviewToken = new URLSearchParams(location.search).get('review');
+if (reviewToken) {
+    // Drop the token from the address bar so it is not left in history or
+    // handed on if the link gets shared.
+    history.replaceState(null, '', location.pathname);
+    loadWeek(false).then(() => openPendingSheet(reviewToken));
+} else {
+    loadWeek(false);
+}
 </script>
 
 </body>
