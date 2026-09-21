@@ -579,12 +579,6 @@ function renderPicks(s, games) {
 }
 
 function renderBoard(d) {
-    const counts = {};
-    d.standings.forEach(s => s.picks.forEach(p => {
-        counts[p.game_id] = counts[p.game_id] || { home: 0, away: 0 };
-        counts[p.game_id][p.pick]++;
-    }));
-
     const liveCount = d.games.filter(g => g.state === 'in').length;
     $('board-note').textContent = liveCount ? liveCount + ' in progress' : '';
 
@@ -613,27 +607,12 @@ function renderBoard(d) {
                 : esc(g.detail || 'Final');
         }
 
-        let cover = '';
-        if (g.cover === 'push') {
-            cover = '<span class="tag push">On the number</span>';
-        } else if (g.cover) {
-            const name = g.cover === 'home' ? g.home_name : g.away_name;
-            cover = g.state === 'post'
-                ? '<span class="tag win">' + esc(name) + ' covered</span>'
-                : '<span class="tag leading">' + esc(name) + ' covering</span>';
-        }
-
-        const c = counts[g.id];
-        const split = c
-            ? '<span>' + c.away + '&ndash;' + c.home + ' on ' + esc(g.away_name) + '/' + esc(g.home_name) + '</span>'
-            : '';
-
         return `<div class="game game--${g.state}">
             <div class="gline">
                 <div class="gteams">${esc(g.away_name)} <span style="color:var(--text-muted)">at</span> <b>${esc(g.home_name)}</b></div>
                 <div class="gscore">${score}</div>
             </div>
-            <div class="gmeta"><span>${line}</span><span class="gstate--${g.state}">${status}</span>${cover}${split}</div>
+            <div class="gmeta"><span>${line}</span><span class="gstate--${g.state}">${status}</span></div>
         </div>`;
     }).join('');
 }
