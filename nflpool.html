@@ -395,6 +395,7 @@
         <select id="season" aria-label="Season"></select>
         <select id="week" aria-label="Week"></select>
         <span class="spacer"></span>
+        <button class="primary hidden" id="camera-btn" type="button">Take photo</button>
         <button class="primary" id="upload-btn" type="button">Upload sheet</button>
     </div>
 
@@ -440,9 +441,12 @@
     <button class="primary" id="save" type="button">Save picks</button>
 </div>
 
-<!-- No capture attribute on purpose: people photograph the sheet once and then
-     upload it from the camera roll, often on a different device. -->
+<!-- Two inputs on purpose. 'capture' does not add the camera as an option, it
+     forces it and takes the photo library away, so one input cannot serve both
+     paths: shooting the sheet in front of you, and picking a photo taken
+     earlier or on another device. -->
 <input type="file" id="file" accept="image/jpeg,image/png,image/webp" class="hidden">
+<input type="file" id="file-cam" accept="image/*" capture="environment" class="hidden">
 
 <script>
 const API = '/api.php';
@@ -730,8 +734,19 @@ function renderBoard(d) {
 
 // ── Upload + scan ────────────────────────────────────────────────────────
 $('upload-btn').addEventListener('click', () => $('file').click());
+$('camera-btn').addEventListener('click', () => $('file-cam').click());
 
-$('file').addEventListener('change', async ev => {
+// Offer the camera only where there is plausibly one to open. On a desktop the
+// capture attribute is ignored, so the button would be a second file dialog
+// wearing a misleading label.
+if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) {
+    $('camera-btn').classList.remove('hidden');
+    $('upload-btn').className = 'ghost';   // on a phone, shooting the sheet leads
+}
+
+['file', 'file-cam'].forEach(id => $(id).addEventListener('change', scanSheet));
+
+async function scanSheet(ev) {
     const f = ev.target.files && ev.target.files[0];
     ev.target.value = '';
     if (!f) return;
@@ -766,7 +781,7 @@ $('file').addEventListener('change', async ev => {
     } catch (e) {
         openOverlay('Could not read that', `<div class="banner bad">${esc(e.message)}</div>`);
     }
-});
+}
 
 /**
  * Turn a scan into editable rows.
