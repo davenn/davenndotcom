@@ -92,12 +92,12 @@ before deploying for exactly this reason. Never push PHP you have not linted.
 - **Endpoint comments already exist** above the non-obvious branches and explain
   intent, not mechanics. Read them before changing a branch, and keep the habit.
 
-**Open issue — `cp_diag` is unauthenticated.** It takes no token of any kind
-and returns `PHP_VERSION`, `curl_version`, `open_basedir` and `SERVER_ADDR`.
-Its comment says it reports no credentials or user data, which is true, but
-server version and IP are reconnaissance. It is excluded from the public docs,
-which hides the signpost and not the door. The fix is to gate it behind the
-admin secret like the other operator endpoints.
+**Diagnostic endpoints get the admin guard too.** `cp_diag` returns
+`PHP_VERSION`, `curl_version`, `open_basedir` and `SERVER_ADDR`. It holds no
+credentials and no user data, which is why it was originally left open — but
+that combination is reconnaissance, so it is admin-gated like the other
+operator endpoints. Apply the same reasoning to anything new that reports on
+the host rather than on the apps.
 
 ## Documentation
 
@@ -141,9 +141,12 @@ credentials live and how they are loaded, deploy mechanics and server paths,
 and the fact that one bad parse takes the whole API down.
 
 `docs/api.html` omits every endpoint where `isOperator()` in the generator
-returns true — admin-gated ones, plus anything named in `OPERATOR_ACTIONS`.
-`docs/api.md` stays complete. Adding an operator-only endpoint means checking
-it is caught by that filter.
+returns true — anything admin-gated, plus anything named in the
+`OPERATOR_ACTIONS` escape hatch. `docs/api.md` stays complete.
+
+`OPERATOR_ACTIONS` is empty, and that is the healthy state. Needing an entry
+means an endpoint is exposed in a way the code does not express — fix the
+endpoint rather than hiding it from the page.
 
 The generator parses the dispatch branches, the `CREATE TABLE` block, and **the
 comment block directly above each branch**, which is where endpoint

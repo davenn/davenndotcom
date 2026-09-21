@@ -2941,10 +2941,19 @@ if ($method === 'POST' && $action === 'cp_purge_photos') {
     exit;
 }
 
-// GET ?action=cp_diag&season=&week= — why are scores not updating?
-// Probes the outbound path from the web host itself, which is the one thing
-// that cannot be checked from a laptop. Reports no credentials or user data.
+// GET ?action=cp_diag&season=&week=  header: X-Admin-Secret — why are scores
+// not updating? Probes the outbound path from the web host itself, which is
+// the one thing that cannot be checked from a laptop.
+//
+// Admin-guarded despite holding no credentials or user data: the reply names
+// the PHP and curl versions, open_basedir and the server's own address, and
+// that combination is worth more to someone scanning for a way in than it is
+// to anyone else. Nothing in the site calls this — it is run by hand.
 if ($method === 'GET' && $action === 'cp_diag') {
+    $admin_secret = $_ENV['ADMIN_SECRET'] ?? '';
+    if (!$admin_secret || !hash_equals($admin_secret, $_SERVER['HTTP_X_ADMIN_SECRET'] ?? '')) {
+        http_response_code(401); echo json_encode(['error' => 'Unauthorized']); exit;
+    }
     $season = intval($_GET['season'] ?? 0);
     $week_n = intval($_GET['week']   ?? 0);
     // Every endpoint/agent pairing, each reporting what actually came back.

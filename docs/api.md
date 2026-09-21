@@ -60,7 +60,7 @@ GET|POST|DELETE  /api.php?action=<action>
 | [`bg_ingest`](#post-actionbg_ingest) | POST | Glucose | Admin — `X-Admin-Secret` |
 | [`bg_latest`](#get-actionbg_latest) | GET | Glucose | Glucose read token — `X-BG-Token` or `?token=` |
 | [`bg_refresh`](#post-actionbg_refresh) | POST | Glucose | Glucose read token — `X-BG-Token` or `?token=` |
-| [`cp_diag`](#get-actioncp_diag) | GET | Confidence Pool | None |
+| [`cp_diag`](#get-actioncp_diag) | GET | Confidence Pool | Admin — `X-Admin-Secret` |
 | [`cp_entry`](#delete-actioncp_entry) | DELETE | Confidence Pool | None |
 | [`cp_pending`](#delete-actioncp_pending) | DELETE | Confidence Pool | Single-use link token — `?token=` |
 | [`cp_pending`](#get-actioncp_pending) | GET | Confidence Pool | Single-use link token — `?token=` |
@@ -379,20 +379,21 @@ proxy rather than the browser calling the poller directly.
 
 ### GET `?action=cp_diag`
 
-Probes the outbound path from the web host itself, which is the one thing
-that cannot be checked from a laptop. Reports no credentials or user data.
+Admin-guarded despite holding no credentials or user data: the reply names
+the PHP and curl versions, open_basedir and the server's own address, and
+that combination is worth more to someone scanning for a way in than it is
+to anyone else. Nothing in the site calls this — it is run by hand.
 
-- **Auth:** None
-- **Takes:** &season=&week= — why are scores not updating?
+- **Auth:** Admin — `X-Admin-Secret`
 - **Query parameters:** `season`, `week`
-- **Source:** [`api.php:2947`](../api.php#L2947)
+- **Source:** [`api.php:2952`](../api.php#L2952)
 
 ### DELETE `?action=cp_entry`
 
 - **Auth:** None
 - **Takes:** &id=X
 - **Query parameters:** `id`
-- **Source:** [`api.php:3003`](../api.php#L3003)
+- **Source:** [`api.php:3012`](../api.php#L3012)
 
 ### DELETE `?action=cp_pending`
 
@@ -470,7 +471,7 @@ misread team name and both happen.
 - **Auth:** None
 - **Takes:** &season=&week=
 - **Query parameters:** `season`, `week`
-- **Source:** [`api.php:3012`](../api.php#L3012)
+- **Source:** [`api.php:3021`](../api.php#L3021)
 
 ### GET `?action=cp_week`
 
@@ -483,7 +484,7 @@ misread team name and both happen.
 
 - **Auth:** None
 - **Takes:** every week that has been set up, newest first.
-- **Source:** [`api.php:2988`](../api.php#L2988)
+- **Source:** [`api.php:2997`](../api.php#L2997)
 
 ## Daily Tasks
 

@@ -219,11 +219,12 @@ const tableGroupsUsed = [...GROUP_ORDER, 'Other']
 // them safe — the shared secret does — but there is no reason to hand a
 // stranger the list of things worth guessing a secret for. The in-repo
 // markdown stays complete.
-// Endpoints that are not admin-gated in code but are still operator tools and
-// do not belong on a public page. cp_diag is the case in point: it takes no
-// auth at all, yet reports the PHP version, open_basedir and the server's own
-// IP. Excluding it here hides the signpost, not the door — see CLAUDE.md.
-const OPERATOR_ACTIONS = new Set(['cp_diag']);
+// Escape hatch for endpoints that are operator tools but are not admin-gated
+// in code, so authFor() cannot recognise them. Empty is the healthy state:
+// needing an entry here means an endpoint is exposed in a way the code does
+// not express, which is worth fixing rather than papering over. cp_diag lived
+// here until it was given the guard it needed.
+const OPERATOR_ACTIONS = new Set();
 
 const isOperator = e => e.auth.startsWith('Admin') || OPERATOR_ACTIONS.has(e.action);
 const publicEndpoints = ordered.filter(e => !isOperator(e));
