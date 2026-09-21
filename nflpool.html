@@ -138,22 +138,35 @@
         button.primary:hover, button.ghost:hover { opacity: 0.85; }
         button:disabled { opacity: 0.4; cursor: default; }
 
-        /* ── STANDINGS ── */
+        /* ── STANDINGS ──
+           Two figures per player, laid out as the columns a bracket pool uses:
+           what they have now, and the most they can still finish on. The header
+           row is what makes it read without explanation, so the columns are
+           fixed widths — 'auto' would size each grid independently and the
+           headings would drift out of line with the numbers. */
+        /* Declared once on the container so the header and every row inherit
+           the identical track sizes. */
+        #standings { --cols: 26px 1fr 48px 46px; }
+        .standings-head {
+            display: grid; grid-template-columns: var(--cols); gap: 10px;
+            font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em;
+            text-transform: uppercase; color: var(--text-muted); padding-bottom: 9px;
+        }
+        .standings-head .h-pts, .standings-head .h-max { text-align: right; }
         .player {
             border-top: 1px solid var(--border); padding: 12px 0;
-            display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: center;
+            display: grid; grid-template-columns: var(--cols); gap: 10px; align-items: center;
             cursor: pointer;
         }
         .player:first-of-type { border-top: none; }
         .rank { font-family: var(--font-mono); font-size: 13px; color: var(--text-muted); }
         .pname { font-size: 15px; font-weight: 600; }
-        .psub  { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); margin-top: 3px; }
-        .ppts  { font-family: var(--font-mono); font-size: 22px; text-align: right; line-height: 1; }
-        .pmax  { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); text-align: right; margin-top: 4px; }
-        .bar { grid-column: 2 / 4; height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
+        .ppts  { font-family: var(--font-mono); font-size: 21px; text-align: right; line-height: 1; }
+        .pmax  { font-family: var(--font-mono); font-size: 14px; text-align: right; line-height: 1; color: var(--text-muted); }
+        .bar { grid-column: 2 / 5; height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden; }
         .bar span { display: block; height: 100%; background: var(--text-primary); border-radius: 2px; }
 
-        .picklist { grid-column: 1 / 4; padding: 4px 0 2px; display: grid; gap: 4px; }
+        .picklist { grid-column: 1 / 5; padding: 4px 0 2px; display: grid; gap: 4px; }
         .pickrow {
             display: grid; grid-template-columns: 30px 1fr auto; gap: 8px; align-items: center;
             font-size: 13px; padding: 4px 0;
@@ -597,21 +610,21 @@ function renderStandings(d) {
 
     const top = Math.max(1, ...d.standings.map(s => s.max_points));
 
-    $('standings').innerHTML = d.standings.map((s, i) => {
+    const head = `<div class="standings-head">
+        <span></span><span></span><span class="h-pts">Pts</span><span class="h-max">Max</span>
+    </div>`;
+
+    $('standings').innerHTML = head + d.standings.map((s, i) => {
         const open = state.open === s.id;
         const picks = open ? renderPicks(s, d.games) : '';
         return `
         <div class="player" data-entry="${s.id}" role="button" tabindex="0"
-             aria-expanded="${open}" aria-label="${esc(s.player_name)}, ${s.live_points} points">
+             aria-expanded="${open}"
+             aria-label="${esc(s.player_name)}, ${s.live_points} points, ${s.max_points} maximum">
             <div class="rank">${i + 1}</div>
-            <div>
-                <div class="pname">${esc(s.player_name)}</div>
-                <div class="psub">Max points: ${s.max_points}</div>
-            </div>
-            <div>
-                <div class="ppts">${s.live_points}</div>
-                <div class="pmax">${s.points} locked</div>
-            </div>
+            <div class="pname">${esc(s.player_name)}</div>
+            <div class="ppts">${s.live_points}</div>
+            <div class="pmax">${s.max_points}</div>
             <div class="bar"><span style="width:${Math.round(s.live_points / top * 100)}%"></span></div>
             ${picks}
         </div>`;
