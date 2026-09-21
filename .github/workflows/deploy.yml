@@ -6,6 +6,19 @@ on:
       - main   # fires on every push to main
 
 jobs:
+  # Is docs/api.md still in step with api.php? Deliberately its own job, so a
+  # stale reference shows up as a red mark on the commit without ever holding
+  # up a production fix. Bad PHP breaks the site; lagging docs do not.
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check generated API reference
+        run: node tools/gen-api-docs.mjs --check
+
   deploy:
     runs-on: ubuntu-latest
 
@@ -45,6 +58,9 @@ jobs:
             **/uploads/**
             .env
             .env.*
+            tools/**
+            CLAUDE.md
+            docs/*.md
 
       # 4. Did this push change CHANGELOG.md?
       - name: Detect changelog update
