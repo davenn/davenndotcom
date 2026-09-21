@@ -1,4 +1,4 @@
-const CACHE = 'davenn-v15';
+const CACHE = 'davenn-v16';
 const SHELL = [
   '/index.html',
   '/tracktimer.html',
@@ -16,6 +16,12 @@ const SHELL = [
   '/bgcast.html',
   '/nflpool.html',
   '/notify.html',
+  // Real file paths only. addAll() rejects as a whole if any single entry
+  // fails, which would leave every app above uncached — so never list a
+  // directory URL like '/docs/' here and rely on the server's index rule.
+  '/docs/index.html',
+  '/docs/api.html',
+  '/docs/glucose-api.html',
 ];
 
 self.addEventListener('install', e => {

@@ -1,0 +1,1647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>API Reference — davenn.com</title>
+<meta name="description" content="Every endpoint on davenn.com: actions, authentication and schema.">
+<meta name="theme-color" content="#111110">
+<!-- Generated from api.php by tools/gen-api-docs.mjs. Do not edit by hand. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+    (function () {
+        var t;
+        try { t = localStorage.getItem('docs_theme'); } catch (e) {}
+        if (t !== 'light' && t !== 'dark') {
+            t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', t);
+    })();
+</script>
+<style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root, [data-theme="light"] {
+        color-scheme: light;
+        --page: #fafafa; --surface: #ffffff; --surface-2: #f7f7f7; --border: #e4e4e0;
+        --text-primary: #3b4151; --text-body: #454750; --text-muted: #8a8f98;
+        --code-bg: #41444e; --code-fg: #ffffff;
+    }
+    [data-theme="dark"] {
+        color-scheme: dark;
+        --page: #0a0a0a; --surface: #131313; --surface-2: #1a1a1a; --border: #2a2a2a;
+        --text-primary: #e8e8e6; --text-body: #c3c2b7; --text-muted: #8a8f98;
+        --code-bg: #1e1f24; --code-fg: #e8e8e6;
+    }
+    :root {
+        --nav-bg: #111110; --nav-border: rgba(255,255,255,0.08);
+        /* Method hues are fixed, never themed, and always paired with the word
+           itself — the badge never carries the meaning on colour alone. */
+        --get: #61affe; --post: #49cc90; --del: #f93e3e;
+        --font-ui: system-ui, -apple-system, 'Segoe UI', sans-serif;
+        --font-mono: 'DM Mono', ui-monospace, monospace;
+        --nav-h: 52px;
+    }
+
+    body {
+        font-family: var(--font-ui); background: var(--page); color: var(--text-primary);
+        -webkit-font-smoothing: antialiased;
+        padding-top: calc(var(--nav-h) + env(safe-area-inset-top));
+        transition: background 0.2s, color 0.2s;
+    }
+
+    nav {
+        position: fixed; top: 0; left: 0; right: 0;
+        height: calc(var(--nav-h) + env(safe-area-inset-top));
+        padding: env(safe-area-inset-top) 1.5rem 0;
+        background: var(--nav-bg); border-bottom: 1px solid var(--nav-border);
+        display: flex; align-items: center; justify-content: space-between; z-index: 200;
+    }
+    .nav-logo { font-family: var(--font-mono); font-size: 13px; color: rgba(255,255,255,0.4); text-decoration: none; }
+    .nav-logo strong { color: #fff; }
+    .nav-right { display: flex; align-items: center; gap: 1.2rem; }
+    .nav-back { font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.45); text-decoration: none; letter-spacing: 0.05em; text-transform: uppercase; }
+    .nav-back:hover { color: #fff; }
+    .theme-toggle { width: 44px; height: 24px; cursor: pointer; background: none; border: none; padding: 0; flex: none; }
+    .theme-toggle-track { width: 44px; height: 24px; border-radius: 12px; background: #333; border: 1px solid #555; display: flex; align-items: center; padding: 0 3px; transition: background 0.2s; }
+    [data-theme="light"] .theme-toggle-track { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); }
+    .theme-toggle-thumb { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; transition: transform 0.2s, background 0.2s; }
+    [data-theme="light"] .theme-toggle-thumb { transform: translateX(20px); background: #fff; }
+    [data-theme="dark"]  .theme-toggle-thumb { transform: translateX(0);    background: #666; }
+
+    main { max-width: 820px; margin: 0 auto; padding: 36px 1.25rem 88px; }
+
+    h1 { font-size: 1.9rem; font-weight: 700; letter-spacing: -0.02em; }
+    .lede { font-size: 14px; color: var(--text-body); margin-top: 8px; line-height: 1.6; }
+    .base {
+        font-family: var(--font-mono); font-size: 13px; color: var(--text-body);
+        background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+        padding: 9px 12px; margin-top: 16px; overflow-x: auto; white-space: nowrap;
+    }
+    .counts { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); margin-top: 12px; }
+
+    .filter-row { display: flex; gap: 8px; align-items: center; margin: 22px 0 4px; }
+    .filter-row input {
+        flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 13px;
+        padding: 8px 11px; border: 1px solid var(--border); border-radius: 4px;
+        background: var(--surface); color: var(--text-primary);
+    }
+    .filter-row input::placeholder { color: var(--text-muted); }
+    .no-match { font-size: 13px; color: var(--text-muted); padding: 18px 2px; }
+
+    .tag {
+        font-size: 1.15rem; font-weight: 600; margin: 32px 0 10px;
+        padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+
+    .op { border-radius: 4px; margin-bottom: 10px; border: 1px solid; }
+    .op.get    { border-color: var(--get);  background: rgba(97,175,254,0.08); }
+    .op.post   { border-color: var(--post); background: rgba(73,204,144,0.08); }
+    .op.delete { border-color: var(--del);  background: rgba(249,62,62,0.08); }
+
+    .op-head {
+        width: 100%; display: flex; align-items: center; gap: 10px;
+        padding: 8px 10px; background: none; border: none; cursor: pointer; text-align: left;
+    }
+    .method {
+        flex: none; min-width: 62px; text-align: center; color: #fff;
+        font-family: var(--font-ui); font-size: 12px; font-weight: 700;
+        padding: 6px 0; border-radius: 3px;
+    }
+    .get .method    { background: var(--get); }
+    .post .method   { background: var(--post); }
+    .delete .method { background: var(--del); }
+    .op-path { font-family: var(--font-mono); font-size: 13px; color: var(--text-primary); word-break: break-all; }
+    .op-sum { flex: 1; font-size: 13px; color: var(--text-muted); text-align: right; }
+    .caret { flex: none; color: var(--text-muted); font-size: 11px; transition: transform 0.15s; }
+    .op.open .caret { transform: rotate(90deg); }
+    @media (max-width: 620px) {
+        .op-head { flex-wrap: wrap; }
+        .op-sum { flex-basis: 100%; text-align: left; }
+    }
+
+    .op-body { padding: 4px 14px 16px; border-top: 1px solid var(--border); background: var(--surface); border-radius: 0 0 3px 3px; }
+    .op-desc { font-size: 13.5px; line-height: 1.65; color: var(--text-body); margin: 14px 0; }
+    h4 {
+        font-family: var(--font-ui); font-size: 12px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.06em; color: var(--text-muted); margin: 18px 0 8px;
+    }
+
+    table { border-collapse: collapse; width: 100%; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); font-weight: 600; }
+    td { color: var(--text-body); }
+    .pname { font-family: var(--font-mono); color: var(--text-primary); white-space: nowrap; }
+    .table-wrap { overflow-x: auto; }
+
+    pre {
+        background: var(--code-bg); color: var(--code-fg); border-radius: 4px;
+        padding: 12px 14px; margin: 8px 0 4px; overflow-x: auto;
+    }
+    pre code { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6; display: block; white-space: pre; }
+    code.inline {
+        font-family: var(--font-mono); font-size: 0.9em; background: var(--surface-2);
+        border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; color: var(--text-primary);
+    }
+    .src { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-muted); margin-top: 14px; }
+
+    .schema h3 { font-size: 13px; font-family: var(--font-mono); margin: 22px 0 6px; color: var(--text-primary); }
+    .schema .group { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-top: 30px; font-weight: 600; }
+
+    .todo { margin-top: 40px; }
+    .todo ul { padding-left: 20px; margin-top: 10px; }
+    .todo li { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.8; color: var(--text-body); }
+    .note { font-size: 13.5px; line-height: 1.7; color: var(--text-body); }
+
+    footer {
+        border-top: 1px solid var(--border); margin-top: 48px; padding-top: 18px;
+        font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);
+    }
+    footer a { color: var(--text-muted); }
+    [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<nav>
+    <a class="nav-logo" href="/"><strong>davenn</strong>dotcom</a>
+    <div class="nav-right">
+        <button class="theme-toggle" id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
+            <div class="theme-toggle-track"><div class="theme-toggle-thumb" id="toggle-icon">🌙</div></div>
+        </button>
+        <a class="nav-back" href="/docs/">← Docs</a>
+    </div>
+</nav>
+
+<main>
+    <h1>API Reference</h1>
+    <p class="lede">Every app on davenn.com is served by a single <code class="inline">api.php</code>. Endpoints are selected by an <code class="inline">action</code> query parameter and always return JSON.</p>
+    <div class="base">https://davenn.com/api.php?action=&lt;action&gt;</div>
+    <p class="counts">69 endpoints · 22 tables</p>
+
+    <div class="filter-row">
+        <input type="search" id="filter" placeholder="Filter endpoints…" aria-label="Filter endpoints">
+    </div>
+    <p class="no-match" id="no-match" hidden>Nothing matches that.</p>
+
+    <section class="grp">
+        <h2 class="tag">Meeting Cost Timer</h2>
+        <div class="op delete" id="delete-clear_week" data-search="clear_week delete meeting cost timer ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">DELETE</span>
+                <span class="op-path">?action=clear_week</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">week_key</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:348</p>
+            </div>
+        </div>
+        <div class="op post" id="post-save" data-search="save post meeting cost timer ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=save</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <p class="src">api.php:334</p>
+            </div>
+        </div>
+        <div class="op get" id="get-week" data-search="week get meeting cost timer ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=week</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">week_key</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:324</p>
+            </div>
+        </div>
+    </section>
+    <section class="grp">
+        <h2 class="tag">Track Timer</h2>
+        <div class="op delete" id="delete-clear_track_sessions" data-search="clear_track_sessions delete track timer ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">DELETE</span>
+                <span class="op-path">?action=clear_track_sessions</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <p class="src">api.php:390</p>
+            </div>
+        </div>
+        <div class="op delete" id="delete-delete_track_session" data-search="delete_track_session delete track timer ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">DELETE</span>
+                <span class="op-path">?action=delete_track_session</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">id</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:382</p>
+            </div>
+        </div>
+        <div class="op post" id="post-save_track_session" data-search="save_track_session post track timer ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=save_track_session</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <p class="src">api.php:369</p>
+            </div>
+        </div>
+        <div class="op get" id="get-track_sessions" data-search="track_sessions get track timer ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=track_sessions</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <p class="src">api.php:362</p>
+            </div>
+        </div>
+    </section>
+    <section class="grp">
+        <h2 class="tag">Toolshare</h2>
+        <div class="op post" id="post-tb_accept_invite" data-search="tb_accept_invite post toolshare ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=tb_accept_invite</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">body: { invite_code }</p>
+                <p class="src">api.php:833</p>
+            </div>
+        </div>
+        <div class="op post" id="post-tb_add_tool" data-search="tb_add_tool post toolshare ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=tb_add_tool</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">(multipart for photo upload OR JSON)</p>
+                <p class="src">api.php:476</p>
+            </div>
+        </div>
+        <div class="op delete" id="delete-tb_delete_tool" data-search="tb_delete_tool delete toolshare ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">DELETE</span>
+                <span class="op-path">?action=tb_delete_tool</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;id=X</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">id</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:623</p>
+            </div>
+        </div>
+        <div class="op post" id="post-tb_edit_tool" data-search="tb_edit_tool post toolshare ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=tb_edit_tool</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;id=X</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">id</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:507</p>
+            </div>
+        </div>
+        <div class="op get" id="get-tb_friends" data-search="tb_friends get toolshare ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=tb_friends</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <p class="src">api.php:851</p>
+            </div>
+        </div>
+        <div class="op post" id="post-tb_identify_tool" data-search="tb_identify_tool post toolshare ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=tb_identify_tool</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">vision-based auto-fill via Claude</p>
+                <p class="src">api.php:541</p>
+            </div>
+        </div>
+        <div class="op get" id="get-tb_invite_preview" data-search="tb_invite_preview get toolshare ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=tb_invite_preview</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;code=xxx  (no auth required)</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">code</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:822</p>
+            </div>
+        </div>
+        <div class="op post" id="post-tb_login" data-search="tb_login post toolshare ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=tb_login</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <p class="src">api.php:427</p>
+            </div>
+        </div>
+        <div class="op post" id="post-tb_logout" data-search="tb_logout post toolshare ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=tb_logout</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">ends only this device's session, other devices stay signed in</p>
+                <p class="src">api.php:445</p>
+            </div>
+        </div>
+        <div class="op get" id="get-tb_my_invite" data-search="tb_my_invite get toolshare ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=tb_my_invite</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <p class="src">api.php:815</p>
+            </div>
+        </div>
+        <div class="op get" id="get-tb_my_tools" data-search="tb_my_tools get toolshare ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=tb_my_tools</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">current user's tools only</p>
+                <p class="src">api.php:458</p>
+            </div>
+        </div>
+        <div class="op post" id="post-tb_register" data-search="tb_register post toolshare ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=tb_register</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <p class="src">api.php:400</p>
+            </div>
+        </div>
+        <div class="op delete" id="delete-tb_remove_friend" data-search="tb_remove_friend delete toolshare ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">DELETE</span>
+                <span class="op-path">?action=tb_remove_friend</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;id=X</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">id</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:866</p>
+            </div>
+        </div>
+        <div class="op post" id="post-tb_request" data-search="tb_request post toolshare ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=tb_request</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">create borrow request + email owner</p>
+                <p class="src">api.php:644</p>
+            </div>
+        </div>
+        <div class="op get" id="get-tb_request_count" data-search="tb_request_count get toolshare ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=tb_request_count</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">badge count of pending incoming requests</p>
+                <p class="src">api.php:705</p>
+            </div>
+        </div>
+        <div class="op get" id="get-tb_requests" data-search="tb_requests get toolshare ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=tb_requests</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">inbox (owner) + outbox (requester) for current user</p>
+                <p class="src">api.php:677</p>
+            </div>
+        </div>
+        <div class="op post" id="post-tb_respond_request" data-search="tb_respond_request post toolshare ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=tb_respond_request</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;id=X  body: { status: &quot;approved&quot;|&quot;declined&quot; }</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">id</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:713</p>
+            </div>
+        </div>
+        <div class="op post" id="post-tb_return_tool" data-search="tb_return_tool post toolshare ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=tb_return_tool</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;id=X  (request id) — mark tool as returned</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">id</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:748</p>
+            </div>
+        </div>
+        <div class="op get" id="get-tb_tag_suggestions" data-search="tb_tag_suggestions get toolshare ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=tb_tag_suggestions</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">unique tags from visible tools</p>
+                <p class="src">api.php:794</p>
+            </div>
+        </div>
+        <div class="op get" id="get-tb_tools" data-search="tb_tools get toolshare ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=tb_tools</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">friends-gated community view</p>
+                <p class="src">api.php:876</p>
+            </div>
+        </div>
+    </section>
+    <section class="grp">
+        <h2 class="tag">Flight Tracker</h2>
+        <div class="op post" id="post-ft_add_flight" data-search="ft_add_flight post flight tracker ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=ft_add_flight</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Flight Tracker account — <code class="inline">X-Auth-Token</code></p>
+                <p class="src">api.php:1077</p>
+            </div>
+        </div>
+        <div class="op post" id="post-ft_add_flights" data-search="ft_add_flights post flight tracker ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=ft_add_flights</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Flight Tracker account — <code class="inline">X-Auth-Token</code></p>
+                <p class="src">api.php:1099</p>
+            </div>
+        </div>
+        <div class="op delete" id="delete-ft_delete_flight" data-search="ft_delete_flight delete flight tracker ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">DELETE</span>
+                <span class="op-path">?action=ft_delete_flight</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Flight Tracker account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">id</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:1125</p>
+            </div>
+        </div>
+        <div class="op get" id="get-ft_flights" data-search="ft_flights get flight tracker ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=ft_flights</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Flight Tracker account — <code class="inline">X-Auth-Token</code></p>
+                <p class="src">api.php:1070</p>
+            </div>
+        </div>
+        <div class="op post" id="post-ft_login" data-search="ft_login post flight tracker ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=ft_login</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <p class="src">api.php:1048</p>
+            </div>
+        </div>
+        <div class="op post" id="post-ft_logout" data-search="ft_logout post flight tracker ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=ft_logout</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Flight Tracker account — <code class="inline">X-Auth-Token</code></p>
+                <p class="src">api.php:1064</p>
+            </div>
+        </div>
+        <div class="op post" id="post-ft_register" data-search="ft_register post flight tracker ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=ft_register</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <p class="src">api.php:1024</p>
+            </div>
+        </div>
+    </section>
+    <section class="grp">
+        <h2 class="tag">Glucose</h2>
+        <div class="op get" id="get-bg_daily" data-search="bg_daily get glucose this is the shape the streak calendar and time-in-range bars want; the">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=bg_daily</span>
+                <span class="op-sum">This is the shape the streak calendar and time-in-range bars want; the</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">This is the shape the streak calendar and time-in-range bars want; the aggregation happens in SQL so a year of history stays a small response.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Glucose read token — <code class="inline">X-BG-Token</code> or <code class="inline">?token=</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;token=…&amp;days=30&amp;low=70&amp;high=180 → one row per local day.</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">days</td></tr>
+                    <tr><td class="pname">low</td></tr>
+                    <tr><td class="pname">high</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:1582</p>
+            </div>
+        </div>
+        <div class="op get" id="get-bg_embed" data-search="bg_embed get glucose mgdl 0 means nothing is stored yet. trend follows dexcom's own ordering, so a">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=bg_embed</span>
+                <span class="op-sum">mgdl 0 means nothing is stored yet. Trend follows Dexcom's own ordering, so a</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">mgdl 0 means nothing is stored yet. Trend follows Dexcom's own ordering, so a device can index an arrow glyph straight off it:   0 unknown · 1 up-up · 2 up · 3 up-45 · 4 flat · 5 down-45 · 6 down · 7 down-down</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Glucose read token — <code class="inline">X-BG-Token</code> or <code class="inline">?token=</code></p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">low</td></tr>
+                    <tr><td class="pname">high</td></tr>
+                    <tr><td class="pname">spark</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:1492</p>
+            </div>
+        </div>
+        <div class="op delete" id="delete-bg_event_delete" data-search="bg_event_delete delete glucose ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">DELETE</span>
+                <span class="op-path">?action=bg_event_delete</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Glucose read token — <code class="inline">X-BG-Token</code> or <code class="inline">?token=</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;id=…&amp;token=…</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">id</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:1781</p>
+            </div>
+        </div>
+        <div class="op post" id="post-bg_event_save" data-search="bg_event_save post glucose body: { id?, start_at, end_at?, tag, note? }">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=bg_event_save</span>
+                <span class="op-sum">body: { id?, start_at, end_at?, tag, note? }</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">body: { id?, start_at, end_at?, tag, note? } Creates, or updates when id is given. Returns the stored row.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Glucose read token — <code class="inline">X-BG-Token</code> or <code class="inline">?token=</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;token=…</p>
+                <p class="src">api.php:1706</p>
+            </div>
+        </div>
+        <div class="op get" id="get-bg_events" data-search="bg_events get glucose read token: anything that may read the readings may read what explains them.">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=bg_events</span>
+                <span class="op-sum">Read token: anything that may read the readings may read what explains them.</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">Read token: anything that may read the readings may read what explains them.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Glucose read token — <code class="inline">X-BG-Token</code> or <code class="inline">?token=</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;token=…&amp;hours=24 → annotations overlapping the window.</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">hours</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:1671</p>
+            </div>
+        </div>
+        <div class="op get" id="get-bg_history" data-search="bg_history get glucose ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=bg_history</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Glucose read token — <code class="inline">X-BG-Token</code> or <code class="inline">?token=</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;token=…&amp;hours=24&amp;low=70&amp;high=180 → raw readings + summary.</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">hours</td></tr>
+                    <tr><td class="pname">low</td></tr>
+                    <tr><td class="pname">high</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:1535</p>
+            </div>
+        </div>
+        <div class="op post" id="post-bg_ingest" data-search="bg_ingest post glucose body: { readings: [ { at: iso8601, mgdl: int, trend: string|null } ] }">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=bg_ingest</span>
+                <span class="op-sum">body: { readings: [ { at: ISO8601, mgdl: int, trend: string|null } ] }</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">body: { readings: [ { at: ISO8601, mgdl: int, trend: string|null } ] } Idempotent — the poller deliberately re-sends an overlapping window, and replaying it just refreshes rows already stored.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Admin — <code class="inline">X-Admin-Secret</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">header: X-Admin-Secret</p>
+                <p class="src">api.php:1360</p>
+            </div>
+        </div>
+        <div class="op get" id="get-bg_latest" data-search="bg_latest get glucose minutes_ago is what a display should use to decide it has gone stale: show">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=bg_latest</span>
+                <span class="op-sum">minutes_ago is what a display should use to decide it has gone stale: show</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">minutes_ago is what a display should use to decide it has gone stale: show the age, and never present an old number as though it were current.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Glucose read token — <code class="inline">X-BG-Token</code> or <code class="inline">?token=</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;token=…  → the newest stored reading.</p>
+                <p class="src">api.php:1467</p>
+            </div>
+        </div>
+        <div class="op post" id="post-bg_refresh" data-search="bg_refresh post glucose asks the poller to pull from dexcom now, so a manual refresh reflects live">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=bg_refresh</span>
+                <span class="op-sum">Asks the poller to pull from Dexcom now, so a manual refresh reflects live</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">Asks the poller to pull from Dexcom now, so a manual refresh reflects live data rather than whatever was last stored. The admin secret stays here on the server — the page only ever holds the read-only token, which is why this is a proxy rather than the browser calling the poller directly.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Glucose read token — <code class="inline">X-BG-Token</code> or <code class="inline">?token=</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;token=…</p>
+                <p class="src">api.php:1415</p>
+            </div>
+        </div>
+    </section>
+    <section class="grp">
+        <h2 class="tag">Confidence Pool</h2>
+        <div class="op get" id="get-cp_diag" data-search="cp_diag get confidence pool probes the outbound path from the web host itself, which is the one thing">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=cp_diag</span>
+                <span class="op-sum">Probes the outbound path from the web host itself, which is the one thing</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">Probes the outbound path from the web host itself, which is the one thing that cannot be checked from a laptop. Reports no credentials or user data.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;season=&amp;week= — why are scores not updating?</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">season</td></tr>
+                    <tr><td class="pname">week</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:2947</p>
+            </div>
+        </div>
+        <div class="op delete" id="delete-cp_entry" data-search="cp_entry delete confidence pool ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">DELETE</span>
+                <span class="op-path">?action=cp_entry</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;id=X</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">id</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:3003</p>
+            </div>
+        </div>
+        <div class="op delete" id="delete-cp_pending" data-search="cp_pending delete confidence pool ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">DELETE</span>
+                <span class="op-path">?action=cp_pending</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Single-use link token — <code class="inline">?token=</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;token=… — drop a staged sheet once it is saved.</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">token</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:2875</p>
+            </div>
+        </div>
+        <div class="op get" id="get-cp_pending" data-search="cp_pending get confidence pool ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=cp_pending</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Single-use link token — <code class="inline">?token=</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;token=… — collect a staged sheet for review.</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">token</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:2853</p>
+            </div>
+        </div>
+        <div class="op post" id="post-cp_purge_photos" data-search="cp_purge_photos post confidence pool one-shot cleanup for sheet photos written before the app stopped keeping">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=cp_purge_photos</span>
+                <span class="op-sum">One-shot cleanup for sheet photos written before the app stopped keeping</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">One-shot cleanup for sheet photos written before the app stopped keeping them. Nothing creates these files any more, so this should report 0 on every run after the first.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Admin — <code class="inline">X-Admin-Secret</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">header: X-Admin-Secret</p>
+                <p class="src">api.php:2919</p>
+            </div>
+        </div>
+        <div class="op delete" id="delete-cp_roster" data-search="cp_roster delete confidence pool ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">DELETE</span>
+                <span class="op-path">?action=cp_roster</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Admin — <code class="inline">X-Admin-Secret</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;id=…  header: X-Admin-Secret — unlink a number.</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">id</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:2904</p>
+            </div>
+        </div>
+        <div class="op get" id="get-cp_roster" data-search="cp_roster get confidence pool admin-guarded because this is the one table that maps a person to a phone">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=cp_roster</span>
+                <span class="op-sum">Admin-guarded because this is the one table that maps a person to a phone</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">Admin-guarded because this is the one table that maps a person to a phone number, which is the most sensitive thing the pool holds.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Admin — <code class="inline">X-Admin-Secret</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">header: X-Admin-Secret — who is linked to what number.</p>
+                <p class="src">api.php:2887</p>
+            </div>
+        </div>
+        <div class="op post" id="post-cp_save_entry" data-search="cp_save_entry post confidence pool ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=cp_save_entry</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">{season, week, player_name, picks:[{game_id,pick,confidence}]}</p>
+                <p class="src">api.php:2550</p>
+            </div>
+        </div>
+        <div class="op post" id="post-cp_save_week" data-search="cp_save_week post confidence pool creates the week, or updates the spreads on one that already has entries.">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=cp_save_week</span>
+                <span class="op-sum">Creates the week, or updates the spreads on one that already has entries.</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">Creates the week, or updates the spreads on one that already has entries.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">{season, week, push_rule, games:[{away,home,favorite,spread}]}</p>
+                <p class="src">api.php:2459</p>
+            </div>
+        </div>
+        <div class="op post" id="post-cp_scan" data-search="cp_scan post confidence pool reads a filled-in sheet. saves no picks — the app shows the result for">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=cp_scan</span>
+                <span class="op-sum">Reads a filled-in sheet. Saves no picks — the app shows the result for</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">Reads a filled-in sheet. Saves no picks — the app shows the result for correction first, because a misread confidence number costs more than a misread team name and both happen.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">(multipart: photo, optional season + week)</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">season</td></tr>
+                    <tr><td class="pname">week</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:2406</p>
+            </div>
+        </div>
+        <div class="op post" id="post-cp_sms" data-search="cp_sms post confidence pool ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=cp_sms</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">Twilio inbound webhook.</p>
+                <p class="src">api.php:2752</p>
+            </div>
+        </div>
+        <div class="op delete" id="delete-cp_week" data-search="cp_week delete confidence pool ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">DELETE</span>
+                <span class="op-path">?action=cp_week</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;season=&amp;week=</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">season</td></tr>
+                    <tr><td class="pname">week</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:3012</p>
+            </div>
+        </div>
+        <div class="op get" id="get-cp_week" data-search="cp_week get confidence pool ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=cp_week</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;season=&amp;week=</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">season</td></tr>
+                    <tr><td class="pname">week</td></tr>
+                    <tr><td class="pname">force</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:2622</p>
+            </div>
+        </div>
+        <div class="op get" id="get-cp_weeks" data-search="cp_weeks get confidence pool ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=cp_weeks</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">every week that has been set up, newest first.</p>
+                <p class="src">api.php:2988</p>
+            </div>
+        </div>
+    </section>
+    <section class="grp">
+        <h2 class="tag">Daily Tasks</h2>
+        <div class="op get" id="get-dt_get_tasks" data-search="dt_get_tasks get daily tasks ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=dt_get_tasks</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;date=YYYY-MM-DD — load this user's task list for a given day</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">date</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:1168</p>
+            </div>
+        </div>
+        <div class="op post" id="post-dt_save" data-search="dt_save post daily tasks ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=dt_save</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <p class="src">api.php:1149</p>
+            </div>
+        </div>
+        <div class="op post" id="post-dt_save_tasks" data-search="dt_save_tasks post daily tasks ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=dt_save_tasks</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">body: { date, tasks, next_id } — upsert this user's task list for a given day</p>
+                <p class="src">api.php:1188</p>
+            </div>
+        </div>
+        <div class="op get" id="get-dt_week" data-search="dt_week get daily tasks ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=dt_week</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">week_key</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:1139</p>
+            </div>
+        </div>
+    </section>
+    <section class="grp">
+        <h2 class="tag">Face Breaker</h2>
+        <div class="op get" id="get-fb_leaderboard" data-search="fb_leaderboard get face breaker ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=fb_leaderboard</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">top 10 for the current ISO week (no auth)</p>
+                <p class="src">api.php:906</p>
+            </div>
+        </div>
+        <div class="op post" id="post-fb_save_score" data-search="fb_save_score post face breaker ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=fb_save_score</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">body: { name, score } — no auth required</p>
+                <p class="src">api.php:916</p>
+            </div>
+        </div>
+    </section>
+    <section class="grp">
+        <h2 class="tag">Reaction Test</h2>
+        <div class="op delete" id="delete-clear_reaction_week" data-search="clear_reaction_week delete reaction test ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">DELETE</span>
+                <span class="op-path">?action=clear_reaction_week</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">week_key</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:972</p>
+            </div>
+        </div>
+        <div class="op get" id="get-reaction_week" data-search="reaction_week get reaction test ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=reaction_week</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">week_key</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:942</p>
+            </div>
+        </div>
+        <div class="op post" id="post-save_reaction" data-search="save_reaction post reaction test ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=save_reaction</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <p class="src">api.php:952</p>
+            </div>
+        </div>
+    </section>
+    <section class="grp">
+        <h2 class="tag">Update Notifications</h2>
+        <div class="op post" id="post-notify_subscribers" data-search="notify_subscribers post update notifications called by the github actions deploy workflow when changelog.md changes.">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=notify_subscribers</span>
+                <span class="op-sum">Called by the GitHub Actions deploy workflow when CHANGELOG.md changes.</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">Called by the GitHub Actions deploy workflow when CHANGELOG.md changes.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Admin — <code class="inline">X-Admin-Secret</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">header: X-Admin-Secret  body: { message }</p>
+                <p class="src">api.php:1279</p>
+            </div>
+        </div>
+        <div class="op post" id="post-subscribe" data-search="subscribe post update notifications &quot;website&quot; is an invisible honeypot field — real users never fill it in.">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=subscribe</span>
+                <span class="op-sum">&quot;website&quot; is an invisible honeypot field — real users never fill it in.</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">&quot;website&quot; is an invisible honeypot field — real users never fill it in.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">body: { contact_type: 'email'|'phone', contact_value, website? }</p>
+                <p class="src">api.php:1211</p>
+            </div>
+        </div>
+        <div class="op get" id="get-unsubscribe" data-search="unsubscribe get update notifications ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=unsubscribe</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Single-use link token — <code class="inline">?token=</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;token=xxx — clicked from an email/SMS, so it renders HTML, not JSON</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">token</td></tr>
+                </tbody></table></div>
+                <p class="src">api.php:1263</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="schema">
+        <h2 class="tag">Schema</h2>
+        <p class="note">All tables live in one database and are created on demand — the <code class="inline">CREATE TABLE IF NOT EXISTS</code> block at the top of <code class="inline">api.php</code> runs on every request. New tables appear automatically; column changes to an existing table need a manual <code class="inline">ALTER</code> against the live database.</p>
+        <p class="group">Meeting Cost Timer</p>
+        <h3>meetings</h3>
+        <pre><code>id         INT AUTO_INCREMENT PRIMARY KEY
+title      VARCHAR(120)  NOT NULL
+cost       DECIMAL(12,2) NOT NULL
+seconds    INT           NOT NULL
+week_key   DATE          NOT NULL
+created_at DATETIME      DEFAULT CURRENT_TIMESTAMP</code></pre>
+        <p class="group">Track Timer</p>
+        <h3>track_sessions</h3>
+        <pre><code>id         INT AUTO_INCREMENT PRIMARY KEY
+name       VARCHAR(120)  NOT NULL
+duration   BIGINT        NOT NULL
+athletes   LONGTEXT      NOT NULL
+created_at DATETIME      DEFAULT CURRENT_TIMESTAMP</code></pre>
+        <p class="group">Toolshare</p>
+        <h3>tb_users</h3>
+        <pre><code>id            INT AUTO_INCREMENT PRIMARY KEY
+username      VARCHAR(60)  NOT NULL UNIQUE
+password_hash VARCHAR(255) NOT NULL
+display_name  VARCHAR(80)  NOT NULL
+email         VARCHAR(120) NOT NULL
+token         VARCHAR(64)  DEFAULT NULL
+created_at    DATETIME     DEFAULT CURRENT_TIMESTAMP</code></pre>
+        <h3>tb_tools</h3>
+        <pre><code>id          INT AUTO_INCREMENT PRIMARY KEY
+owner_id    INT           NOT NULL
+name        VARCHAR(120)  NOT NULL
+brand       VARCHAR(80)   DEFAULT NULL
+category    VARCHAR(60)   DEFAULT NULL
+notes       TEXT          DEFAULT NULL
+photo_url   VARCHAR(255)  DEFAULT NULL
+status      ENUM('available','borrowed') DEFAULT 'available'
+created_at  DATETIME      DEFAULT CURRENT_TIMESTAMP
+FOREIGN KEY (owner_id) REFERENCES tb_users(id) ON DELETE CASCADE</code></pre>
+        <h3>tb_requests</h3>
+        <pre><code>id           INT AUTO_INCREMENT PRIMARY KEY
+tool_id      INT           NOT NULL
+requester_id INT           NOT NULL
+owner_id     INT           NOT NULL
+status       ENUM('pending','approved','declined','returned') DEFAULT 'pending'
+message      TEXT          DEFAULT NULL
+created_at   DATETIME      DEFAULT CURRENT_TIMESTAMP
+updated_at   DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+FOREIGN KEY (tool_id)      REFERENCES tb_tools(id)   ON DELETE CASCADE
+FOREIGN KEY (requester_id) REFERENCES tb_users(id)   ON DELETE CASCADE
+FOREIGN KEY (owner_id)     REFERENCES tb_users(id)   ON DELETE CASCADE</code></pre>
+        <h3>tb_sessions</h3>
+        <pre><code>token      VARCHAR(64) PRIMARY KEY
+user_id    INT         NOT NULL
+created_at DATETIME    DEFAULT CURRENT_TIMESTAMP
+INDEX idx_user (user_id)
+FOREIGN KEY (user_id) REFERENCES tb_users(id) ON DELETE CASCADE</code></pre>
+        <h3>tb_friendships</h3>
+        <pre><code>id         INT AUTO_INCREMENT PRIMARY KEY
+user_a     INT NOT NULL
+user_b     INT NOT NULL
+created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+UNIQUE KEY unique_pair (user_a, user_b)
+FOREIGN KEY (user_a) REFERENCES tb_users(id) ON DELETE CASCADE
+FOREIGN KEY (user_b) REFERENCES tb_users(id) ON DELETE CASCADE</code></pre>
+        <p class="group">Flight Tracker</p>
+        <h3>ft_users</h3>
+        <pre><code>id            INT AUTO_INCREMENT PRIMARY KEY
+username      VARCHAR(60)  NOT NULL UNIQUE
+password_hash VARCHAR(255) NOT NULL
+display_name  VARCHAR(80)  NOT NULL
+token         VARCHAR(64)  DEFAULT NULL
+created_at    DATETIME     DEFAULT CURRENT_TIMESTAMP</code></pre>
+        <h3>ft_flights</h3>
+        <pre><code>id             INT AUTO_INCREMENT PRIMARY KEY
+user_id        INT          NOT NULL
+from_code      VARCHAR(4)   NOT NULL
+to_code        VARCHAR(4)   NOT NULL
+from_city      VARCHAR(100) NOT NULL
+to_city        VARCHAR(100) NOT NULL
+flight_date    DATE         NOT NULL
+airline        VARCHAR(80)  DEFAULT NULL
+seat_class     VARCHAR(30)  DEFAULT NULL
+flight_number  VARCHAR(20)  DEFAULT NULL
+created_at     DATETIME     DEFAULT CURRENT_TIMESTAMP
+FOREIGN KEY (user_id) REFERENCES ft_users(id) ON DELETE CASCADE</code></pre>
+        <p class="group">Glucose</p>
+        <h3>bg_readings</h3>
+        <pre><code>id         INT AUTO_INCREMENT PRIMARY KEY
+reading_at DATETIME     NOT NULL
+mgdl       SMALLINT     NOT NULL
+trend      VARCHAR(20)  DEFAULT NULL
+created_at DATETIME     DEFAULT CURRENT_TIMESTAMP
+UNIQUE KEY uniq_reading_at (reading_at)</code></pre>
+        <h3>bg_events</h3>
+        <pre><code>id         INT AUTO_INCREMENT PRIMARY KEY
+start_at   DATETIME     NOT NULL
+end_at     DATETIME     DEFAULT NULL
+tag        VARCHAR(32)  NOT NULL
+note       VARCHAR(500) DEFAULT NULL
+created_at DATETIME     DEFAULT CURRENT_TIMESTAMP
+updated_at DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+INDEX idx_start (start_at)</code></pre>
+        <p class="group">Confidence Pool</p>
+        <h3>cp_weeks</h3>
+        <pre><code>id                INT AUTO_INCREMENT PRIMARY KEY
+season            INT          NOT NULL
+week              INT          NOT NULL
+push_rule         ENUM('award','void') DEFAULT 'void'
+scores_fetched_at DATETIME     DEFAULT NULL
+created_at        DATETIME     DEFAULT CURRENT_TIMESTAMP
+UNIQUE KEY uk_season_week (season, week)</code></pre>
+        <h3>cp_games</h3>
+        <pre><code>id         INT AUTO_INCREMENT PRIMARY KEY
+week_id    INT          NOT NULL
+sort_order INT          NOT NULL
+away_team  VARCHAR(8)   NOT NULL
+home_team  VARCHAR(8)   NOT NULL
+favorite   ENUM('home','away') NOT NULL
+spread     DECIMAL(4,1) NOT NULL
+espn_id    VARCHAR(24)  DEFAULT NULL
+away_score INT          DEFAULT 0
+home_score INT          DEFAULT 0
+state      ENUM('pre','in','post') DEFAULT 'pre'
+detail     VARCHAR(60)  DEFAULT NULL
+kickoff    DATETIME     DEFAULT NULL
+UNIQUE KEY uk_week_order (week_id, sort_order)
+FOREIGN KEY (week_id) REFERENCES cp_weeks(id) ON DELETE CASCADE</code></pre>
+        <h3>cp_entries</h3>
+        <pre><code>id          INT AUTO_INCREMENT PRIMARY KEY
+week_id     INT          NOT NULL
+player_name VARCHAR(60)  NOT NULL
+created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP
+updated_at  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+UNIQUE KEY uk_week_player (week_id, player_name)
+FOREIGN KEY (week_id) REFERENCES cp_weeks(id) ON DELETE CASCADE</code></pre>
+        <h3>cp_picks</h3>
+        <pre><code>id         INT AUTO_INCREMENT PRIMARY KEY
+entry_id   INT NOT NULL
+game_id    INT NOT NULL
+pick       ENUM('home','away') NOT NULL
+confidence INT NOT NULL
+UNIQUE KEY uk_entry_game (entry_id, game_id)
+UNIQUE KEY uk_entry_conf (entry_id, confidence)
+FOREIGN KEY (entry_id) REFERENCES cp_entries(id) ON DELETE CASCADE
+FOREIGN KEY (game_id)  REFERENCES cp_games(id)   ON DELETE CASCADE</code></pre>
+        <h3>cp_players</h3>
+        <pre><code>id          INT AUTO_INCREMENT PRIMARY KEY
+phone       VARCHAR(20)  NOT NULL UNIQUE
+player_name VARCHAR(60)  NOT NULL
+opted_out   TINYINT(1)   DEFAULT 0
+created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP
+updated_at  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP</code></pre>
+        <h3>cp_pending</h3>
+        <pre><code>id          INT AUTO_INCREMENT PRIMARY KEY
+token       VARCHAR(40)  NOT NULL UNIQUE
+week_id     INT          NOT NULL
+player_name VARCHAR(60)  NOT NULL
+phone       VARCHAR(20)  DEFAULT NULL
+rows_json   LONGTEXT     NOT NULL
+note        VARCHAR(255) DEFAULT NULL
+claimed_at  DATETIME     DEFAULT NULL
+created_at  DATETIME     DEFAULT CURRENT_TIMESTAMP
+INDEX idx_week (week_id)
+FOREIGN KEY (week_id) REFERENCES cp_weeks(id) ON DELETE CASCADE</code></pre>
+        <p class="group">Daily Tasks</p>
+        <h3>dt_scores</h3>
+        <pre><code>id            INT AUTO_INCREMENT PRIMARY KEY
+name          VARCHAR(60)  NOT NULL
+task_count    INT          NOT NULL
+total_seconds INT          NOT NULL
+week_key      DATE         NOT NULL
+created_at    DATETIME     DEFAULT CURRENT_TIMESTAMP
+INDEX idx_week (week_key, task_count, total_seconds)</code></pre>
+        <h3>dt_tasks</h3>
+        <pre><code>user_id     INT          NOT NULL
+date_key    DATE         NOT NULL
+tasks_json  LONGTEXT     NOT NULL
+next_id     INT          NOT NULL DEFAULT 1
+updated_at  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+PRIMARY KEY (user_id, date_key)
+FOREIGN KEY (user_id) REFERENCES tb_users(id) ON DELETE CASCADE</code></pre>
+        <p class="group">Face Breaker</p>
+        <h3>fb_scores</h3>
+        <pre><code>id         INT AUTO_INCREMENT PRIMARY KEY
+name       VARCHAR(32)  NOT NULL
+score      INT          NOT NULL
+week_start DATE         NOT NULL
+created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+INDEX idx_week_score (week_start, score)</code></pre>
+        <p class="group">Reaction Test</p>
+        <h3>reaction_scores</h3>
+        <pre><code>id         INT AUTO_INCREMENT PRIMARY KEY
+name       VARCHAR(60)  NOT NULL
+avg_ms     INT          NOT NULL
+week_key   DATE         NOT NULL
+created_at DATETIME     DEFAULT CURRENT_TIMESTAMP
+INDEX idx_week (week_key, avg_ms)</code></pre>
+        <p class="group">Update Notifications</p>
+        <h3>subscribers</h3>
+        <pre><code>id            INT AUTO_INCREMENT PRIMARY KEY
+contact_type  ENUM('email','phone') NOT NULL
+contact_value VARCHAR(120) NOT NULL
+unsub_token   VARCHAR(64)  NOT NULL
+created_at    DATETIME     DEFAULT CURRENT_TIMESTAMP
+UNIQUE KEY uniq_contact (contact_type, contact_value)</code></pre>
+    </section>
+
+    <section class="todo">
+        <h2 class="tag">Not yet described</h2>
+        <p class="note">These endpoints have no comment block above them in <code class="inline">api.php</code>. To document one, write the comment there and regenerate.</p>
+        <ul>
+            <li>DELETE ?action=clear_week — api.php:348</li>
+            <li>POST ?action=save — api.php:334</li>
+            <li>GET ?action=week — api.php:324</li>
+            <li>DELETE ?action=clear_track_sessions — api.php:390</li>
+            <li>DELETE ?action=delete_track_session — api.php:382</li>
+            <li>POST ?action=save_track_session — api.php:369</li>
+            <li>GET ?action=track_sessions — api.php:362</li>
+            <li>GET ?action=tb_friends — api.php:851</li>
+            <li>POST ?action=tb_login — api.php:427</li>
+            <li>GET ?action=tb_my_invite — api.php:815</li>
+            <li>POST ?action=tb_register — api.php:400</li>
+            <li>POST ?action=ft_add_flight — api.php:1077</li>
+            <li>POST ?action=ft_add_flights — api.php:1099</li>
+            <li>DELETE ?action=ft_delete_flight — api.php:1125</li>
+            <li>GET ?action=ft_flights — api.php:1070</li>
+            <li>POST ?action=ft_login — api.php:1048</li>
+            <li>POST ?action=ft_logout — api.php:1064</li>
+            <li>POST ?action=ft_register — api.php:1024</li>
+            <li>POST ?action=dt_save — api.php:1149</li>
+            <li>GET ?action=dt_week — api.php:1139</li>
+            <li>DELETE ?action=clear_reaction_week — api.php:972</li>
+            <li>GET ?action=reaction_week — api.php:942</li>
+            <li>POST ?action=save_reaction — api.php:952</li>
+        </ul>
+    </section>
+
+    <footer>
+        <a href="/">davenn.com</a> &nbsp;·&nbsp; <a href="/docs/">Docs</a> &nbsp;·&nbsp; <a href="/privacy.html">Privacy</a> &nbsp;·&nbsp; <a href="/terms.html">Terms</a>
+    </footer>
+</main>
+
+<script>
+(function () {
+    'use strict';
+
+    var toggle = document.getElementById('theme-toggle');
+    var icon = document.getElementById('toggle-icon');
+    icon.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '🌙' : '☀️';
+    toggle.addEventListener('click', function () {
+        var t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+        icon.textContent = t === 'dark' ? '🌙' : '☀️';
+        try { localStorage.setItem('docs_theme', t); } catch (e) {}
+    });
+
+    var ops = Array.prototype.slice.call(document.querySelectorAll('.op'));
+
+    ops.forEach(function (op) {
+        var head = op.querySelector('.op-head');
+        var body = op.querySelector('.op-body');
+        head.addEventListener('click', function () {
+            var open = op.classList.toggle('open');
+            body.hidden = !open;
+            head.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+    });
+
+    // Deep link: /docs/api.html#get-bg_latest opens that endpoint.
+    function openHash() {
+        var id = location.hash.slice(1);
+        if (!id) return;
+        var op = document.getElementById(id);
+        if (!op || !op.classList.contains('op')) return;
+        op.classList.add('open');
+        op.querySelector('.op-body').hidden = false;
+        op.querySelector('.op-head').setAttribute('aria-expanded', 'true');
+        op.scrollIntoView({ block: 'center' });
+    }
+    openHash();
+    window.addEventListener('hashchange', openHash);
+
+    var filter = document.getElementById('filter');
+    var noMatch = document.getElementById('no-match');
+    filter.addEventListener('input', function () {
+        var q = filter.value.trim().toLowerCase();
+        var shown = 0;
+        ops.forEach(function (op) {
+            var hit = !q || op.getAttribute('data-search').indexOf(q) !== -1;
+            op.hidden = !hit;
+            if (hit) shown++;
+        });
+        // Hide a group heading when everything under it is filtered out.
+        Array.prototype.forEach.call(document.querySelectorAll('.grp'), function (g) {
+            var any = Array.prototype.some.call(g.querySelectorAll('.op'), function (o) { return !o.hidden; });
+            g.hidden = !any;
+        });
+        noMatch.hidden = shown !== 0;
+    });
+})();
+</script>
+
+</body>
+</html>

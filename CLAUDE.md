@@ -94,13 +94,30 @@ before deploying for exactly this reason. Never push PHP you have not linted.
 
 ## Documentation
 
-[`docs/api.md`](docs/api.md) is the full endpoint and schema reference, and it
-is **generated** — do not edit it by hand. Regenerate after touching `api.php`:
+Docs come in two tiers, split by audience:
+
+- **In the repo, for building.** `CLAUDE.md` and `docs/*.md`, read on GitHub or
+  in an editor. Never deployed. On GitHub the per-endpoint source links resolve
+  to real lines in `api.php`, which is why it is the better surface for
+  `api.md`.
+- **On the site, for using.** `docs/*.html`, deployed, reachable from the
+  `Docs` nav link → [`docs/index.html`](docs/index.html), which is the hub.
+
+Both API references are **generated** from `api.php` by one script — do not
+edit either by hand. Regenerate after touching `api.php`:
 
 ```
-node tools/gen-api-docs.mjs          # rewrite docs/api.md
-node tools/gen-api-docs.mjs --check  # exit 1 if stale (what CI runs)
+node tools/gen-api-docs.mjs          # rewrite docs/api.md and docs/api.html
+node tools/gen-api-docs.mjs --check  # exit 1 if either is stale (what CI runs)
 ```
+
+`docs/api.md` and `docs/api.html` come from a single parse, so the two cannot
+drift from each other. Output must stay byte-identical between runs — never
+put a timestamp or anything environment-dependent in it, or `--check` becomes
+meaningless.
+
+`docs/index.html` and `docs/glucose-api.html` are hand-written. When adding a
+hand-written doc page, link it from the hub and add it to `sw.js`.
 
 The generator parses the dispatch branches, the `CREATE TABLE` block, and **the
 comment block directly above each branch**, which is where endpoint
@@ -140,9 +157,14 @@ in `icons/`, and **its path added to the `SHELL` array in `sw.js`**. Forgetting
 the third is the usual bug — the app installs but will not open offline.
 
 When changing anything cached, bump the `CACHE` constant in `sw.js`
-(`davenn-v15` → `v16`) or clients keep serving the old assets. HTML is
+(`davenn-v16` → `v17`) or clients keep serving the old assets. HTML is
 network-first (always fresh, cache as offline fallback), everything else is
 cache-first, and `/api.php` is never intercepted.
+
+`SHELL` entries must be **real file paths**. `addAll()` rejects as a whole if
+any one URL fails, so a directory URL like `/docs/` that depends on a server
+index rule can silently leave every app uncached. Link to `/docs/` in markup;
+precache `/docs/index.html`.
 
 ## Deploy
 
