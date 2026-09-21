@@ -168,6 +168,9 @@
             cursor: pointer;
         }
         .player:first-of-type { border-top: none; }
+        /* A long press must not raise the text-selection callout instead. */
+        .player { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; transition: opacity 0.15s; }
+        .player.pressing { opacity: 0.5; }
         .rank { font-family: var(--font-mono); font-size: 13px; color: var(--text-muted); }
         .pname { font-size: 15px; font-weight: 600; }
         .ppts  { font-family: var(--font-mono); font-size: 21px; text-align: right; line-height: 1; }
@@ -364,6 +367,26 @@
         }
         .actions .spacer { flex: 1; }
 
+        /* ── CONFIRM DIALOG ── */
+        .modal {
+            position: fixed; inset: 0; z-index: 400;
+            background: rgba(0, 0, 0, 0.55);
+            display: flex; align-items: center; justify-content: center; padding: 20px;
+        }
+        .modal-box {
+            background: var(--page); border: 1px solid var(--border);
+            border-radius: 14px; padding: 20px; width: 100%; max-width: 380px;
+            display: grid; gap: 14px;
+        }
+        .modal-title { font-size: 17px; font-weight: 600; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+        button.danger {
+            font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em;
+            padding: 10px 14px; border-radius: 9px; cursor: pointer;
+            background: var(--crit); color: #fff; border: 1px solid var(--crit);
+        }
+        button.danger:hover { opacity: 0.85; }
+
         .spinner {
             width: 22px; height: 22px; border: 2px solid var(--border);
             border-top-color: var(--text-primary); border-radius: 50%;
@@ -453,6 +476,17 @@
     <span class="spacer"></span>
     <button class="ghost" id="save-cancel" type="button">Cancel</button>
     <button class="primary" id="save" type="button">Save picks</button>
+</div>
+
+<div class="modal hidden" id="confirm" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div class="modal-box">
+        <div class="modal-title" id="confirm-title">Delete these picks?</div>
+        <p class="msg" id="confirm-body"></p>
+        <div class="modal-actions">
+            <button class="ghost" id="confirm-no" type="button">Cancel</button>
+            <button class="danger" id="confirm-yes" type="button">Delete</button>
+        </div>
+    </div>
 </div>
 
 <!-- Two inputs on purpose. 'capture' does not add the camera as an option, it
@@ -649,17 +683,104 @@ function renderStandings(d) {
     }).join('');
 
     $('standings').querySelectorAll('.player').forEach(el => {
+        const id = Number(el.dataset.entry);
         const toggle = () => {
-            const id = Number(el.dataset.entry);
             state.open = state.open === id ? null : id;
             renderStandings(state.data);
         };
-        el.addEventListener('click', ev => { if (!ev.target.closest('.picklist')) toggle(); });
+
+        // Press and hold to delete a sheet. The timer is cancelled by any real
+        // scroll, so flicking the list past a name never arms it, and `held`
+        // swallows the click that a touch releases so the row does not also
+        // expand behind the dialog.
+        let timer = null, held = false, x0 = 0, y0 = 0;
+        const start = (x, y) => {
+            x0 = x; y0 = y; held = false;
+            el.classList.add('pressing');
+            timer = setTimeout(() => {
+                timer = null; held = true;
+                el.classList.remove('pressing');
+                askDelete(id);
+            }, 550);
+        };
+        const cancel = () => {
+            if (timer) { clearTimeout(timer); timer = null; }
+            el.classList.remove('pressing');
+        };
+
+        el.addEventListener('touchstart', e => start(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+        el.addEventListener('touchmove', e => {
+            if (!timer) return;
+            const t = e.touches[0];
+            if (Math.abs(t.clientX - x0) > 10 || Math.abs(t.clientY - y0) > 10) cancel();
+        }, { passive: true });
+        el.addEventListener('touchend', cancel);
+        el.addEventListener('touchcancel', cancel);
+
+        el.addEventListener('mousedown', e => { if (e.button === 0) start(e.clientX, e.clientY); });
+        el.addEventListener('mouseup', cancel);
+        el.addEventListener('mouseleave', cancel);
+
+        // Right-click is the desktop equivalent of holding a finger down.
+        el.addEventListener('contextmenu', e => { e.preventDefault(); cancel(); askDelete(id); });
+
+        el.addEventListener('click', ev => {
+            if (held) { held = false; return; }
+            if (!ev.target.closest('.picklist')) toggle();
+        });
         el.addEventListener('keydown', ev => {
             if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggle(); }
+            // Keyboard users cannot long-press, so give them the usual key.
+            if (ev.key === 'Delete' || ev.key === 'Backspace') { ev.preventDefault(); askDelete(id); }
         });
     });
 }
+
+// ── Deleting a sheet ─────────────────────────────────────────────────────
+let pendingDelete = null;
+
+function askDelete(entryId) {
+    const s = ((state.data && state.data.standings) || []).find(x => x.id === entryId);
+    if (!s) return;
+    pendingDelete = entryId;
+    $('confirm-title').textContent = `Delete ${s.player_name}'s picks?`;
+    $('confirm-body').textContent =
+        `This removes their whole sheet for Week ${state.week} — all ${s.picks.length} `
+        + `${s.picks.length === 1 ? 'pick' : 'picks'} and their score. It cannot be undone.`;
+    $('confirm').classList.remove('hidden');
+    $('confirm-yes').focus();
+}
+
+function closeConfirm() {
+    pendingDelete = null;
+    $('confirm').classList.add('hidden');
+}
+
+$('confirm-no').addEventListener('click', closeConfirm);
+// A tap on the backdrop, but not inside the box, dismisses.
+$('confirm').addEventListener('click', e => { if (e.target === $('confirm')) closeConfirm(); });
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !$('confirm').classList.contains('hidden')) closeConfirm();
+});
+
+$('confirm-yes').addEventListener('click', async () => {
+    const id = pendingDelete;
+    if (!id) return;
+    const btn = $('confirm-yes');
+    btn.disabled = true;
+    btn.textContent = 'Deleting…';
+    try {
+        await api('?action=cp_entry&id=' + id, { method: 'DELETE' });
+        closeConfirm();
+        state.open = null;
+        await loadWeek(true);
+    } catch (err) {
+        $('confirm-body').textContent = err.message;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Delete';
+    }
+});
 
 // Walks the week's games rather than the picks, so the list reads down in the
 // same order as the paper sheet — including any row that came back unmarked,
