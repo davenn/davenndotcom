@@ -247,6 +247,11 @@
             font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.02em;
             color: var(--text-secondary);
         }
+        /* The abbreviation is a placeholder while the logo loads and the
+           fallback if it never does. Once the image paints it gets out of the
+           way — team marks are transparent, so leaving it there showed the
+           letters through the logo. */
+        .tlogo--loaded .tabbr { visibility: hidden; }
         .tlogo img {
             position: absolute; inset: 0; width: 100%; height: 100%;
             object-fit: contain; padding: 5px;
@@ -580,7 +585,9 @@ function logoTile(abbr, name, side, covering) {
     if (!abbr) return `<span class="${cls}" title="${title}"><span class="tabbr">—</span></span>`;
     return `<span class="${cls}" title="${title}">
         <span class="tabbr">${esc(abbr)}</span>
-        <img src="${esc(logoUrl(abbr))}" alt="${esc(name)}" loading="lazy" onerror="this.remove()">
+        <img src="${esc(logoUrl(abbr))}" alt="${esc(name)}" loading="lazy"
+             onload="this.parentNode.classList.add('tlogo--loaded')"
+             onerror="this.remove()">
     </span>`;
 }
 
