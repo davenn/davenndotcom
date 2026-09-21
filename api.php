@@ -1234,13 +1234,28 @@ if ($method === 'POST' && $action === 'subscribe') {
         http_response_code(400); echo json_encode(['error' => 'contact_type must be email or phone.']); exit;
     }
 
-    $token = bin2hex(random_bytes(16));
+    $token  = bin2hex(random_bytes(16));
+    $is_new = false;
     try {
         $stmt = $pdo->prepare("INSERT INTO subscribers (contact_type, contact_value, unsub_token) VALUES (?,?,?)");
         $stmt->execute([$type, $value, $token]);
+        $is_new = true;
     } catch (PDOException $e) {
         // already subscribed — treat as success, no need to leak that to the client
     }
+
+    // Confirming an opt-in by text is what the A2P campaign registration
+    // declares happens, so it has to actually happen. Word for word the same
+    // message filed as the campaign's opt-in message — a reviewer may compare.
+    //
+    // Only on a genuinely new number: re-submitting the form must not text
+    // somebody who is already subscribed, and every segment costs money.
+    if ($is_new && $type === 'phone') {
+        sendSms($value, "davenn.com Update Notifications: you're signed up. "
+            . "Expect a text when a new app or feature ships, usually a few a month. "
+            . "Msg&data rates may apply. Reply HELP for help, STOP to cancel.");
+    }
+
     echo json_encode(['success' => true]); exit;
 }
 

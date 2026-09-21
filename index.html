@@ -465,17 +465,17 @@
         <div class="notify-inner">
             <div class="notify-text">
                 <div class="notify-title">Get notified about new apps</div>
-                <p class="notify-sub">Email me when something new ships.</p>
+                <p class="notify-sub">Text or email me when something new ships.</p>
             </div>
             <form class="notify-form" id="notify-form" onsubmit="return subscribe(event)">
                 <input type="text" id="notify-website" class="notify-honeypot" tabindex="-1" autocomplete="off">
                 <div class="notify-input-row">
-                    <input type="text" id="notify-input" placeholder="Email" autocomplete="off" required>
+                    <input type="text" id="notify-input" placeholder="Mobile number or email" autocomplete="off" required>
                     <button type="submit" id="notify-btn">Notify me</button>
                 </div>
                 <label class="notify-consent">
                     <input type="checkbox" id="notify-consent">
-                    <span>I agree to receive emails about davenn.com updates. Msg &amp; data rates may apply, frequency varies, reply STOP to opt out. See <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a> &amp; <a href="terms.html" target="_blank" rel="noopener">Terms</a>.</span>
+                    <span>I agree to receive recurring automated texts and/or emails about davenn.com updates at the number or address I provide. Consent is not a condition of use. Msg &amp; data rates may apply, frequency varies. Reply STOP to cancel or HELP for help. See <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a> &amp; <a href="terms.html" target="_blank" rel="noopener">Terms</a>.</span>
                 </label>
             </form>
             <button type="button" class="notify-close" onclick="toggleNotify(event)" title="Close" aria-label="Close">×</button>
@@ -576,7 +576,7 @@
     </div>
 
     <footer>
-        <p><a href="privacy.html">Privacy Policy</a> &nbsp;·&nbsp; <a href="terms.html">Terms &amp; SMS Program</a></p>
+        <p><a href="notify.html">Text &amp; Email Updates</a> &nbsp;·&nbsp; <a href="privacy.html">Privacy Policy</a> &nbsp;·&nbsp; <a href="terms.html">Terms &amp; SMS Program</a></p>
     </footer>
 
     <script>

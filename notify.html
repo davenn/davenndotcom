@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text &amp; Email Updates — davenn.com</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --nav-bg: #111110;
+            --nav-border: rgba(255,255,255,0.08);
+            --nav-height: 56px;
+            --body-bg: #ffffff;
+            --text-primary: #111110;
+            --text-muted: #666;
+            --card-bg: #f7f6f3;
+            --card-border: #e8e6e0;
+            --font-display: 'Syne', sans-serif;
+            --font-mono: 'DM Mono', monospace;
+        }
+
+        html, body { height: 100%; }
+        body { font-family: var(--font-display); background: var(--body-bg); color: var(--text-primary); }
+
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; height: var(--nav-height);
+            background: var(--nav-bg); border-bottom: 1px solid var(--nav-border);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 2rem; z-index: 100;
+        }
+        .nav-logo { font-family: var(--font-mono); font-size: 15px; font-weight: 500; color: #fff; letter-spacing: -0.02em; text-decoration: none; }
+        .nav-logo span { color: rgba(255,255,255,0.35); }
+        .nav-back { font-family: var(--font-mono); font-size: 12px; color: rgba(255,255,255,0.45); text-decoration: none; letter-spacing: 0.04em; text-transform: uppercase; transition: color 0.15s; }
+        .nav-back:hover { color: rgba(255,255,255,0.9); }
+
+        .content { max-width: 680px; margin: 0 auto; padding: calc(var(--nav-height) + 56px) 2rem 80px; }
+
+        .page-eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 14px; }
+        h1 { font-size: clamp(1.9rem, 4vw, 2.6rem); font-weight: 800; letter-spacing: -0.03em; margin-bottom: 8px; }
+        .lede { font-family: var(--font-mono); font-size: 13.5px; line-height: 1.75; color: #333; margin-bottom: 36px; }
+
+        h2 { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.01em; margin: 36px 0 12px; }
+        p, li { font-family: var(--font-mono); font-size: 13.5px; line-height: 1.75; color: #333; margin-bottom: 12px; }
+        ul { padding-left: 20px; margin-bottom: 12px; }
+        a { color: var(--text-primary); }
+
+        .box { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 20px 22px; margin: 12px 0 20px; }
+        .box dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; }
+        .box dt { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); white-space: nowrap; }
+        .box dd { font-family: var(--font-mono); font-size: 13px; color: #333; }
+
+        /* The form is plain markup and always rendered. Nothing here is behind a
+           toggle, a tab, or a script — anyone verifying how consent is collected
+           can see the whole thing on arrival. */
+        form { margin: 0; }
+        .field-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+        .field-row input[type="text"] {
+            flex: 1 1 240px; font-family: var(--font-mono); font-size: 14px;
+            padding: 12px 14px; border: 1px solid var(--card-border);
+            border-radius: 9px; background: #fff; color: var(--text-primary);
+        }
+        .field-row input[type="text"]:focus { outline: none; border-color: var(--text-primary); }
+        .field-row button {
+            font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.04em;
+            padding: 12px 20px; border-radius: 9px; border: 1px solid var(--text-primary);
+            background: var(--text-primary); color: #fff; cursor: pointer; transition: opacity 0.15s;
+        }
+        .field-row button:hover { opacity: 0.85; }
+        .field-row button:disabled { opacity: 0.4; cursor: default; }
+
+        .consent { display: flex; gap: 10px; align-items: flex-start; }
+        .consent input { margin-top: 4px; flex: none; width: 16px; height: 16px; }
+        .consent span { font-family: var(--font-mono); font-size: 12px; line-height: 1.65; color: #333; }
+
+        .honeypot { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+
+        .msg { display: none; font-family: var(--font-mono); font-size: 13px; margin-top: 14px; padding: 11px 13px; border-radius: 9px; }
+        .msg.show { display: block; }
+        .msg.success { background: rgba(12,163,12,0.09); border: 1px solid rgba(12,163,12,0.4); }
+        .msg.error   { background: rgba(208,59,59,0.07); border: 1px solid rgba(208,59,59,0.4); }
+
+        .sample { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.7; color: #333; background: #fff; border: 1px dashed var(--card-border); border-radius: 9px; padding: 14px 16px; }
+
+        footer { text-align: center; padding: 20px 2rem 60px; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+        footer a { color: var(--text-muted); }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <a class="nav-logo" href="/">davenn<span>dotcom</span></a>
+        <a class="nav-back" href="index.html">← Back</a>
+    </nav>
+
+    <div class="content">
+        <div class="page-eyebrow">Updates</div>
+        <h1>Get davenn.com updates</h1>
+        <p class="lede">Enter a mobile number to get a text, or an email address to get an email, whenever a new app or feature ships on davenn.com. Nothing else is ever sent to you.</p>
+
+        <h2>Sign up</h2>
+        <div class="box">
+            <form id="notify-form" onsubmit="return subscribe(event)">
+                <input type="text" id="website" class="honeypot" tabindex="-1" autocomplete="off" aria-hidden="true">
+                <div class="field-row">
+                    <input type="text" id="contact" placeholder="Mobile number or email address"
+                           autocomplete="off" required aria-label="Mobile number or email address">
+                    <button type="submit" id="submit-btn">Sign up</button>
+                </div>
+                <label class="consent">
+                    <input type="checkbox" id="consent" required>
+                    <span>
+                        I agree to receive recurring automated text messages and/or emails from
+                        <strong>davenn.com Update Notifications</strong> at the number or address I
+                        provide. Consent is not a condition of using anything on this site.
+                        Message frequency varies — typically no more than a few messages per month.
+                        Message and data rates may apply. Reply <strong>STOP</strong> to cancel or
+                        <strong>HELP</strong> for help at any time. See our
+                        <a href="privacy.html">Privacy Policy</a> and
+                        <a href="terms.html">Terms &amp; SMS Program</a>.
+                    </span>
+                </label>
+            </form>
+            <p class="msg" id="msg"></p>
+        </div>
+
+        <h2>What you're signing up for</h2>
+        <div class="box">
+            <dl>
+                <dt>Program</dt><dd>davenn.com Update Notifications</dd>
+                <dt>What you get</dt><dd>A text or email when a new app or feature ships on davenn.com.</dd>
+                <dt>Frequency</dt><dd>Varies — typically no more than a few messages per month, and only when there's something new.</dd>
+                <dt>Cost</dt><dd>Message and data rates may apply, charged by your carrier.</dd>
+                <dt>Opt out</dt><dd>Reply STOP to any text, or use the unsubscribe link in any email.</dd>
+                <dt>Help</dt><dd>Reply HELP to any text, or email <a href="mailto:support@davenn.com">support@davenn.com</a>.</dd>
+            </dl>
+        </div>
+
+        <h2>What a message looks like</h2>
+        <p class="sample">davenn.com: Confidence Pool is live — photograph your NFL pick sheet and it reads the picks off the paper. https://davenn.com/nflpool.html Reply STOP to opt out.</p>
+
+        <h2>Your information</h2>
+        <p>We store only the number or address you enter, plus an unsubscribe token. No name and no account. We do not sell or rent it, and <strong>no mobile information is shared with third parties or affiliates for marketing or promotional purposes.</strong> Phone numbers are passed to our messaging carrier solely to deliver the messages you asked for. Full detail is in the <a href="privacy.html">Privacy Policy</a>.</p>
+
+        <h2>Stopping</h2>
+        <p>Reply STOP to any text and the messages stop immediately; your number is removed. Every email carries an unsubscribe link that does the same. You can also email <a href="mailto:support@davenn.com">support@davenn.com</a> and we'll remove you by hand.</p>
+    </div>
+
+    <footer>
+        <a href="privacy.html">Privacy Policy</a> &nbsp;·&nbsp; <a href="terms.html">Terms &amp; SMS Program</a> &nbsp;·&nbsp; <a href="index.html">davenn.com</a>
+    </footer>
+
+<script>
+const API_URL = '/api.php';
+
+function detectContactType(value) {
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'email';
+    if (value.replace(/[^\d]/g, '').length >= 7) return 'phone';
+    return null;
+}
+
+async function subscribe(e) {
+    e.preventDefault();
+    const input   = document.getElementById('contact');
+    const consent = document.getElementById('consent');
+    const website = document.getElementById('website').value;
+    const btn     = document.getElementById('submit-btn');
+    const msg     = document.getElementById('msg');
+    const value   = input.value.trim();
+    const type    = detectContactType(value);
+
+    const fail = text => { msg.textContent = text; msg.className = 'msg show error'; };
+
+    if (!type)             { fail('Enter a valid mobile number or email address.'); return false; }
+    if (!consent.checked)  { fail('Please tick the box to agree to receive updates.'); return false; }
+
+    btn.disabled = true;
+    btn.textContent = 'Signing up…';
+    try {
+        const res = await fetch(API_URL + '?action=subscribe', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ contact_type: type, contact_value: value, website: website }),
+        });
+        const result = await res.json();
+        if (result && result.success) {
+            msg.textContent = type === 'phone'
+                ? "You're in — you'll get a text when something new ships. Reply STOP any time."
+                : "You're in — you'll get an email when something new ships.";
+            msg.className = 'msg show success';
+            input.value = '';
+            consent.checked = false;
+        } else {
+            fail((result && result.error) || 'Something went wrong. Try again.');
+        }
+    } catch (err) {
+        fail('Could not reach the server. Try again in a moment.');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Sign up';
+    }
+    return false;
+}
+</script>
+
+</body>
+</html>
