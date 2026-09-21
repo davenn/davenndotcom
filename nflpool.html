@@ -178,7 +178,7 @@
         .game:first-of-type { border-top: none; }
         /* Logos, then the two-line readout beside them, then the score. */
         .gline { display: grid; grid-template-columns: auto 1fr auto; gap: 11px; align-items: center; }
-        .gteams { display: flex; align-items: center; }
+        .gteams { position: relative; display: flex; align-items: center; }
         .ginfo { display: grid; gap: 2px; min-width: 0; }
         .gspread {
             font-size: 15px; font-weight: 600; line-height: 1.25;
@@ -198,10 +198,25 @@
             display: inline-flex; align-items: center; justify-content: center;
             overflow: hidden;
         }
-        .tlogo:first-child { border-radius: 8px 0 0 8px; }
+        /* Keyed to the side rather than DOM position, so anything else placed
+           inside .gteams cannot knock the corners off. */
+        .tlogo--away { border-radius: 8px 0 0 8px; }
         /* Pulled in by a pixel so the touching edges read as one shared border
            rather than two stacked ones. */
-        .tlogo:last-child  { border-radius: 0 8px 8px 0; margin-left: -1px; }
+        .tlogo--home { border-radius: 0 8px 8px 0; margin-left: -1px; }
+
+        /* The "@" badge straddling the seam. Decorative — the matchup and who
+           is home are already in the row's aria-label and each tile's title. */
+        .gseam {
+            position: absolute; left: 50%; top: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2;
+            width: 19px; height: 19px; border-radius: 50%;
+            background: var(--surface); border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            font-family: var(--font-mono); font-size: 9px; line-height: 1;
+            color: var(--text-muted); pointer-events: none;
+        }
 
         .tlogo .tabbr {
             font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.02em;
@@ -345,6 +360,7 @@
                "Commanders -13.5" starts getting clipped. */
             .tlogo { width: 54px; height: 44px; }
             .gline { gap: 9px; }
+            .gseam { width: 17px; height: 17px; font-size: 8px; }
         }
     </style>
 </head>
@@ -488,7 +504,7 @@ function logoUrl(abbr) {
 }
 
 function logoTile(abbr, name, side, covering) {
-    const cls   = 'tlogo' + (covering ? ' tlogo--cover' : '');
+    const cls   = 'tlogo tlogo--' + side + (covering ? ' tlogo--cover' : '');
     const title = esc(name) + ' (' + side + ')' + (covering ? ' — covering the spread' : '');
     if (!abbr) return `<span class="${cls}" title="${title}"><span class="tabbr">—</span></span>`;
     return `<span class="${cls}" title="${title}">
@@ -687,6 +703,7 @@ function renderBoard(d) {
                 <div class="gteams" role="img" aria-label="${srLabel}">
                     ${logoTile(g.away, g.away_name, 'away', covering === 'away')}
                     ${logoTile(g.home, g.home_name, 'home', covering === 'home')}
+                    <span class="gseam" aria-hidden="true">@</span>
                 </div>
                 <div class="ginfo">
                     <div class="gspread">${line}</div>
