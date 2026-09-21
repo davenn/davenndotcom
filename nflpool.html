@@ -1060,10 +1060,14 @@ function buildPickers() {
     state.season = season;
     state.week   = week;
 
+    // Only the season in play. There is no history worth browsing yet, and a
+    // list of empty years is just a way to land on a blank week by accident.
+    // Add past years to SEASONS once they hold something.
+    const SEASONS = [season];
     const sSel = $('season');
-    for (let y = season + 1; y >= season - 4; y--) {
+    SEASONS.forEach(y => {
         sSel.insertAdjacentHTML('beforeend', `<option value="${y}" ${y === season ? 'selected' : ''}>${y}</option>`);
-    }
+    });
     const wSel = $('week');
     for (let w = 1; w <= 18; w++) {
         wSel.insertAdjacentHTML('beforeend', `<option value="${w}" ${w === week ? 'selected' : ''}>Week ${w}</option>`);
