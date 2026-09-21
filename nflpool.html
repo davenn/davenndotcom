@@ -138,6 +138,15 @@
         button.primary:hover, button.ghost:hover { opacity: 0.85; }
         button:disabled { opacity: 0.4; cursor: default; }
 
+        /* Icon-only button, sized to sit level with the text buttons beside it.
+           The label lives in aria-label and title, since there is no text. */
+        button.icon { padding: 9px 11px; display: inline-flex; align-items: center; justify-content: center; }
+        button.icon svg {
+            width: 18px; height: 18px; display: block;
+            fill: none; stroke: currentColor; stroke-width: 1.8;
+            stroke-linecap: round; stroke-linejoin: round;
+        }
+
         /* ── STANDINGS ──
            Two figures per player, laid out as the columns a bracket pool uses:
            what they have now, and the most they can still finish on. The header
@@ -395,8 +404,14 @@
         <select id="season" aria-label="Season"></select>
         <select id="week" aria-label="Week"></select>
         <span class="spacer"></span>
-        <button class="primary hidden" id="camera-btn" type="button">Take photo</button>
-        <button class="primary" id="upload-btn" type="button">Upload sheet</button>
+        <button class="primary icon hidden" id="camera-btn" type="button"
+                title="Take a photo of the sheet" aria-label="Take a photo of the sheet">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 7h3l2-2.5h6L17 7h3a1.5 1.5 0 0 1 1.5 1.5v10a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5v-10A1.5 1.5 0 0 1 4 7z"/>
+                <circle cx="12" cy="13.2" r="3.6"/>
+            </svg>
+        </button>
+        <button class="primary" id="upload-btn" type="button">Upload</button>
     </div>
 
     <div class="banner hidden" id="page-error"></div>
