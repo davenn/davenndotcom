@@ -2832,20 +2832,24 @@ if ($method === 'POST' && $action === 'cp_sms') {
     // Carriers act on STOP before it reaches us, but our own record has to
     // agree or we would keep the number linked after someone opted out.
     $word = strtoupper(preg_replace('/[^A-Za-z]/', '', $body));
-    if (in_array($word, ['STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT'], true)) {
+    // The full set Twilio acts on, so the words filed with the campaign and
+    // the words we honour are the same list. OPTOUT and REVOKE were missing.
+    if (in_array($word, ['STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT', 'OPTOUT', 'REVOKE'], true)) {
         if ($player) $pdo->prepare("UPDATE cp_players SET opted_out = 1 WHERE id = ?")->execute([$player['id']]);
         cpTwimlSilent();   // the carrier sends its own confirmation
     }
     if (in_array($word, ['START', 'UNSTOP', 'YES'], true)) {
         if ($player) $pdo->prepare("UPDATE cp_players SET opted_out = 0 WHERE id = ?")->execute([$player['id']]);
-        cpTwiml('You are set up again. Text a photo of your pick sheet any time.');
+        // Doubles as the pool campaign's filed opt-in confirmation, so it has
+        // to name the program, the rates, and both keyword routes.
+        cpTwiml('davenn.com Confidence Pool: you are set up again. Text a photo of your pick sheet any time and I will reply with a link to check it. Message and data rates may apply. Reply HELP for help, STOP to opt out.');
     }
     if ($word === 'HELP' || $word === 'INFO') {
-        // This number carries both messaging programs, so HELP has to answer
-        // for both — an update subscriber texting HELP should not get a reply
-        // about pick sheets. Word for word the help message filed with the
-        // A2P campaign; a reviewer may text the number and compare.
-        cpTwiml('davenn.com: this number sends davenn.com update notifications and replies to Confidence Pool pick sheets. Message and data rates may apply. Reply STOP to opt out. Help: support@davenn.com or https://davenn.com/terms.html');
+        // This webhook is only on the pool's number — update notifications go
+        // out from a different one — so HELP answers for the pool alone.
+        // Word for word the help message filed with the pool's own A2P
+        // campaign; a reviewer may text the number and compare.
+        cpTwiml('davenn.com Confidence Pool: text a photo of your filled-in pick sheet and I will read it and send back a link to check it. Message and data rates may apply. Reply STOP to opt out. Help: support@davenn.com');
     }
     if ($player && $player['opted_out']) cpTwimlSilent();
 
@@ -2884,7 +2888,7 @@ if ($method === 'POST' && $action === 'cp_sms') {
     [$bytes, $mt] = cpPrepareImage($fetched['body'], $media_type);
     $result = cpReadSheet($bytes, $mt, $api_key);
     if ($result === null || empty($result['readable']) || !is_array($result['games'] ?? null) || !count($result['games'])) {
-        cpTwiml('I could not read that sheet. Try again with the whole page in frame, flat, in even light.');
+        cpTwiml('davenn.com Confidence Pool: I could not read that sheet. Try again with the whole page in frame, flat, in even light. Reply HELP for help.');
     }
 
     // Stage it against the newest week that has been set up. A text carries no

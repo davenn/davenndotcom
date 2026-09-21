@@ -1,17 +1,26 @@
 # A2P 10DLC campaign registration
 
-Answers for the Twilio campaign form, in the order the fields appear, so they
-can be pasted down the page. Kept in the repo because a reviewer compares the
-campaign description, the sample messages, the opt-in flow on the website and
-the privacy policy against each other — inconsistency between them is the
-most common rejection cause. When you change [`notify.html`](../notify.html),
+The site sends SMS from **two different Twilio numbers**, so there are **two
+separate campaigns**. Each number's traffic must be registered against the
+campaign that describes it — describing messaging a number does not send, or
+omitting messaging it does, is a compliance problem even when it is approved.
+
+| Campaign | Number | Direction | Opt-in |
+|---|---|---|---|
+| [A. Update Notifications](#campaign-a--update-notifications) | updates number | outbound broadcast | web form with consent checkbox |
+| [B. Confidence Pool](#campaign-b--confidence-pool) | pool number | two-way conversational | the person texts the number first |
+
+Kept in the repo because a reviewer compares the campaign description, the
+sample messages, the opt-in flow on the website and the privacy policy
+against each other — inconsistency between them is the most common rejection
+cause. When you change [`notify.html`](../notify.html),
 [`terms.html`](../terms.html), [`privacy.html`](../privacy.html) or the
 message strings in `api.php`, change this too.
 
-> **Two placeholders to fill before submitting.** `[LEGAL NAME]` is the legal
-> entity name registered with Twilio. If it is not literally "davenn.com",
-> the description must state the relationship or the reviewer reads the
-> website and the brand as two different businesses — a named rejection trap.
+> **Fill in `[LEGAL NAME]`** — the legal entity registered with Twilio. If it
+> is not literally "davenn.com", the description must state the relationship
+> or a reviewer reads the website and the brand as two separate businesses.
+> That is a named rejection trap.
 
 ## Why the last submission was rejected
 
@@ -20,86 +29,28 @@ message strings in `api.php`, change this too.
 > being sent. Make sure the description matches your selected campaign use
 > case, sample messages, and registered brand details.
 
-Two likely causes, both fixed below:
-
-1. **This number carries two different messaging programs.** A description
-   covering only one will not match the sample messages or the website, which
-   describe both.
-
-| Program | Direction | Opt-in |
-|---|---|---|
-| Update Notifications | outbound broadcast | web form with consent checkbox |
-| Confidence Pool | two-way conversational | the person texts the number first |
-
-2. **A possible legal-name / website-name mismatch.** If the brand is
-   registered under a personal or company legal name while the site, the
-   sender name and the messages all say "davenn.com", a reviewer treats that
-   as two businesses unless the description spells out the relationship.
+The submitted description said what recipients get but never said **who is
+sending**, which is the first thing asked for. It also opened with
+"ecipients" — a missing leading R. Two required fields, the opt-in keywords
+and the opt-in message, were left blank, and neither the help nor the opt-out
+message named the brand.
 
 ---
 
-## Use cases
+# Campaign A — Update Notifications
 
-```
-MIXED
-```
-
-Two genuinely different message types share this number, so MIXED is the
-honest answer. It costs more and gets lower throughput than a single-purpose
-use case — acceptable here, since volume is a few messages a month.
-
-If the console offers **Low Volume Mixed** and the brand qualifies, take it
-instead: same description, lower cost, and throughput is irrelevant at this
-volume.
+The number that `sendSms()` sends from (`TWILIO_FROM_NUMBER`). Outbound only.
 
 ## Campaign description
 
 ```
-Messages are sent by [LEGAL NAME], operating as davenn.com, a personal
-website hosting a collection of free web apps. This campaign covers the only
-two ways the site sends text messages. Both are opt-in. No numbers are
-purchased, rented, or obtained from third parties, and we never message
-anyone who has not asked us to.
-
-1. Update notifications. A visitor to davenn.com who wants to know when a new
-app or feature is released enters their own mobile number into the sign-up
-form at https://davenn.com/notify.html and ticks an unticked consent
-checkbox. davenn.com then texts that person when something new ships on the
-site, typically no more than a few messages per month. The only people who
-receive these messages are people who submitted their own number through that
-form. Consent is not a condition of using anything on the site, and the
-messages advertise nothing other than davenn.com itself.
-
-2. Confidence Pool replies. davenn.com runs a private NFL confidence pool for
-one small group of friends and family. A member texts a photo of their
-completed paper pick sheet to this number. davenn.com reads the picks off the
-photo and texts that same person back a link so they can check what was read
-before anything is saved. Every message in this program is a reply to a
-message that person sent first. Nobody is added to the pool by us, there is
-no sign-up, and no money changes hands.
-
-Recipients of either program can reply STOP at any time to stop all messages,
-or HELP for help. Program terms are at https://davenn.com/terms.html and the
-privacy policy is at https://davenn.com/privacy.html.
+Messages are sent by [LEGAL NAME], operating as davenn.com, a personal website that hosts a collection of free web apps. Recipients are people who entered their own mobile number into the sign-up form at https://davenn.com/notify.html and ticked a consent box; no numbers are purchased, rented, or obtained from third parties. They receive a text when a new app or feature ships on davenn.com, so they know something new is available to use. Content is limited to product update announcements for davenn.com itself - no marketing for other companies, no third-party or affiliate content. Message frequency varies, typically no more than a few per month, sent only when something new is released. Recipients can reply STOP at any time to stop all messages, or HELP for help. Terms: https://davenn.com/terms.html Privacy: https://davenn.com/privacy.html
 ```
 
 ## Message flow: How do end-users consent to receive messages?
 
 ```
-Update notifications: the visitor goes to https://davenn.com/notify.html,
-linked from the davenn.com home page. They enter their own mobile number and
-tick a consent box that is unticked by default; the form will not submit
-without it. The box reads: "I agree to receive recurring automated text
-messages and/or emails from davenn.com Update Notifications at the number or
-address I provide. Consent is not a condition of using anything on this site.
-Message frequency varies - typically no more than a few messages per month.
-Message and data rates may apply. Reply STOP to cancel or HELP for help at
-any time." The page also states the program name, what is sent, frequency and
-cost, and links the Privacy Policy and SMS terms. The number then receives a
-confirmation text. Consent is collected only for the person's own number.
-
-Confidence Pool: a member consents by texting the number first. It is given
-directly to one small private pool, is not published, and never sends first.
+End users opt in on a public web form at https://davenn.com/notify.html. The page requires no login and no interaction to display - the form and its disclosures are visible on arrival. The user enters their mobile number and must tick an unchecked consent box reading: "I agree to receive recurring automated text messages and/or emails from davenn.com Update Notifications at the number or address I provide. Consent is not a condition of using anything on this site. Message frequency varies - typically no more than a few messages per month. Message and data rates may apply. Reply STOP to cancel or HELP for help at any time." The consent text links the Privacy Policy and the SMS program terms. The form will not submit without the box ticked. The number then receives a confirmation text. Consent is collected only for the person's own number and is never bought, shared or inferred.
 ```
 
 ## Opt-in method proof
@@ -111,13 +62,6 @@ https://davenn.com/notify.html
 The page shows the sign-up field, the unticked consent checkbox with its full
 wording, the program name, message frequency, cost, opt-out and help
 instructions, and links to the privacy policy and SMS program terms.
-
-The consent checkbox reads: "I agree to receive recurring automated text
-messages and/or emails from davenn.com Update Notifications at the number or
-address I provide. Consent is not a condition of using anything on this site.
-Message frequency varies - typically no more than a few messages per month.
-Message and data rates may apply. Reply STOP to cancel or HELP for help at
-any time."
 ```
 
 ## Privacy policy URL
@@ -132,86 +76,58 @@ https://davenn.com/privacy.html
 https://davenn.com/terms.html
 ```
 
-## Messages will include embedded links
+## Checkboxes
+
+| Field | Answer |
+|---|---|
+| Messages will include embedded links | **Yes** — all point to https://davenn.com, no shorteners |
+| Messages will include phone numbers | No |
+| Content related to direct lending | No |
+| Age-gated content | No |
+
+## Sample messages
+
+Each is a changelog entry plus the fixed suffix the code appends.
 
 ```
-Yes
-```
-
-All links point to https://davenn.com. No link shorteners are used.
-
-## Messages will include phone numbers
-
-```
-No
-```
-
-## Messages include content related to direct lending
-
-```
-No
-```
-
-## Messages include age-gated content
-
-```
-No
-```
-
-The Confidence Pool is a free scorekeeping tool for a private game. No entry
-fees, no funds held or transferred, no bets, no odds published, no prizes —
-stated explicitly under "No wagering" at https://davenn.com/terms.html, which
-is the page to point at if a reviewer queries this.
-
-## Sample message #1
-
-Opt-in confirmation, sent once on sign-up.
-
-```
-davenn.com Update Notifications: you're signed up. Expect a text when a new app or feature ships, typically no more than a few messages per month. Message and data rates may apply. Reply HELP for help, STOP to cancel.
-```
-
-## Sample message #2
-
-Update notification. The body is the newest changelog entry.
-
-```
-New on davenn.com: [Feature] - [one-line description of what it does]. https://davenn.com
+Added Daily Tasks - a daily task tracker with per-task timers and a weekly leaderboard. https://davenn.com/dailytasks.html
 
 davenn.com - Reply STOP to unsubscribe.
 ```
 
-## Sample message #3
-
-Confidence Pool reply to a texted-in pick sheet.
-
 ```
-davenn.com Confidence Pool: read [16] of [16] picks for Week [3]. Nothing is saved yet - open this to confirm: https://davenn.com/nflpool.html?review=[token]
+Reaction Test now has SPEED MODE, a faster five-round variant. https://davenn.com/reactiontest.html
+
+davenn.com - Reply STOP to unsubscribe.
 ```
 
-## Sample message #4
-
-Help reply.
-
 ```
-davenn.com Confidence Pool: text a photo of your filled-in pick sheet and I will read it and send back a link to check it. Reply STOP to opt out. Help: support@davenn.com
+New app: Confidence Pool - photograph your filled-in NFL pick sheet and it reads the picks off the paper. https://davenn.com/nflpool.html
+
+davenn.com - Reply STOP to unsubscribe.
 ```
 
-## Sample message #5
+```
+Toolshare can now identify a tool from a photo when you add it to your library. https://davenn.com/toolshare.html
 
-Confirmation when a pool member's number is first linked.
+davenn.com - Reply STOP to unsubscribe.
+```
 
 ```
-davenn.com Confidence Pool: thanks [Name], this number is now linked to your picks. Text a photo of your sheet whenever you are ready. Reply STOP to opt out.
+Flight Tracker now imports a whole itinerary at once instead of one leg at a time. https://davenn.com/flighttracker.html
+
+davenn.com - Reply STOP to unsubscribe.
 ```
 
 ## Opt-in keywords
 
 ```
-START, UNSTOP, YES
+START,UNSTOP,YES
 ```
 
 ## Opt-in message
+
+Matches `?action=subscribe` word for word.
 
 ```
 davenn.com Update Notifications: you're signed up. Expect a text when a new app or feature ships, typically no more than a few messages per month. Message and data rates may apply. Reply HELP for help, STOP to cancel.
@@ -220,69 +136,199 @@ davenn.com Update Notifications: you're signed up. Expect a text when a new app 
 ## Opt-out keywords
 
 ```
-STOP, STOPALL, UNSUBSCRIBE, CANCEL, END, QUIT
+OPTOUT,CANCEL,END,QUIT,UNSUBSCRIBE,REVOKE,STOP,STOPALL
 ```
 
 ## Opt-out message
 
 ```
-davenn.com: you are unsubscribed and will receive no further messages from davenn.com Update Notifications or the davenn.com Confidence Pool. Reply START to resubscribe. Help: support@davenn.com
+davenn.com Update Notifications: you have successfully been unsubscribed and will not receive any more messages from this number. Reply START to resubscribe. Help: support@davenn.com
 ```
 
 ## Help keywords
 
 ```
-HELP, INFO
+HELP,INFO
 ```
 
 ## Help message
 
 ```
-davenn.com: this number sends davenn.com update notifications and replies to Confidence Pool pick sheets. Message and data rates may apply. Reply STOP to opt out. Help: support@davenn.com or https://davenn.com/terms.html
+davenn.com Update Notifications: we text you when a new app or feature ships on davenn.com. Message and data rates may apply. Reply STOP to unsubscribe. Help: support@davenn.com or https://davenn.com/terms.html
+```
+
+> **This number has no inbound webhook.** Nothing in `api.php` answers STOP,
+> START or HELP sent to it, so Twilio's platform defaults reply. Set the
+> three messages above in this Messaging Service's **Advanced Opt-Out**
+> settings, or what Twilio actually sends will not match what was filed.
+
+---
+
+# Campaign B — Confidence Pool
+
+The pool's own number, with `?action=cp_sms` as its inbound webhook. Every
+outbound message is a reply to one the recipient sent first.
+
+## Campaign description
+
+```
+Messages are sent by [LEGAL NAME], operating as davenn.com. davenn.com runs a private NFL confidence pool for one small group of friends and family. A member texts a photo of their completed paper pick sheet to this number. We read the picks off the photo and text that same person back a link so they can check what was read before anything is saved. Every message this number sends is a reply to a message that person sent first; it never initiates a conversation. Recipients are only the handful of people in that one private pool, who are given the number directly. There is no sign-up form, the number is not published or advertised, and no money changes hands - no entry fees, no wagers, no prizes. Recipients can reply STOP at any time to stop all messages, or HELP for help. Terms: https://davenn.com/terms.html Privacy: https://davenn.com/privacy.html
+```
+
+## Message flow: How do end-users consent to receive messages?
+
+```
+A pool member consents by texting this number first. The number is given directly to the handful of people in one private pool; it is not published, advertised, or offered as a sign-up anywhere. The number never sends the first message to anyone. When an unrecognised number texts in, the only reply is a prompt asking for the sender's name so their sheet can be filed against the right person; if they do not reply, nothing further is ever sent. Program terms for this number, including frequency, cost, opt-out and help, are published at https://davenn.com/terms.html under "Confidence Pool messaging".
+```
+
+## Opt-in method proof
+
+```
+Consent is given by the recipient texting this number first. The number is
+shared directly with members of one private pool and is not published.
+
+Published program terms, publicly accessible with no login:
+https://davenn.com/terms.html (section "Confidence Pool messaging") - states
+the program name, what it does, who it is for, frequency, cost, opt-out and
+help instructions.
+
+Exact messages exchanged when someone texts in for the first time:
+  Member: [photo of a completed pick sheet]
+  davenn.com: "I do not recognise this number yet. Reply with your name
+  first, then text a photo of your sheet."
+  Member: "[Name]"
+  davenn.com: "davenn.com Confidence Pool: thanks [Name], this number is now
+  linked to your picks. Text a photo of your sheet whenever you are ready.
+  Reply STOP to opt out."
+```
+
+## Privacy policy URL
+
+```
+https://davenn.com/privacy.html
+```
+
+## Terms and conditions URL
+
+```
+https://davenn.com/terms.html
+```
+
+## Checkboxes
+
+| Field | Answer |
+|---|---|
+| Messages will include embedded links | **Yes** — all point to https://davenn.com, no shorteners |
+| Messages will include phone numbers | No |
+| Content related to direct lending | No |
+| Age-gated content | No — see below |
+
+Not age-gated: the pool is a free scorekeeping tool for a private game. No
+entry fees, no funds held or transferred, no bets, no odds published, no
+prizes. Stated under "No wagering" at https://davenn.com/terms.html, which is
+the page to point at if a reviewer queries this.
+
+## Sample messages
+
+```
+davenn.com Confidence Pool: read [16] of [16] picks for Week [3]. Nothing is saved yet - open this to confirm: https://davenn.com/nflpool.html?review=[token]
+```
+
+```
+davenn.com Confidence Pool: thanks [Name], this number is now linked to your picks. Text a photo of your sheet whenever you are ready. Reply STOP to opt out.
+```
+
+```
+davenn.com Confidence Pool: read [14] of [16] picks for Week [7]. [2] thing(s) to check. Nothing is saved yet - open this to confirm: https://davenn.com/nflpool.html?review=[token]
+```
+
+```
+davenn.com Confidence Pool: I could not read that sheet. Try again with the whole page in frame, flat, in even light. Reply HELP for help.
+```
+
+## Opt-in keywords
+
+```
+START,UNSTOP,YES
+```
+
+## Opt-in message
+
+Matches the START branch in `?action=cp_sms`.
+
+```
+davenn.com Confidence Pool: you are set up again. Text a photo of your pick sheet any time and I will reply with a link to check it. Message and data rates may apply. Reply HELP for help, STOP to opt out.
+```
+
+## Opt-out keywords
+
+```
+OPTOUT,CANCEL,END,QUIT,UNSUBSCRIBE,REVOKE,STOP,STOPALL
+```
+
+All eight are honoured in `?action=cp_sms`.
+
+## Opt-out message
+
+```
+davenn.com Confidence Pool: you have successfully been unsubscribed and will not receive any more messages from this number. Reply START to resubscribe. Help: support@davenn.com
+```
+
+> The code answers STOP with **silence** (`cpTwimlSilent()`) so the carrier's
+> own confirmation is not doubled. Set the text above in this Messaging
+> Service's **Advanced Opt-Out** settings so Twilio sends exactly what was
+> filed, and leave the code silent.
+
+## Help keywords
+
+```
+HELP,INFO
+```
+
+## Help message
+
+Matches the HELP branch in `?action=cp_sms` word for word.
+
+```
+davenn.com Confidence Pool: text a photo of your filled-in pick sheet and I will read it and send back a link to check it. Message and data rates may apply. Reply STOP to opt out. Help: support@davenn.com
 ```
 
 ---
 
-## Code and site changes made to match these answers
+## Changes already made to match these filings
 
-Filing an answer the code does not actually send is the inconsistency that
-gets campaigns rejected. These were brought into line:
+- **Opt-in confirmation** spells out `Message and data rates may apply` and
+  the frequency (`?action=subscribe`), matching Campaign A word for word.
+- **Pool HELP reply** names the program, the rates and a support route, and
+  describes the pool only — this webhook is on the pool's number.
+- **Pool START reply** rewritten as a compliant opt-in confirmation.
+- **Pool sheet reply and number-linked reply** lead with the brand, as every
+  filed sample must identify the sender.
+- **`OPTOUT` and `REVOKE`** added to the opt-out keywords honoured in
+  `cp_sms`, so the filed list and the handled list are the same.
+- **All outbound SMS is ASCII.** Em dashes forced UCS-2, cutting a segment
+  from 160 characters to 70.
+- **STOP and HELP are bold** in [`terms.html`](../terms.html).
+- **Privacy policy** carries the CTIA sentence verbatim.
 
-- **Opt-in message** now spells out `Message and data rates may apply` and the
-  frequency, matching the filing word for word (`?action=subscribe`).
-- **Help reply** now answers for both programs instead of only the Confidence
-  Pool, so an update subscriber who texts HELP gets a relevant answer
-  (`?action=cp_sms`).
-- **Pool sheet reply and number-linked reply** now lead with the brand, as
-  every filed sample must identify the sender.
-- **All outbound SMS is ASCII.** Em dashes are gone from every message the
-  code sends; see the encoding note above.
-- **STOP and HELP are bold** in [`terms.html`](../terms.html), as required.
-- **Privacy policy** now carries the CTIA sentence verbatim, ahead of the
-  existing wording.
+## Still outstanding
 
-### Still outstanding
-
-- **Opt-out message.** The code deliberately stays silent on STOP
-  (`cpTwimlSilent()`) so the carrier's own confirmation is not doubled. That
-  is the right behaviour, but the form still needs text. Set the opt-out
-  message above in the Messaging Service's **Advanced Opt-Out** settings so
-  Twilio sends exactly what was filed, and leave the code silent. Nothing in
-  the repo can do this — it is a console setting.
-- **A STOP from an update subscriber never reaches the database.** Twilio
-  blocks delivery, so compliance holds, but the row stays in `subscribers`
-  and every broadcast retries and fails against it. Fixing it means handling
-  STOP for non-pool numbers in the inbound webhook; not done, because it
-  changes behaviour rather than wording.
+- **Advanced Opt-Out on both Messaging Services.** Console settings; nothing
+  in the repo can do it. Campaign A's number has no inbound webhook at all,
+  so all three of its keyword replies come from Twilio.
+- **A STOP to the updates number never reaches the database.** Twilio blocks
+  delivery so compliance holds, but the row stays in `subscribers` and every
+  broadcast retries and fails against it. Fixing it means giving that number
+  an inbound webhook, or reconciling against Twilio's opt-out list.
 
 ## Before resubmitting
 
-- [ ] `[LEGAL NAME]` replaced, and the DBA relationship reads correctly.
-- [ ] Brand name registered with Twilio matches the legal entity exactly.
-- [ ] https://davenn.com/notify.html opens for someone not logged in.
-- [ ] Privacy policy and terms URLs both load over https.
-- [ ] Sample messages match what the code sends, after the three changes above.
-- [ ] `support@davenn.com` receives mail — three filed answers point at it.
+- [ ] `[LEGAL NAME]` replaced in both descriptions.
+- [ ] Campaign A's description no longer begins "ecipients".
+- [ ] Opt-in keywords and opt-in message are filled in — both were blank.
+- [ ] Each campaign filed against the right number.
+- [ ] Advanced Opt-Out set on both Messaging Services.
+- [ ] `support@davenn.com` receives mail — several filed answers point at it.
 
 ## Where the code lives
 
@@ -290,7 +336,7 @@ gets campaigns rejected. These were brought into line:
 |---|---|
 | Sign-up and opt-in confirmation | `?action=subscribe` in `api.php` |
 | Broadcast | `?action=notify_subscribers`, fired by the deploy workflow on a `CHANGELOG.md` change |
-| Pool inbound, STOP/HELP, replies | `?action=cp_sms` in `api.php` |
+| Pool inbound, keywords, replies | `?action=cp_sms` in `api.php` |
 | Sending | `sendSms()` in `api.php` |
 | Program terms | [`notify.html`](../notify.html), [`terms.html`](../terms.html) |
 | Privacy policy | [`privacy.html`](../privacy.html) |
