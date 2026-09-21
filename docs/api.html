@@ -188,44 +188,53 @@
 
     <section class="grp">
         <h2 class="tag">Meeting Cost Timer</h2>
-        <div class="op delete" id="delete-clear_week" data-search="clear_week delete meeting cost timer ">
+        <div class="op delete" id="delete-clear_week" data-search="clear_week delete meeting cost timer answers with the number of rows removed, so the caller can tell a cleared">
             <button class="op-head" type="button" aria-expanded="false">
                 <span class="method">DELETE</span>
                 <span class="op-path">?action=clear_week</span>
-                <span class="op-sum"></span>
+                <span class="op-sum">Answers with the number of rows removed, so the caller can tell a cleared</span>
                 <span class="caret">▶</span>
             </button>
             <div class="op-body" hidden>
+                <p class="op-desc">Answers with the number of rows removed, so the caller can tell a cleared week from a week_key that matched nothing.</p>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;week_key=YYYY-MM-DD — drop one week's meetings.</p>
                 <h4>Query parameters</h4>
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">week_key</td></tr>
                 </tbody></table></div>
             </div>
         </div>
-        <div class="op post" id="post-save" data-search="save post meeting cost timer ">
+        <div class="op post" id="post-save" data-search="save post meeting cost timer title, cost and length must all be present and positive. a meeting with no">
             <button class="op-head" type="button" aria-expanded="false">
                 <span class="method">POST</span>
                 <span class="op-path">?action=save</span>
-                <span class="op-sum"></span>
+                <span class="op-sum">Title, cost and length must all be present and positive. A meeting with no</span>
                 <span class="caret">▶</span>
             </button>
             <div class="op-body" hidden>
+                <p class="op-desc">Title, cost and length must all be present and positive. A meeting with no cost is a timer that was never really started, and keeping it only adds noise to the week.</p>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">body: { title, cost, seconds, week_key }</p>
             </div>
         </div>
-        <div class="op get" id="get-week" data-search="week get meeting cost timer ">
+        <div class="op get" id="get-week" data-search="week get meeting cost timer cost is the entire point of the app, so the ranking leads with it.">
             <button class="op-head" type="button" aria-expanded="false">
                 <span class="method">GET</span>
                 <span class="op-path">?action=week</span>
-                <span class="op-sum"></span>
+                <span class="op-sum">Cost is the entire point of the app, so the ranking leads with it.</span>
                 <span class="caret">▶</span>
             </button>
             <div class="op-body" hidden>
+                <p class="op-desc">Cost is the entire point of the app, so the ranking leads with it.</p>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;week_key=YYYY-MM-DD — one week's meetings, dearest first.</p>
                 <h4>Query parameters</h4>
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">week_key</td></tr>
@@ -235,16 +244,19 @@
     </section>
     <section class="grp">
         <h2 class="tag">Track Timer</h2>
-        <div class="op delete" id="delete-clear_track_sessions" data-search="clear_track_sessions delete track timer ">
+        <div class="op delete" id="delete-clear_track_sessions" data-search="clear_track_sessions delete track timer not scoped to a week or a user: it empties the table.">
             <button class="op-head" type="button" aria-expanded="false">
                 <span class="method">DELETE</span>
                 <span class="op-path">?action=clear_track_sessions</span>
-                <span class="op-sum"></span>
+                <span class="op-sum">Not scoped to a week or a user: it empties the table.</span>
                 <span class="caret">▶</span>
             </button>
             <div class="op-body" hidden>
+                <p class="op-desc">Not scoped to a week or a user: it empties the table.</p>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">remove every saved session.</p>
             </div>
         </div>
         <div class="op delete" id="delete-delete_track_session" data-search="delete_track_session delete track timer ">
@@ -257,34 +269,42 @@
             <div class="op-body" hidden>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;id=X — remove a single session.</p>
                 <h4>Query parameters</h4>
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">id</td></tr>
                 </tbody></table></div>
             </div>
         </div>
-        <div class="op post" id="post-save_track_session" data-search="save_track_session post track timer ">
+        <div class="op post" id="post-save_track_session" data-search="save_track_session post track timer athletes are stored as given — the app owns their shape, not the database.">
             <button class="op-head" type="button" aria-expanded="false">
                 <span class="method">POST</span>
                 <span class="op-path">?action=save_track_session</span>
-                <span class="op-sum"></span>
+                <span class="op-sum">Athletes are stored as given — the app owns their shape, not the database.</span>
                 <span class="caret">▶</span>
             </button>
             <div class="op-body" hidden>
+                <p class="op-desc">Athletes are stored as given — the app owns their shape, not the database.</p>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">body: { name, duration, athletes[] }</p>
             </div>
         </div>
-        <div class="op get" id="get-track_sessions" data-search="track_sessions get track timer ">
+        <div class="op get" id="get-track_sessions" data-search="track_sessions get track timer athletes ride along as a json blob and are decoded on the way out: the">
             <button class="op-head" type="button" aria-expanded="false">
                 <span class="method">GET</span>
                 <span class="op-path">?action=track_sessions</span>
-                <span class="op-sum"></span>
+                <span class="op-sum">Athletes ride along as a JSON blob and are decoded on the way out: the</span>
                 <span class="caret">▶</span>
             </button>
             <div class="op-body" hidden>
+                <p class="op-desc">Athletes ride along as a JSON blob and are decoded on the way out: the roster changes every session, so there is nothing stable to make columns of.</p>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">every saved session, newest first.</p>
             </div>
         </div>
     </section>
@@ -354,16 +374,19 @@
                 </tbody></table></div>
             </div>
         </div>
-        <div class="op get" id="get-tb_friends" data-search="tb_friends get toolshare ">
+        <div class="op get" id="get-tb_friends" data-search="tb_friends get toolshare each of them has. friendships are stored undirected, so the query checks both">
             <button class="op-head" type="button" aria-expanded="false">
                 <span class="method">GET</span>
                 <span class="op-path">?action=tb_friends</span>
-                <span class="op-sum"></span>
+                <span class="op-sum">each of them has. Friendships are stored undirected, so the query checks both</span>
                 <span class="caret">▶</span>
             </button>
             <div class="op-body" hidden>
+                <p class="op-desc">each of them has. Friendships are stored undirected, so the query checks both columns and takes whichever side is not you.</p>
                 <h4>Authentication</h4>
                 <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">everyone this user shares with, and how many tools</p>
             </div>
         </div>
         <div class="op post" id="post-tb_identify_tool" data-search="tb_identify_tool post toolshare ">
@@ -408,6 +431,8 @@
             <div class="op-body" hidden>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">body: { username, password }</p>
             </div>
         </div>
         <div class="op post" id="post-tb_logout" data-search="tb_logout post toolshare ">
@@ -424,16 +449,19 @@
                 <p class="op-desc">ends only this device's session, other devices stay signed in</p>
             </div>
         </div>
-        <div class="op get" id="get-tb_my_invite" data-search="tb_my_invite get toolshare ">
+        <div class="op get" id="get-tb_my_invite" data-search="tb_my_invite get toolshare codes are created lazily, so an account that never shares anything never">
             <button class="op-head" type="button" aria-expanded="false">
                 <span class="method">GET</span>
                 <span class="op-path">?action=tb_my_invite</span>
-                <span class="op-sum"></span>
+                <span class="op-sum">Codes are created lazily, so an account that never shares anything never</span>
                 <span class="caret">▶</span>
             </button>
             <div class="op-body" hidden>
+                <p class="op-desc">Codes are created lazily, so an account that never shares anything never carries one.</p>
                 <h4>Authentication</h4>
                 <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">this user's invite code, minted on first request.</p>
             </div>
         </div>
         <div class="op get" id="get-tb_my_tools" data-search="tb_my_tools get toolshare ">
@@ -450,16 +478,19 @@
                 <p class="op-desc">current user's tools only</p>
             </div>
         </div>
-        <div class="op post" id="post-tb_register" data-search="tb_register post toolshare ">
+        <div class="op post" id="post-tb_register" data-search="tb_register post toolshare signs the new account straight in and returns its token — registering and">
             <button class="op-head" type="button" aria-expanded="false">
                 <span class="method">POST</span>
                 <span class="op-path">?action=tb_register</span>
-                <span class="op-sum"></span>
+                <span class="op-sum">Signs the new account straight in and returns its token — registering and</span>
                 <span class="caret">▶</span>
             </button>
             <div class="op-body" hidden>
+                <p class="op-desc">Signs the new account straight in and returns its token — registering and then being asked to log in is a step with no purpose. A taken username is the only way the insert can fail, so that is what the conflict reports.</p>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">body: { username, display_name, email, password }</p>
             </div>
         </div>
         <div class="op delete" id="delete-tb_remove_friend" data-search="tb_remove_friend delete toolshare ">
@@ -589,40 +620,47 @@
     </section>
     <section class="grp">
         <h2 class="tag">Flight Tracker</h2>
-        <div class="op post" id="post-ft_add_flight" data-search="ft_add_flight post flight tracker ">
+        <div class="op post" id="post-ft_add_flight" data-search="ft_add_flight post flight tracker body: { from_code, to_code, from_city, to_city, flight_date,">
             <button class="op-head" type="button" aria-expanded="false">
                 <span class="method">POST</span>
                 <span class="op-path">?action=ft_add_flight</span>
-                <span class="op-sum"></span>
+                <span class="op-sum">body: { from_code, to_code, from_city, to_city, flight_date,</span>
                 <span class="caret">▶</span>
             </button>
             <div class="op-body" hidden>
+                <p class="op-desc">body: { from_code, to_code, from_city, to_city, flight_date,         airline?, seat_class?, flight_number? } Airport codes are upper-cased on the way in, and a flight that lands where it started is refused rather than stored as a curiosity.</p>
                 <h4>Authentication</h4>
                 <p class="op-desc">Flight Tracker account — <code class="inline">X-Auth-Token</code></p>
             </div>
         </div>
-        <div class="op post" id="post-ft_add_flights" data-search="ft_add_flights post flight tracker ">
+        <div class="op post" id="post-ft_add_flights" data-search="ft_add_flights post flight tracker rows that fail validation are skipped instead of failing the batch, and the">
             <button class="op-head" type="button" aria-expanded="false">
                 <span class="method">POST</span>
                 <span class="op-path">?action=ft_add_flights</span>
-                <span class="op-sum"></span>
+                <span class="op-sum">Rows that fail validation are skipped instead of failing the batch, and the</span>
                 <span class="caret">▶</span>
             </button>
             <div class="op-body" hidden>
+                <p class="op-desc">Rows that fail validation are skipped instead of failing the batch, and the reply counts what landed. An import of fifty flights is still worth keeping when two lines are malformed, and the caller can see the shortfall.</p>
                 <h4>Authentication</h4>
                 <p class="op-desc">Flight Tracker account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">body: { flights: [ … ] } — bulk import.</p>
             </div>
         </div>
-        <div class="op delete" id="delete-ft_delete_flight" data-search="ft_delete_flight delete flight tracker ">
+        <div class="op delete" id="delete-ft_delete_flight" data-search="ft_delete_flight delete flight tracker ownership is part of the where clause, so a guessed id belonging to someone">
             <button class="op-head" type="button" aria-expanded="false">
                 <span class="method">DELETE</span>
                 <span class="op-path">?action=ft_delete_flight</span>
-                <span class="op-sum"></span>
+                <span class="op-sum">Ownership is part of the WHERE clause, so a guessed id belonging to someone</span>
                 <span class="caret">▶</span>
             </button>
             <div class="op-body" hidden>
+                <p class="op-desc">Ownership is part of the WHERE clause, so a guessed id belonging to someone else matches nothing and answers 404 rather than deleting their row.</p>
                 <h4>Authentication</h4>
                 <p class="op-desc">Flight Tracker account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;id=X — remove one of this user's flights.</p>
                 <h4>Query parameters</h4>
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">id</td></tr>
@@ -639,18 +677,23 @@
             <div class="op-body" hidden>
                 <h4>Authentication</h4>
                 <p class="op-desc">Flight Tracker account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">this user's flights, most recent first.</p>
             </div>
         </div>
-        <div class="op post" id="post-ft_login" data-search="ft_login post flight tracker ">
+        <div class="op post" id="post-ft_login" data-search="ft_login post flight tracker issues a fresh token over the top of the old one, so signing in here signs">
             <button class="op-head" type="button" aria-expanded="false">
                 <span class="method">POST</span>
                 <span class="op-path">?action=ft_login</span>
-                <span class="op-sum"></span>
+                <span class="op-sum">Issues a fresh token over the top of the old one, so signing in here signs</span>
                 <span class="caret">▶</span>
             </button>
             <div class="op-body" hidden>
+                <p class="op-desc">Issues a fresh token over the top of the old one, so signing in here signs out whichever device was signed in before.</p>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">body: { username, password }</p>
             </div>
         </div>
         <div class="op post" id="post-ft_logout" data-search="ft_logout post flight tracker ">
@@ -663,18 +706,23 @@
             <div class="op-body" hidden>
                 <h4>Authentication</h4>
                 <p class="op-desc">Flight Tracker account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">clears the stored token.</p>
             </div>
         </div>
-        <div class="op post" id="post-ft_register" data-search="ft_register post flight tracker ">
+        <div class="op post" id="post-ft_register" data-search="ft_register post flight tracker the token lives on the user row rather than in a sessions table, unlike">
             <button class="op-head" type="button" aria-expanded="false">
                 <span class="method">POST</span>
                 <span class="op-path">?action=ft_register</span>
-                <span class="op-sum"></span>
+                <span class="op-sum">The token lives on the user row rather than in a sessions table, unlike</span>
                 <span class="caret">▶</span>
             </button>
             <div class="op-body" hidden>
+                <p class="op-desc">The token lives on the user row rather than in a sessions table, unlike Toolshare — one signed-in device at a time is all this app has needed.</p>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">body: { username, display_name, password }</p>
             </div>
         </div>
     </section>
@@ -1026,6 +1074,8 @@
             <div class="op-body" hidden>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">body: { name, task_count, total_seconds, week_key }</p>
             </div>
         </div>
         <div class="op post" id="post-dt_save_tasks" data-search="dt_save_tasks post daily tasks ">
@@ -1042,16 +1092,19 @@
                 <p class="op-desc">body: { date, tasks, next_id } — upsert this user's task list for a given day</p>
             </div>
         </div>
-        <div class="op get" id="get-dt_week" data-search="dt_week get daily tasks ">
+        <div class="op get" id="get-dt_week" data-search="dt_week get daily tasks ranked by tasks finished, then by time taken: doing more wins, and doing the">
             <button class="op-head" type="button" aria-expanded="false">
                 <span class="method">GET</span>
                 <span class="op-path">?action=dt_week</span>
-                <span class="op-sum"></span>
+                <span class="op-sum">Ranked by tasks finished, then by time taken: doing more wins, and doing the</span>
                 <span class="caret">▶</span>
             </button>
             <div class="op-body" hidden>
+                <p class="op-desc">Ranked by tasks finished, then by time taken: doing more wins, and doing the same amount faster settles the tie.</p>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;week_key=YYYY-MM-DD — the week's leaderboard.</p>
                 <h4>Query parameters</h4>
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">week_key</td></tr>
@@ -1102,6 +1155,8 @@
             <div class="op-body" hidden>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;week_key=YYYY-MM-DD — reset one week.</p>
                 <h4>Query parameters</h4>
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">week_key</td></tr>
@@ -1118,22 +1173,27 @@
             <div class="op-body" hidden>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;week_key=YYYY-MM-DD — the week's ten fastest.</p>
                 <h4>Query parameters</h4>
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">week_key</td></tr>
                 </tbody></table></div>
             </div>
         </div>
-        <div class="op post" id="post-save_reaction" data-search="save_reaction post reaction test ">
+        <div class="op post" id="post-save_reaction" data-search="save_reaction post reaction test only a top-ten time is kept. a slower one comes back as success:false with a">
             <button class="op-head" type="button" aria-expanded="false">
                 <span class="method">POST</span>
                 <span class="op-path">?action=save_reaction</span>
-                <span class="op-sum"></span>
+                <span class="op-sum">Only a top-ten time is kept. A slower one comes back as success:false with a</span>
                 <span class="caret">▶</span>
             </button>
             <div class="op-body" hidden>
+                <p class="op-desc">Only a top-ten time is kept. A slower one comes back as success:false with a 200, not an error — missing the board is an ordinary outcome of playing, and the app should be able to say so without dressing it up as a failure.</p>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">body: { name, avg_ms, week_key }</p>
             </div>
         </div>
     </section>
@@ -1379,36 +1439,6 @@ contact_value VARCHAR(120) NOT NULL
 unsub_token   VARCHAR(64)  NOT NULL
 created_at    DATETIME     DEFAULT CURRENT_TIMESTAMP
 UNIQUE KEY uniq_contact (contact_type, contact_value)</code></pre>
-    </section>
-
-    <section class="todo">
-        <h2 class="tag">Not yet described</h2>
-        <p class="note">These endpoints have no written description yet.</p>
-        <ul>
-            <li>DELETE ?action=clear_week</li>
-            <li>POST ?action=save</li>
-            <li>GET ?action=week</li>
-            <li>DELETE ?action=clear_track_sessions</li>
-            <li>DELETE ?action=delete_track_session</li>
-            <li>POST ?action=save_track_session</li>
-            <li>GET ?action=track_sessions</li>
-            <li>GET ?action=tb_friends</li>
-            <li>POST ?action=tb_login</li>
-            <li>GET ?action=tb_my_invite</li>
-            <li>POST ?action=tb_register</li>
-            <li>POST ?action=ft_add_flight</li>
-            <li>POST ?action=ft_add_flights</li>
-            <li>DELETE ?action=ft_delete_flight</li>
-            <li>GET ?action=ft_flights</li>
-            <li>POST ?action=ft_login</li>
-            <li>POST ?action=ft_logout</li>
-            <li>POST ?action=ft_register</li>
-            <li>POST ?action=dt_save</li>
-            <li>GET ?action=dt_week</li>
-            <li>DELETE ?action=clear_reaction_week</li>
-            <li>GET ?action=reaction_week</li>
-            <li>POST ?action=save_reaction</li>
-        </ul>
     </section>
 
     <section class="todo">

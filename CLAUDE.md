@@ -103,10 +103,12 @@ the host rather than on the apps.
 
 Docs come in two tiers, split by audience:
 
-- **In the repo, for building.** `CLAUDE.md` and `docs/*.md`, read on GitHub or
-  in an editor. Never deployed. On GitHub the per-endpoint source links resolve
-  to real lines in `api.php`, which is why it is the better surface for
-  `api.md`.
+- **In the repo, for building.** `CLAUDE.md`, `docs/api.md` and
+  [`docs/apps/`](docs/apps/) — one page per app, covering what a single
+  endpoint cannot: how an app's parts fit together and why it behaves as it
+  does. Read on GitHub or in an editor, never deployed. On GitHub the
+  per-endpoint source links resolve to real lines in `api.php`, which is why
+  it is the better surface for `api.md`.
 - **On the site, for using.** `docs/*.html`, deployed, reachable from the
   `Docs` nav link → [`docs/index.html`](docs/index.html), which is the hub.
 
@@ -126,6 +128,11 @@ meaningless.
 `docs/index.html`, `docs/architecture.html` and `docs/glucose-api.html` are
 hand-written. When adding a hand-written doc page, link it from the hub and add
 it to `sw.js`.
+
+Nothing checks `docs/apps/` against the code, so when you change how an app
+works, that is the file to update. Endpoint-level detail does not belong
+there — it goes in a comment above the branch in `api.php`, which is what the
+generated reference is built from.
 
 ### What the public pages deliberately leave out
 
@@ -208,6 +215,17 @@ Push to `main` and that is the deploy. The workflow:
 **Consequence:** editing `CHANGELOG.md` sends real SMS to real people. Only add
 an entry when an update is genuinely worth announcing, keep it SMS-short, and
 add it at the top. Everything under the newest `## YYYY-MM-DD` heading goes out
+verbatim.
+
+The trigger is `git diff --name-only … | grep -qx 'CHANGELOG.md'`, so **any**
+change to that file fires a send — including editing a comment or fixing a
+typo in an old entry. It does not compare entries. A touch-up to the file
+therefore re-sends whatever is currently at the top. Do not edit it for
+anything other than announcing something.
+
+Keep entries plain ASCII. An em dash, curly quote or emoji forces the text
+into UCS-2, cutting a segment from 160 characters to 70 and roughly doubling
+what the send costs. The body of an update text is the changelog entry
 verbatim.
 
 Per the owner's standing rule, **do not `git commit` unless asked for that

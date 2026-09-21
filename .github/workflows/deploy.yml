@@ -61,6 +61,7 @@ jobs:
             tools/**
             CLAUDE.md
             docs/*.md
+            docs/apps/**
 
       # 4. Did this push change CHANGELOG.md?
       - name: Detect changelog update

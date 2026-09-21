@@ -321,6 +321,8 @@ $action = $_GET['action'] ?? '';
 // MEETING TIMER
 // ══════════════════════════════════════════════════════════════
 
+// GET ?action=week&week_key=YYYY-MM-DD — one week's meetings, dearest first.
+// Cost is the entire point of the app, so the ranking leads with it.
 if ($method === 'GET' && $action === 'week') {
     $week_key = $_GET['week_key'] ?? '';
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $week_key)) {
@@ -331,6 +333,10 @@ if ($method === 'GET' && $action === 'week') {
     echo json_encode($stmt->fetchAll()); exit;
 }
 
+// POST ?action=save  body: { title, cost, seconds, week_key }
+// Title, cost and length must all be present and positive. A meeting with no
+// cost is a timer that was never really started, and keeping it only adds noise
+// to the week.
 if ($method === 'POST' && $action === 'save') {
     $body     = json_decode(file_get_contents('php://input'), true);
     $title    = trim($body['title']    ?? '');
@@ -345,6 +351,9 @@ if ($method === 'POST' && $action === 'save') {
     echo json_encode(['success' => true, 'id' => $pdo->lastInsertId()]); exit;
 }
 
+// DELETE ?action=clear_week&week_key=YYYY-MM-DD — drop one week's meetings.
+// Answers with the number of rows removed, so the caller can tell a cleared
+// week from a week_key that matched nothing.
 if ($method === 'DELETE' && $action === 'clear_week') {
     $week_key = $_GET['week_key'] ?? '';
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $week_key)) {
@@ -359,6 +368,9 @@ if ($method === 'DELETE' && $action === 'clear_week') {
 // TRACK TIMER
 // ══════════════════════════════════════════════════════════════
 
+// GET ?action=track_sessions — every saved session, newest first.
+// Athletes ride along as a JSON blob and are decoded on the way out: the
+// roster changes every session, so there is nothing stable to make columns of.
 if ($method === 'GET' && $action === 'track_sessions') {
     $stmt = $pdo->query("SELECT * FROM track_sessions ORDER BY created_at DESC");
     $rows = $stmt->fetchAll();
@@ -366,6 +378,8 @@ if ($method === 'GET' && $action === 'track_sessions') {
     echo json_encode($rows); exit;
 }
 
+// POST ?action=save_track_session  body: { name, duration, athletes[] }
+// Athletes are stored as given — the app owns their shape, not the database.
 if ($method === 'POST' && $action === 'save_track_session') {
     $body     = json_decode(file_get_contents('php://input'), true);
     $name     = trim($body['name']     ?? '');
@@ -379,6 +393,7 @@ if ($method === 'POST' && $action === 'save_track_session') {
     echo json_encode(['success' => true, 'id' => $pdo->lastInsertId()]); exit;
 }
 
+// DELETE ?action=delete_track_session&id=X — remove a single session.
 if ($method === 'DELETE' && $action === 'delete_track_session') {
     $id = intval($_GET['id'] ?? 0);
     if ($id <= 0) { http_response_code(400); echo json_encode(['error' => 'Invalid id.']); exit; }
@@ -387,6 +402,8 @@ if ($method === 'DELETE' && $action === 'delete_track_session') {
     echo json_encode(['success' => true]); exit;
 }
 
+// DELETE ?action=clear_track_sessions — remove every saved session.
+// Not scoped to a week or a user: it empties the table.
 if ($method === 'DELETE' && $action === 'clear_track_sessions') {
     $pdo->exec("DELETE FROM track_sessions");
     echo json_encode(['success' => true]); exit;
@@ -396,7 +413,10 @@ if ($method === 'DELETE' && $action === 'clear_track_sessions') {
 // Toolshare — AUTH
 // ══════════════════════════════════════════════════════════════
 
-// POST ?action=tb_register
+// POST ?action=tb_register  body: { username, display_name, email, password }
+// Signs the new account straight in and returns its token — registering and
+// then being asked to log in is a step with no purpose. A taken username is the
+// only way the insert can fail, so that is what the conflict reports.
 if ($method === 'POST' && $action === 'tb_register') {
     $body  = json_decode(file_get_contents('php://input'), true);
     $uname = trim($body['username']     ?? '');
@@ -423,7 +443,7 @@ if ($method === 'POST' && $action === 'tb_register') {
     exit;
 }
 
-// POST ?action=tb_login
+// POST ?action=tb_login  body: { username, password }
 if ($method === 'POST' && $action === 'tb_login') {
     $body  = json_decode(file_get_contents('php://input'), true);
     $uname = trim($body['username'] ?? '');
@@ -811,7 +831,9 @@ if ($method === 'GET' && $action === 'tb_tag_suggestions') {
     echo json_encode(array_values(array_keys($tags))); exit;
 }
 
-// GET ?action=tb_my_invite
+// GET ?action=tb_my_invite — this user's invite code, minted on first request.
+// Codes are created lazily, so an account that never shares anything never
+// carries one.
 if ($method === 'GET' && $action === 'tb_my_invite') {
     $me   = requireAuth($pdo);
     $code = ensureInviteCode($pdo, $me['id']);
@@ -847,7 +869,9 @@ if ($method === 'POST' && $action === 'tb_accept_invite') {
     echo json_encode(['success' => true, 'friend' => $inviter]); exit;
 }
 
-// GET ?action=tb_friends
+// GET ?action=tb_friends — everyone this user shares with, and how many tools
+// each of them has. Friendships are stored undirected, so the query checks both
+// columns and takes whichever side is not you.
 if ($method === 'GET' && $action === 'tb_friends') {
     $me = requireAuth($pdo);
     $stmt = $pdo->prepare("
@@ -939,6 +963,7 @@ if ($method === 'POST' && $action === 'fb_save_score') {
 // REACTION TEST — LEADERBOARD
 // ══════════════════════════════════════════════════════════════
 
+// GET ?action=reaction_week&week_key=YYYY-MM-DD — the week's ten fastest.
 if ($method === 'GET' && $action === 'reaction_week') {
     $week_key = $_GET['week_key'] ?? '';
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $week_key)) {
@@ -949,6 +974,10 @@ if ($method === 'GET' && $action === 'reaction_week') {
     echo json_encode($stmt->fetchAll()); exit;
 }
 
+// POST ?action=save_reaction  body: { name, avg_ms, week_key }
+// Only a top-ten time is kept. A slower one comes back as success:false with a
+// 200, not an error — missing the board is an ordinary outcome of playing, and
+// the app should be able to say so without dressing it up as a failure.
 if ($method === 'POST' && $action === 'save_reaction') {
     $body     = json_decode(file_get_contents('php://input'), true);
     $name     = mb_substr(strip_tags(trim($body['name'] ?? '')), 0, 60);
@@ -969,6 +998,7 @@ if ($method === 'POST' && $action === 'save_reaction') {
     echo json_encode(['success' => true, 'id' => $pdo->lastInsertId()]); exit;
 }
 
+// DELETE ?action=clear_reaction_week&week_key=YYYY-MM-DD — reset one week.
 if ($method === 'DELETE' && $action === 'clear_reaction_week') {
     $week_key = $_GET['week_key'] ?? '';
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $week_key)) {
@@ -1021,6 +1051,9 @@ function ftRequireAuth(PDO $pdo): array {
     return $user;
 }
 
+// POST ?action=ft_register  body: { username, display_name, password }
+// The token lives on the user row rather than in a sessions table, unlike
+// Toolshare — one signed-in device at a time is all this app has needed.
 if ($method === 'POST' && $action === 'ft_register') {
     $body  = json_decode(file_get_contents('php://input'), true);
     $uname = trim($body['username']     ?? '');
@@ -1045,6 +1078,9 @@ if ($method === 'POST' && $action === 'ft_register') {
     exit;
 }
 
+// POST ?action=ft_login  body: { username, password }
+// Issues a fresh token over the top of the old one, so signing in here signs
+// out whichever device was signed in before.
 if ($method === 'POST' && $action === 'ft_login') {
     $body  = json_decode(file_get_contents('php://input'), true);
     $uname = trim($body['username'] ?? '');
@@ -1061,12 +1097,14 @@ if ($method === 'POST' && $action === 'ft_login') {
     exit;
 }
 
+// POST ?action=ft_logout — clears the stored token.
 if ($method === 'POST' && $action === 'ft_logout') {
     $user = ftRequireAuth($pdo);
     $pdo->prepare("UPDATE ft_users SET token = NULL WHERE id = ?")->execute([$user['id']]);
     echo json_encode(['success' => true]); exit;
 }
 
+// GET ?action=ft_flights — this user's flights, most recent first.
 if ($method === 'GET' && $action === 'ft_flights') {
     $me   = ftRequireAuth($pdo);
     $stmt = $pdo->prepare("SELECT * FROM ft_flights WHERE user_id = ? ORDER BY flight_date DESC, created_at DESC");
@@ -1074,6 +1112,11 @@ if ($method === 'GET' && $action === 'ft_flights') {
     echo json_encode(['success' => true, 'flights' => $stmt->fetchAll()]); exit;
 }
 
+// POST ?action=ft_add_flight
+// body: { from_code, to_code, from_city, to_city, flight_date,
+//         airline?, seat_class?, flight_number? }
+// Airport codes are upper-cased on the way in, and a flight that lands where it
+// started is refused rather than stored as a curiosity.
 if ($method === 'POST' && $action === 'ft_add_flight') {
     $me   = ftRequireAuth($pdo);
     $body = json_decode(file_get_contents('php://input'), true);
@@ -1096,6 +1139,10 @@ if ($method === 'POST' && $action === 'ft_add_flight') {
     echo json_encode(['success' => true, 'id' => $pdo->lastInsertId()]); exit;
 }
 
+// POST ?action=ft_add_flights  body: { flights: [ … ] } — bulk import.
+// Rows that fail validation are skipped instead of failing the batch, and the
+// reply counts what landed. An import of fifty flights is still worth keeping
+// when two lines are malformed, and the caller can see the shortfall.
 if ($method === 'POST' && $action === 'ft_add_flights') {
     $me   = ftRequireAuth($pdo);
     $body = json_decode(file_get_contents('php://input'), true);
@@ -1122,6 +1169,9 @@ if ($method === 'POST' && $action === 'ft_add_flights') {
     echo json_encode(['success' => true, 'inserted' => $inserted]); exit;
 }
 
+// DELETE ?action=ft_delete_flight&id=X — remove one of this user's flights.
+// Ownership is part of the WHERE clause, so a guessed id belonging to someone
+// else matches nothing and answers 404 rather than deleting their row.
 if ($method === 'DELETE' && $action === 'ft_delete_flight') {
     $me = ftRequireAuth($pdo);
     $id = intval($_GET['id'] ?? 0);
@@ -1136,6 +1186,9 @@ if ($method === 'DELETE' && $action === 'ft_delete_flight') {
 // DAILY TASKS — LEADERBOARD
 // ══════════════════════════════════════════════════════════════
 
+// GET ?action=dt_week&week_key=YYYY-MM-DD — the week's leaderboard.
+// Ranked by tasks finished, then by time taken: doing more wins, and doing the
+// same amount faster settles the tie.
 if ($method === 'GET' && $action === 'dt_week') {
     $week_key = $_GET['week_key'] ?? '';
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $week_key)) {
@@ -1146,6 +1199,7 @@ if ($method === 'GET' && $action === 'dt_week') {
     echo json_encode($stmt->fetchAll()); exit;
 }
 
+// POST ?action=dt_save  body: { name, task_count, total_seconds, week_key }
 if ($method === 'POST' && $action === 'dt_save') {
     $body          = json_decode(file_get_contents('php://input'), true);
     $name          = mb_substr(strip_tags(trim($body['name'] ?? '')), 0, 60);
@@ -1252,8 +1306,9 @@ if ($method === 'POST' && $action === 'subscribe') {
     // somebody who is already subscribed, and every segment costs money.
     if ($is_new && $type === 'phone') {
         sendSms($value, "davenn.com Update Notifications: you're signed up. "
-            . "Expect a text when a new app or feature ships, usually a few a month. "
-            . "Msg&data rates may apply. Reply HELP for help, STOP to cancel.");
+            . "Expect a text when a new app or feature ships, typically no more than "
+            . "a few messages per month. Message and data rates may apply. "
+            . "Reply HELP for help, STOP to cancel.");
     }
 
     echo json_encode(['success' => true]); exit;
@@ -1305,7 +1360,11 @@ if ($method === 'POST' && $action === 'notify_subscribers') {
             sendEmail($sub['contact_value'], '', 'davenn.com — new update', $html, $mail_from, 'davenn.com Updates');
             $emailed++;
         } elseif ($sub['contact_type'] === 'phone') {
-            $ok = sendSms($sub['contact_value'], $message . "\n\ndavenn.com — Reply STOP to unsubscribe.");
+            // Plain hyphen, not an em dash: anything outside GSM-7 forces the
+            // whole message to UCS-2, which drops a segment from 160
+            // characters to 70 and roughly doubles the cost. Keep CHANGELOG
+            // entries ASCII for the same reason — they are the body here.
+            $ok = sendSms($sub['contact_value'], $message . "\n\ndavenn.com - Reply STOP to unsubscribe.");
             if ($ok) $texted++; else $failed[] = $sub['contact_value'];
         }
     }
@@ -2782,7 +2841,11 @@ if ($method === 'POST' && $action === 'cp_sms') {
         cpTwiml('You are set up again. Text a photo of your pick sheet any time.');
     }
     if ($word === 'HELP' || $word === 'INFO') {
-        cpTwiml('davenn.com Confidence Pool: text a photo of your filled-in pick sheet and I will read it and send back a link to check it. Reply STOP to opt out. Help: support@davenn.com');
+        // This number carries both messaging programs, so HELP has to answer
+        // for both — an update subscriber texting HELP should not get a reply
+        // about pick sheets. Word for word the help message filed with the
+        // A2P campaign; a reviewer may text the number and compare.
+        cpTwiml('davenn.com: this number sends davenn.com update notifications and replies to Confidence Pool pick sheets. Message and data rates may apply. Reply STOP to opt out. Help: support@davenn.com or https://davenn.com/terms.html');
     }
     if ($player && $player['opted_out']) cpTwimlSilent();
 
@@ -2796,7 +2859,7 @@ if ($method === 'POST' && $action === 'cp_sms') {
             } catch (PDOException $e) {
                 cpTwiml('That name is already taken in the pool. Reply with a different one.');
             }
-            cpTwiml('Thanks ' . $name . ' — this number is now linked to your picks. Text a photo of your sheet whenever you are ready.');
+            cpTwiml('davenn.com Confidence Pool: thanks ' . $name . ', this number is now linked to your picks. Text a photo of your sheet whenever you are ready. Reply STOP to opt out.');
         }
         cpTwiml('I do not recognise this number yet. Reply with your name first, then text a photo of your sheet.');
     }
@@ -2807,7 +2870,7 @@ if ($method === 'POST' && $action === 'cp_sms') {
 
     // ── A sheet ──────────────────────────────────────────────────────────
     $api_key = $_ENV['ANTHROPIC_API_KEY'] ?? '';
-    if (!$api_key) cpTwiml('Sheet reading is offline right now — try the website instead: ' . ($_ENV['APP_URL'] ?? 'https://davenn.com') . '/nflpool.html');
+    if (!$api_key) cpTwiml('Sheet reading is offline right now - try the website instead: ' . ($_ENV['APP_URL'] ?? 'https://davenn.com') . '/nflpool.html');
 
     $media_url  = (string)($_POST['MediaUrl0'] ?? '');
     $media_type = (string)($_POST['MediaContentType0'] ?? '');
@@ -2843,9 +2906,13 @@ if ($method === 'POST' && $action === 'cp_sms') {
         ]);
 
     $link  = rtrim($_ENV['APP_URL'] ?? 'https://davenn.com', '/') . '/nflpool.html?review=' . $token_str;
-    $reply = 'Read ' . $picked . ' of ' . count($matched['rows']) . ' picks for Week ' . (int)$week_row['week'] . '.';
+    // Leads with the brand because the A2P campaign filing requires every
+    // sample message to identify who is texting, and this is one of them.
+    // ASCII only — see the note on the broadcast suffix above.
+    $reply = 'davenn.com Confidence Pool: read ' . $picked . ' of ' . count($matched['rows'])
+           . ' picks for Week ' . (int)$week_row['week'] . '.';
     if ($matched['warnings']) $reply .= ' ' . count($matched['warnings']) . ' thing(s) to check.';
-    $reply .= ' Nothing is saved yet — open this to confirm: ' . $link;
+    $reply .= ' Nothing is saved yet - open this to confirm: ' . $link;
     cpTwiml($reply);
 }
 
