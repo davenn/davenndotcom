@@ -499,6 +499,12 @@
 <script>
 const API = '/api.php';
 
+// How long a name has to be held before the delete prompt appears. Longer than
+// the ~500ms the OS uses for its own long-press, because what is behind this
+// one is destructive and unrecoverable — it should take a moment that feels
+// deliberate rather than something a resting thumb can set off.
+const LONG_PRESS_MS = 800;
+
 const $ = id => document.getElementById(id);
 
 // ── State ────────────────────────────────────────────────────────────────
@@ -701,7 +707,7 @@ function renderStandings(d) {
                 timer = null; held = true;
                 el.classList.remove('pressing');
                 askDelete(id);
-            }, 550);
+            }, LONG_PRESS_MS);
         };
         const cancel = () => {
             if (timer) { clearTimeout(timer); timer = null; }
