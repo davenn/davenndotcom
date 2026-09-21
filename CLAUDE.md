@@ -92,6 +92,13 @@ before deploying for exactly this reason. Never push PHP you have not linted.
 - **Endpoint comments already exist** above the non-obvious branches and explain
   intent, not mechanics. Read them before changing a branch, and keep the habit.
 
+**Open issue — `cp_diag` is unauthenticated.** It takes no token of any kind
+and returns `PHP_VERSION`, `curl_version`, `open_basedir` and `SERVER_ADDR`.
+Its comment says it reports no credentials or user data, which is true, but
+server version and IP are reconnaissance. It is excluded from the public docs,
+which hides the signpost and not the door. The fix is to gate it behind the
+admin secret like the other operator endpoints.
+
 ## Documentation
 
 Docs come in two tiers, split by audience:
@@ -116,8 +123,27 @@ drift from each other. Output must stay byte-identical between runs — never
 put a timestamp or anything environment-dependent in it, or `--check` becomes
 meaningless.
 
-`docs/index.html` and `docs/glucose-api.html` are hand-written. When adding a
-hand-written doc page, link it from the hub and add it to `sw.js`.
+`docs/index.html`, `docs/architecture.html` and `docs/glucose-api.html` are
+hand-written. When adding a hand-written doc page, link it from the hub and add
+it to `sw.js`.
+
+### What the public pages deliberately leave out
+
+`docs/architecture.html` is the public counterpart of this file, and it is
+hand-written rather than derived from it **on purpose**: a redaction script
+cannot judge new content, so anything added here would leak the moment it was
+generated. Keeping the two separate means every public sentence was chosen.
+When the architecture here changes, update that page by hand.
+
+It omits, and should keep omitting: environment variable names, the
+operator-secret header, which endpoints accept unauthenticated writes, where
+credentials live and how they are loaded, deploy mechanics and server paths,
+and the fact that one bad parse takes the whole API down.
+
+`docs/api.html` omits every endpoint where `isOperator()` in the generator
+returns true — admin-gated ones, plus anything named in `OPERATOR_ACTIONS`.
+`docs/api.md` stays complete. Adding an operator-only endpoint means checking
+it is caught by that filter.
 
 The generator parses the dispatch branches, the `CREATE TABLE` block, and **the
 comment block directly above each branch**, which is where endpoint

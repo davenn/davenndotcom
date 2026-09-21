@@ -1,4 +1,4 @@
-const CACHE = 'davenn-v16';
+const CACHE = 'davenn-v17';
 const SHELL = [
   '/index.html',
   '/tracktimer.html',
@@ -20,6 +20,7 @@ const SHELL = [
   // fails, which would leave every app above uncached — so never list a
   // directory URL like '/docs/' here and rely on the server's index rule.
   '/docs/index.html',
+  '/docs/architecture.html',
   '/docs/api.html',
   '/docs/glucose-api.html',
 ];

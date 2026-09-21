@@ -179,7 +179,7 @@
     <h1>API Reference</h1>
     <p class="lede">Every app on davenn.com is served by a single <code class="inline">api.php</code>. Endpoints are selected by an <code class="inline">action</code> query parameter and always return JSON.</p>
     <div class="base">https://davenn.com/api.php?action=&lt;action&gt;</div>
-    <p class="counts">69 endpoints · 22 tables</p>
+    <p class="counts">63 endpoints · 22 tables</p>
 
     <div class="filter-row">
         <input type="search" id="filter" placeholder="Filter endpoints…" aria-label="Filter endpoints">
@@ -202,7 +202,6 @@
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">week_key</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:348</p>
             </div>
         </div>
         <div class="op post" id="post-save" data-search="save post meeting cost timer ">
@@ -215,7 +214,6 @@
             <div class="op-body" hidden>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
-                <p class="src">api.php:334</p>
             </div>
         </div>
         <div class="op get" id="get-week" data-search="week get meeting cost timer ">
@@ -232,7 +230,6 @@
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">week_key</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:324</p>
             </div>
         </div>
     </section>
@@ -248,7 +245,6 @@
             <div class="op-body" hidden>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
-                <p class="src">api.php:390</p>
             </div>
         </div>
         <div class="op delete" id="delete-delete_track_session" data-search="delete_track_session delete track timer ">
@@ -265,7 +261,6 @@
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">id</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:382</p>
             </div>
         </div>
         <div class="op post" id="post-save_track_session" data-search="save_track_session post track timer ">
@@ -278,7 +273,6 @@
             <div class="op-body" hidden>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
-                <p class="src">api.php:369</p>
             </div>
         </div>
         <div class="op get" id="get-track_sessions" data-search="track_sessions get track timer ">
@@ -291,7 +285,6 @@
             <div class="op-body" hidden>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
-                <p class="src">api.php:362</p>
             </div>
         </div>
     </section>
@@ -309,7 +302,6 @@
                 <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
                 <h4>Takes</h4>
                 <p class="op-desc">body: { invite_code }</p>
-                <p class="src">api.php:833</p>
             </div>
         </div>
         <div class="op post" id="post-tb_add_tool" data-search="tb_add_tool post toolshare ">
@@ -324,7 +316,6 @@
                 <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
                 <h4>Takes</h4>
                 <p class="op-desc">(multipart for photo upload OR JSON)</p>
-                <p class="src">api.php:476</p>
             </div>
         </div>
         <div class="op delete" id="delete-tb_delete_tool" data-search="tb_delete_tool delete toolshare ">
@@ -343,7 +334,6 @@
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">id</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:623</p>
             </div>
         </div>
         <div class="op post" id="post-tb_edit_tool" data-search="tb_edit_tool post toolshare ">
@@ -362,7 +352,6 @@
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">id</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:507</p>
             </div>
         </div>
         <div class="op get" id="get-tb_friends" data-search="tb_friends get toolshare ">
@@ -375,7 +364,6 @@
             <div class="op-body" hidden>
                 <h4>Authentication</h4>
                 <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
-                <p class="src">api.php:851</p>
             </div>
         </div>
         <div class="op post" id="post-tb_identify_tool" data-search="tb_identify_tool post toolshare ">
@@ -390,7 +378,6 @@
                 <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
                 <h4>Takes</h4>
                 <p class="op-desc">vision-based auto-fill via Claude</p>
-                <p class="src">api.php:541</p>
             </div>
         </div>
         <div class="op get" id="get-tb_invite_preview" data-search="tb_invite_preview get toolshare ">
@@ -409,7 +396,6 @@
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">code</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:822</p>
             </div>
         </div>
         <div class="op post" id="post-tb_login" data-search="tb_login post toolshare ">
@@ -422,7 +408,6 @@
             <div class="op-body" hidden>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
-                <p class="src">api.php:427</p>
             </div>
         </div>
         <div class="op post" id="post-tb_logout" data-search="tb_logout post toolshare ">
@@ -437,7 +422,6 @@
                 <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
                 <h4>Takes</h4>
                 <p class="op-desc">ends only this device's session, other devices stay signed in</p>
-                <p class="src">api.php:445</p>
             </div>
         </div>
         <div class="op get" id="get-tb_my_invite" data-search="tb_my_invite get toolshare ">
@@ -450,7 +434,6 @@
             <div class="op-body" hidden>
                 <h4>Authentication</h4>
                 <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
-                <p class="src">api.php:815</p>
             </div>
         </div>
         <div class="op get" id="get-tb_my_tools" data-search="tb_my_tools get toolshare ">
@@ -465,7 +448,6 @@
                 <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
                 <h4>Takes</h4>
                 <p class="op-desc">current user's tools only</p>
-                <p class="src">api.php:458</p>
             </div>
         </div>
         <div class="op post" id="post-tb_register" data-search="tb_register post toolshare ">
@@ -478,7 +460,6 @@
             <div class="op-body" hidden>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
-                <p class="src">api.php:400</p>
             </div>
         </div>
         <div class="op delete" id="delete-tb_remove_friend" data-search="tb_remove_friend delete toolshare ">
@@ -497,7 +478,6 @@
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">id</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:866</p>
             </div>
         </div>
         <div class="op post" id="post-tb_request" data-search="tb_request post toolshare ">
@@ -512,7 +492,6 @@
                 <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
                 <h4>Takes</h4>
                 <p class="op-desc">create borrow request + email owner</p>
-                <p class="src">api.php:644</p>
             </div>
         </div>
         <div class="op get" id="get-tb_request_count" data-search="tb_request_count get toolshare ">
@@ -527,7 +506,6 @@
                 <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
                 <h4>Takes</h4>
                 <p class="op-desc">badge count of pending incoming requests</p>
-                <p class="src">api.php:705</p>
             </div>
         </div>
         <div class="op get" id="get-tb_requests" data-search="tb_requests get toolshare ">
@@ -542,7 +520,6 @@
                 <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
                 <h4>Takes</h4>
                 <p class="op-desc">inbox (owner) + outbox (requester) for current user</p>
-                <p class="src">api.php:677</p>
             </div>
         </div>
         <div class="op post" id="post-tb_respond_request" data-search="tb_respond_request post toolshare ">
@@ -561,7 +538,6 @@
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">id</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:713</p>
             </div>
         </div>
         <div class="op post" id="post-tb_return_tool" data-search="tb_return_tool post toolshare ">
@@ -580,7 +556,6 @@
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">id</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:748</p>
             </div>
         </div>
         <div class="op get" id="get-tb_tag_suggestions" data-search="tb_tag_suggestions get toolshare ">
@@ -595,7 +570,6 @@
                 <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
                 <h4>Takes</h4>
                 <p class="op-desc">unique tags from visible tools</p>
-                <p class="src">api.php:794</p>
             </div>
         </div>
         <div class="op get" id="get-tb_tools" data-search="tb_tools get toolshare ">
@@ -610,7 +584,6 @@
                 <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
                 <h4>Takes</h4>
                 <p class="op-desc">friends-gated community view</p>
-                <p class="src">api.php:876</p>
             </div>
         </div>
     </section>
@@ -626,7 +599,6 @@
             <div class="op-body" hidden>
                 <h4>Authentication</h4>
                 <p class="op-desc">Flight Tracker account — <code class="inline">X-Auth-Token</code></p>
-                <p class="src">api.php:1077</p>
             </div>
         </div>
         <div class="op post" id="post-ft_add_flights" data-search="ft_add_flights post flight tracker ">
@@ -639,7 +611,6 @@
             <div class="op-body" hidden>
                 <h4>Authentication</h4>
                 <p class="op-desc">Flight Tracker account — <code class="inline">X-Auth-Token</code></p>
-                <p class="src">api.php:1099</p>
             </div>
         </div>
         <div class="op delete" id="delete-ft_delete_flight" data-search="ft_delete_flight delete flight tracker ">
@@ -656,7 +627,6 @@
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">id</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:1125</p>
             </div>
         </div>
         <div class="op get" id="get-ft_flights" data-search="ft_flights get flight tracker ">
@@ -669,7 +639,6 @@
             <div class="op-body" hidden>
                 <h4>Authentication</h4>
                 <p class="op-desc">Flight Tracker account — <code class="inline">X-Auth-Token</code></p>
-                <p class="src">api.php:1070</p>
             </div>
         </div>
         <div class="op post" id="post-ft_login" data-search="ft_login post flight tracker ">
@@ -682,7 +651,6 @@
             <div class="op-body" hidden>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
-                <p class="src">api.php:1048</p>
             </div>
         </div>
         <div class="op post" id="post-ft_logout" data-search="ft_logout post flight tracker ">
@@ -695,7 +663,6 @@
             <div class="op-body" hidden>
                 <h4>Authentication</h4>
                 <p class="op-desc">Flight Tracker account — <code class="inline">X-Auth-Token</code></p>
-                <p class="src">api.php:1064</p>
             </div>
         </div>
         <div class="op post" id="post-ft_register" data-search="ft_register post flight tracker ">
@@ -708,7 +675,6 @@
             <div class="op-body" hidden>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
-                <p class="src">api.php:1024</p>
             </div>
         </div>
     </section>
@@ -733,7 +699,6 @@
                     <tr><td class="pname">low</td></tr>
                     <tr><td class="pname">high</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:1582</p>
             </div>
         </div>
         <div class="op get" id="get-bg_embed" data-search="bg_embed get glucose mgdl 0 means nothing is stored yet. trend follows dexcom's own ordering, so a">
@@ -753,7 +718,6 @@
                     <tr><td class="pname">high</td></tr>
                     <tr><td class="pname">spark</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:1492</p>
             </div>
         </div>
         <div class="op delete" id="delete-bg_event_delete" data-search="bg_event_delete delete glucose ">
@@ -772,7 +736,6 @@
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">id</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:1781</p>
             </div>
         </div>
         <div class="op post" id="post-bg_event_save" data-search="bg_event_save post glucose body: { id?, start_at, end_at?, tag, note? }">
@@ -788,7 +751,6 @@
                 <p class="op-desc">Glucose read token — <code class="inline">X-BG-Token</code> or <code class="inline">?token=</code></p>
                 <h4>Takes</h4>
                 <p class="op-desc">&amp;token=…</p>
-                <p class="src">api.php:1706</p>
             </div>
         </div>
         <div class="op get" id="get-bg_events" data-search="bg_events get glucose read token: anything that may read the readings may read what explains them.">
@@ -808,7 +770,6 @@
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">hours</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:1671</p>
             </div>
         </div>
         <div class="op get" id="get-bg_history" data-search="bg_history get glucose ">
@@ -829,23 +790,6 @@
                     <tr><td class="pname">low</td></tr>
                     <tr><td class="pname">high</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:1535</p>
-            </div>
-        </div>
-        <div class="op post" id="post-bg_ingest" data-search="bg_ingest post glucose body: { readings: [ { at: iso8601, mgdl: int, trend: string|null } ] }">
-            <button class="op-head" type="button" aria-expanded="false">
-                <span class="method">POST</span>
-                <span class="op-path">?action=bg_ingest</span>
-                <span class="op-sum">body: { readings: [ { at: ISO8601, mgdl: int, trend: string|null } ] }</span>
-                <span class="caret">▶</span>
-            </button>
-            <div class="op-body" hidden>
-                <p class="op-desc">body: { readings: [ { at: ISO8601, mgdl: int, trend: string|null } ] } Idempotent — the poller deliberately re-sends an overlapping window, and replaying it just refreshes rows already stored.</p>
-                <h4>Authentication</h4>
-                <p class="op-desc">Admin — <code class="inline">X-Admin-Secret</code></p>
-                <h4>Takes</h4>
-                <p class="op-desc">header: X-Admin-Secret</p>
-                <p class="src">api.php:1360</p>
             </div>
         </div>
         <div class="op get" id="get-bg_latest" data-search="bg_latest get glucose minutes_ago is what a display should use to decide it has gone stale: show">
@@ -861,7 +805,6 @@
                 <p class="op-desc">Glucose read token — <code class="inline">X-BG-Token</code> or <code class="inline">?token=</code></p>
                 <h4>Takes</h4>
                 <p class="op-desc">&amp;token=…  → the newest stored reading.</p>
-                <p class="src">api.php:1467</p>
             </div>
         </div>
         <div class="op post" id="post-bg_refresh" data-search="bg_refresh post glucose asks the poller to pull from dexcom now, so a manual refresh reflects live">
@@ -877,33 +820,11 @@
                 <p class="op-desc">Glucose read token — <code class="inline">X-BG-Token</code> or <code class="inline">?token=</code></p>
                 <h4>Takes</h4>
                 <p class="op-desc">&amp;token=…</p>
-                <p class="src">api.php:1415</p>
             </div>
         </div>
     </section>
     <section class="grp">
         <h2 class="tag">Confidence Pool</h2>
-        <div class="op get" id="get-cp_diag" data-search="cp_diag get confidence pool probes the outbound path from the web host itself, which is the one thing">
-            <button class="op-head" type="button" aria-expanded="false">
-                <span class="method">GET</span>
-                <span class="op-path">?action=cp_diag</span>
-                <span class="op-sum">Probes the outbound path from the web host itself, which is the one thing</span>
-                <span class="caret">▶</span>
-            </button>
-            <div class="op-body" hidden>
-                <p class="op-desc">Probes the outbound path from the web host itself, which is the one thing that cannot be checked from a laptop. Reports no credentials or user data.</p>
-                <h4>Authentication</h4>
-                <p class="op-desc">None</p>
-                <h4>Takes</h4>
-                <p class="op-desc">&amp;season=&amp;week= — why are scores not updating?</p>
-                <h4>Query parameters</h4>
-                <div class="table-wrap"><table><tbody>
-                    <tr><td class="pname">season</td></tr>
-                    <tr><td class="pname">week</td></tr>
-                </tbody></table></div>
-                <p class="src">api.php:2947</p>
-            </div>
-        </div>
         <div class="op delete" id="delete-cp_entry" data-search="cp_entry delete confidence pool ">
             <button class="op-head" type="button" aria-expanded="false">
                 <span class="method">DELETE</span>
@@ -920,7 +841,6 @@
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">id</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:3003</p>
             </div>
         </div>
         <div class="op delete" id="delete-cp_pending" data-search="cp_pending delete confidence pool ">
@@ -939,7 +859,6 @@
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">token</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:2875</p>
             </div>
         </div>
         <div class="op get" id="get-cp_pending" data-search="cp_pending get confidence pool ">
@@ -958,58 +877,6 @@
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">token</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:2853</p>
-            </div>
-        </div>
-        <div class="op post" id="post-cp_purge_photos" data-search="cp_purge_photos post confidence pool one-shot cleanup for sheet photos written before the app stopped keeping">
-            <button class="op-head" type="button" aria-expanded="false">
-                <span class="method">POST</span>
-                <span class="op-path">?action=cp_purge_photos</span>
-                <span class="op-sum">One-shot cleanup for sheet photos written before the app stopped keeping</span>
-                <span class="caret">▶</span>
-            </button>
-            <div class="op-body" hidden>
-                <p class="op-desc">One-shot cleanup for sheet photos written before the app stopped keeping them. Nothing creates these files any more, so this should report 0 on every run after the first.</p>
-                <h4>Authentication</h4>
-                <p class="op-desc">Admin — <code class="inline">X-Admin-Secret</code></p>
-                <h4>Takes</h4>
-                <p class="op-desc">header: X-Admin-Secret</p>
-                <p class="src">api.php:2919</p>
-            </div>
-        </div>
-        <div class="op delete" id="delete-cp_roster" data-search="cp_roster delete confidence pool ">
-            <button class="op-head" type="button" aria-expanded="false">
-                <span class="method">DELETE</span>
-                <span class="op-path">?action=cp_roster</span>
-                <span class="op-sum"></span>
-                <span class="caret">▶</span>
-            </button>
-            <div class="op-body" hidden>
-                <h4>Authentication</h4>
-                <p class="op-desc">Admin — <code class="inline">X-Admin-Secret</code></p>
-                <h4>Takes</h4>
-                <p class="op-desc">&amp;id=…  header: X-Admin-Secret — unlink a number.</p>
-                <h4>Query parameters</h4>
-                <div class="table-wrap"><table><tbody>
-                    <tr><td class="pname">id</td></tr>
-                </tbody></table></div>
-                <p class="src">api.php:2904</p>
-            </div>
-        </div>
-        <div class="op get" id="get-cp_roster" data-search="cp_roster get confidence pool admin-guarded because this is the one table that maps a person to a phone">
-            <button class="op-head" type="button" aria-expanded="false">
-                <span class="method">GET</span>
-                <span class="op-path">?action=cp_roster</span>
-                <span class="op-sum">Admin-guarded because this is the one table that maps a person to a phone</span>
-                <span class="caret">▶</span>
-            </button>
-            <div class="op-body" hidden>
-                <p class="op-desc">Admin-guarded because this is the one table that maps a person to a phone number, which is the most sensitive thing the pool holds.</p>
-                <h4>Authentication</h4>
-                <p class="op-desc">Admin — <code class="inline">X-Admin-Secret</code></p>
-                <h4>Takes</h4>
-                <p class="op-desc">header: X-Admin-Secret — who is linked to what number.</p>
-                <p class="src">api.php:2887</p>
             </div>
         </div>
         <div class="op post" id="post-cp_save_entry" data-search="cp_save_entry post confidence pool ">
@@ -1024,7 +891,6 @@
                 <p class="op-desc">None</p>
                 <h4>Takes</h4>
                 <p class="op-desc">{season, week, player_name, picks:[{game_id,pick,confidence}]}</p>
-                <p class="src">api.php:2550</p>
             </div>
         </div>
         <div class="op post" id="post-cp_save_week" data-search="cp_save_week post confidence pool creates the week, or updates the spreads on one that already has entries.">
@@ -1040,7 +906,6 @@
                 <p class="op-desc">None</p>
                 <h4>Takes</h4>
                 <p class="op-desc">{season, week, push_rule, games:[{away,home,favorite,spread}]}</p>
-                <p class="src">api.php:2459</p>
             </div>
         </div>
         <div class="op post" id="post-cp_scan" data-search="cp_scan post confidence pool reads a filled-in sheet. saves no picks — the app shows the result for">
@@ -1061,7 +926,6 @@
                     <tr><td class="pname">season</td></tr>
                     <tr><td class="pname">week</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:2406</p>
             </div>
         </div>
         <div class="op post" id="post-cp_sms" data-search="cp_sms post confidence pool ">
@@ -1076,7 +940,6 @@
                 <p class="op-desc">None</p>
                 <h4>Takes</h4>
                 <p class="op-desc">Twilio inbound webhook.</p>
-                <p class="src">api.php:2752</p>
             </div>
         </div>
         <div class="op delete" id="delete-cp_week" data-search="cp_week delete confidence pool ">
@@ -1096,7 +959,6 @@
                     <tr><td class="pname">season</td></tr>
                     <tr><td class="pname">week</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:3012</p>
             </div>
         </div>
         <div class="op get" id="get-cp_week" data-search="cp_week get confidence pool ">
@@ -1117,7 +979,6 @@
                     <tr><td class="pname">week</td></tr>
                     <tr><td class="pname">force</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:2622</p>
             </div>
         </div>
         <div class="op get" id="get-cp_weeks" data-search="cp_weeks get confidence pool ">
@@ -1132,7 +993,6 @@
                 <p class="op-desc">None</p>
                 <h4>Takes</h4>
                 <p class="op-desc">every week that has been set up, newest first.</p>
-                <p class="src">api.php:2988</p>
             </div>
         </div>
     </section>
@@ -1154,7 +1014,6 @@
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">date</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:1168</p>
             </div>
         </div>
         <div class="op post" id="post-dt_save" data-search="dt_save post daily tasks ">
@@ -1167,7 +1026,6 @@
             <div class="op-body" hidden>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
-                <p class="src">api.php:1149</p>
             </div>
         </div>
         <div class="op post" id="post-dt_save_tasks" data-search="dt_save_tasks post daily tasks ">
@@ -1182,7 +1040,6 @@
                 <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
                 <h4>Takes</h4>
                 <p class="op-desc">body: { date, tasks, next_id } — upsert this user's task list for a given day</p>
-                <p class="src">api.php:1188</p>
             </div>
         </div>
         <div class="op get" id="get-dt_week" data-search="dt_week get daily tasks ">
@@ -1199,7 +1056,6 @@
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">week_key</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:1139</p>
             </div>
         </div>
     </section>
@@ -1217,7 +1073,6 @@
                 <p class="op-desc">None</p>
                 <h4>Takes</h4>
                 <p class="op-desc">top 10 for the current ISO week (no auth)</p>
-                <p class="src">api.php:906</p>
             </div>
         </div>
         <div class="op post" id="post-fb_save_score" data-search="fb_save_score post face breaker ">
@@ -1232,7 +1087,6 @@
                 <p class="op-desc">None</p>
                 <h4>Takes</h4>
                 <p class="op-desc">body: { name, score } — no auth required</p>
-                <p class="src">api.php:916</p>
             </div>
         </div>
     </section>
@@ -1252,7 +1106,6 @@
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">week_key</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:972</p>
             </div>
         </div>
         <div class="op get" id="get-reaction_week" data-search="reaction_week get reaction test ">
@@ -1269,7 +1122,6 @@
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">week_key</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:942</p>
             </div>
         </div>
         <div class="op post" id="post-save_reaction" data-search="save_reaction post reaction test ">
@@ -1282,28 +1134,11 @@
             <div class="op-body" hidden>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
-                <p class="src">api.php:952</p>
             </div>
         </div>
     </section>
     <section class="grp">
         <h2 class="tag">Update Notifications</h2>
-        <div class="op post" id="post-notify_subscribers" data-search="notify_subscribers post update notifications called by the github actions deploy workflow when changelog.md changes.">
-            <button class="op-head" type="button" aria-expanded="false">
-                <span class="method">POST</span>
-                <span class="op-path">?action=notify_subscribers</span>
-                <span class="op-sum">Called by the GitHub Actions deploy workflow when CHANGELOG.md changes.</span>
-                <span class="caret">▶</span>
-            </button>
-            <div class="op-body" hidden>
-                <p class="op-desc">Called by the GitHub Actions deploy workflow when CHANGELOG.md changes.</p>
-                <h4>Authentication</h4>
-                <p class="op-desc">Admin — <code class="inline">X-Admin-Secret</code></p>
-                <h4>Takes</h4>
-                <p class="op-desc">header: X-Admin-Secret  body: { message }</p>
-                <p class="src">api.php:1279</p>
-            </div>
-        </div>
         <div class="op post" id="post-subscribe" data-search="subscribe post update notifications &quot;website&quot; is an invisible honeypot field — real users never fill it in.">
             <button class="op-head" type="button" aria-expanded="false">
                 <span class="method">POST</span>
@@ -1317,7 +1152,6 @@
                 <p class="op-desc">None</p>
                 <h4>Takes</h4>
                 <p class="op-desc">body: { contact_type: 'email'|'phone', contact_value, website? }</p>
-                <p class="src">api.php:1211</p>
             </div>
         </div>
         <div class="op get" id="get-unsubscribe" data-search="unsubscribe get update notifications ">
@@ -1336,7 +1170,6 @@
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">token</td></tr>
                 </tbody></table></div>
-                <p class="src">api.php:1263</p>
             </div>
         </div>
     </section>
@@ -1550,32 +1383,36 @@ UNIQUE KEY uniq_contact (contact_type, contact_value)</code></pre>
 
     <section class="todo">
         <h2 class="tag">Not yet described</h2>
-        <p class="note">These endpoints have no comment block above them in <code class="inline">api.php</code>. To document one, write the comment there and regenerate.</p>
+        <p class="note">These endpoints have no written description yet.</p>
         <ul>
-            <li>DELETE ?action=clear_week — api.php:348</li>
-            <li>POST ?action=save — api.php:334</li>
-            <li>GET ?action=week — api.php:324</li>
-            <li>DELETE ?action=clear_track_sessions — api.php:390</li>
-            <li>DELETE ?action=delete_track_session — api.php:382</li>
-            <li>POST ?action=save_track_session — api.php:369</li>
-            <li>GET ?action=track_sessions — api.php:362</li>
-            <li>GET ?action=tb_friends — api.php:851</li>
-            <li>POST ?action=tb_login — api.php:427</li>
-            <li>GET ?action=tb_my_invite — api.php:815</li>
-            <li>POST ?action=tb_register — api.php:400</li>
-            <li>POST ?action=ft_add_flight — api.php:1077</li>
-            <li>POST ?action=ft_add_flights — api.php:1099</li>
-            <li>DELETE ?action=ft_delete_flight — api.php:1125</li>
-            <li>GET ?action=ft_flights — api.php:1070</li>
-            <li>POST ?action=ft_login — api.php:1048</li>
-            <li>POST ?action=ft_logout — api.php:1064</li>
-            <li>POST ?action=ft_register — api.php:1024</li>
-            <li>POST ?action=dt_save — api.php:1149</li>
-            <li>GET ?action=dt_week — api.php:1139</li>
-            <li>DELETE ?action=clear_reaction_week — api.php:972</li>
-            <li>GET ?action=reaction_week — api.php:942</li>
-            <li>POST ?action=save_reaction — api.php:952</li>
+            <li>DELETE ?action=clear_week</li>
+            <li>POST ?action=save</li>
+            <li>GET ?action=week</li>
+            <li>DELETE ?action=clear_track_sessions</li>
+            <li>DELETE ?action=delete_track_session</li>
+            <li>POST ?action=save_track_session</li>
+            <li>GET ?action=track_sessions</li>
+            <li>GET ?action=tb_friends</li>
+            <li>POST ?action=tb_login</li>
+            <li>GET ?action=tb_my_invite</li>
+            <li>POST ?action=tb_register</li>
+            <li>POST ?action=ft_add_flight</li>
+            <li>POST ?action=ft_add_flights</li>
+            <li>DELETE ?action=ft_delete_flight</li>
+            <li>GET ?action=ft_flights</li>
+            <li>POST ?action=ft_login</li>
+            <li>POST ?action=ft_logout</li>
+            <li>POST ?action=ft_register</li>
+            <li>POST ?action=dt_save</li>
+            <li>GET ?action=dt_week</li>
+            <li>DELETE ?action=clear_reaction_week</li>
+            <li>GET ?action=reaction_week</li>
+            <li>POST ?action=save_reaction</li>
         </ul>
+    </section>
+
+    <section class="todo">
+        <p class="note">6 operator endpoints are not listed here.</p>
     </section>
 
     <footer>

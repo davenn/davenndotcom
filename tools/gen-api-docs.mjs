@@ -215,6 +215,21 @@ const usedGroups = GROUP_ORDER.filter(g => ordered.some(e => e.group === g));
 const tableGroupsUsed = [...GROUP_ORDER, 'Other']
   .filter(g => tables.some(t => t.group === g));
 
+// Operator endpoints are left out of the public page. This is not what keeps
+// them safe — the shared secret does — but there is no reason to hand a
+// stranger the list of things worth guessing a secret for. The in-repo
+// markdown stays complete.
+// Endpoints that are not admin-gated in code but are still operator tools and
+// do not belong on a public page. cp_diag is the case in point: it takes no
+// auth at all, yet reports the PHP version, open_basedir and the server's own
+// IP. Excluding it here hides the signpost, not the door — see CLAUDE.md.
+const OPERATOR_ACTIONS = new Set(['cp_diag']);
+
+const isOperator = e => e.auth.startsWith('Admin') || OPERATOR_ACTIONS.has(e.action);
+const publicEndpoints = ordered.filter(e => !isOperator(e));
+const publicGroups = GROUP_ORDER.filter(g => publicEndpoints.some(e => e.group === g));
+const operatorCount = ordered.length - publicEndpoints.length;
+
 // ── Markdown ───────────────────────────────────────────────────────────────
 
 function renderMarkdown() {
@@ -500,7 +515,7 @@ function renderHtml() {
     <h1>API Reference</h1>
     <p class="lede">Every app on davenn.com is served by a single <code class="inline">api.php</code>. Endpoints are selected by an <code class="inline">action</code> query parameter and always return JSON.</p>
     <div class="base">https://davenn.com/api.php?action=&lt;action&gt;</div>
-    <p class="counts">${endpoints.length} endpoints · ${tables.length} tables</p>
+    <p class="counts">${publicEndpoints.length} endpoints · ${tables.length} tables</p>
 
     <div class="filter-row">
         <input type="search" id="filter" placeholder="Filter endpoints…" aria-label="Filter endpoints">
@@ -508,10 +523,10 @@ function renderHtml() {
     <p class="no-match" id="no-match" hidden>Nothing matches that.</p>
 `);
 
-  for (const group of usedGroups) {
+  for (const group of publicGroups) {
     o.push(`    <section class="grp">`);
     o.push(`        <h2 class="tag">${h(group)}</h2>`);
-    for (const e of ordered.filter(x => x.group === group)) {
+    for (const e of publicEndpoints.filter(x => x.group === group)) {
       const cls = e.method.toLowerCase();
       const id = `${cls}-${e.action}`;
       const summary = e.description ? e.description.split('\n')[0] : '';
@@ -538,7 +553,6 @@ function renderHtml() {
         }
         o.push(`                </tbody></table></div>`);
       }
-      o.push(`                <p class="src">api.php:${e.line}</p>`);
       o.push(`            </div>`);
       o.push(`        </div>`);
     }
@@ -558,16 +572,24 @@ function renderHtml() {
   }
   o.push(`    </section>`);
 
-  if (undocumented.length) {
+  const publicUndocumented = undocumented.filter(e => !isOperator(e));
+  if (publicUndocumented.length) {
     o.push(`
     <section class="todo">
         <h2 class="tag">Not yet described</h2>
-        <p class="note">These endpoints have no comment block above them in <code class="inline">api.php</code>. To document one, write the comment there and regenerate.</p>
+        <p class="note">These endpoints have no written description yet.</p>
         <ul>`);
-    for (const e of undocumented) {
-      o.push(`            <li>${h(e.method)} ?action=${h(e.action)} — api.php:${e.line}</li>`);
+    for (const e of publicUndocumented) {
+      o.push(`            <li>${h(e.method)} ?action=${h(e.action)}</li>`);
     }
     o.push(`        </ul>
+    </section>`);
+  }
+
+  if (operatorCount) {
+    o.push(`
+    <section class="todo">
+        <p class="note">${operatorCount} operator endpoints are not listed here.</p>
     </section>`);
   }
 

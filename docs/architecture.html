@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Architecture — davenn.com</title>
+<meta name="description" content="How davenn.com is built: one HTML file per app, one PHP file behind them, and no build step.">
+<meta name="theme-color" content="#111110">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+    (function () {
+        var t;
+        try { t = localStorage.getItem('docs_theme'); } catch (e) {}
+        if (t !== 'light' && t !== 'dark') {
+            t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', t);
+    })();
+</script>
+<style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root, [data-theme="light"] {
+        color-scheme: light;
+        --page: #fafafa; --surface: #ffffff; --surface-2: #f7f7f7; --border: #e4e4e0;
+        --text-primary: #3b4151; --text-body: #454750; --text-muted: #8a8f98;
+        --code-bg: #41444e; --code-fg: #ffffff;
+        --diagram-fill: #ffffff; --diagram-accent: #eef4fb;
+    }
+    [data-theme="dark"] {
+        color-scheme: dark;
+        --page: #0a0a0a; --surface: #131313; --surface-2: #1a1a1a; --border: #2a2a2a;
+        --text-primary: #e8e8e6; --text-body: #c3c2b7; --text-muted: #8a8f98;
+        --code-bg: #1e1f24; --code-fg: #e8e8e6;
+        --diagram-fill: #161616; --diagram-accent: #17222e;
+    }
+    :root {
+        --nav-bg: #111110; --nav-border: rgba(255,255,255,0.08);
+        --accent: #61affe;
+        --font-ui: system-ui, -apple-system, 'Segoe UI', sans-serif;
+        --font-mono: 'DM Mono', ui-monospace, monospace;
+        --nav-h: 52px;
+    }
+
+    body {
+        font-family: var(--font-ui); background: var(--page); color: var(--text-primary);
+        -webkit-font-smoothing: antialiased;
+        padding-top: calc(var(--nav-h) + env(safe-area-inset-top));
+        transition: background 0.2s, color 0.2s;
+    }
+
+    nav {
+        position: fixed; top: 0; left: 0; right: 0;
+        height: calc(var(--nav-h) + env(safe-area-inset-top));
+        padding: env(safe-area-inset-top) 1.5rem 0;
+        background: var(--nav-bg); border-bottom: 1px solid var(--nav-border);
+        display: flex; align-items: center; justify-content: space-between; z-index: 200;
+    }
+    .nav-logo { font-family: var(--font-mono); font-size: 13px; color: rgba(255,255,255,0.4); text-decoration: none; }
+    .nav-logo strong { color: #fff; }
+    .nav-right { display: flex; align-items: center; gap: 1.2rem; }
+    .nav-back { font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.45); text-decoration: none; letter-spacing: 0.05em; text-transform: uppercase; }
+    .nav-back:hover { color: #fff; }
+    .theme-toggle { width: 44px; height: 24px; cursor: pointer; background: none; border: none; padding: 0; flex: none; }
+    .theme-toggle-track { width: 44px; height: 24px; border-radius: 12px; background: #333; border: 1px solid #555; display: flex; align-items: center; padding: 0 3px; transition: background 0.2s; }
+    [data-theme="light"] .theme-toggle-track { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); }
+    .theme-toggle-thumb { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; transition: transform 0.2s, background 0.2s; }
+    [data-theme="light"] .theme-toggle-thumb { transform: translateX(20px); background: #fff; }
+    [data-theme="dark"]  .theme-toggle-thumb { transform: translateX(0);    background: #666; }
+
+    main { max-width: 760px; margin: 0 auto; padding: 36px 1.25rem 88px; }
+
+    h1 { font-size: 1.9rem; font-weight: 700; letter-spacing: -0.02em; }
+    .lede { font-size: 15px; color: var(--text-body); margin-top: 10px; line-height: 1.65; max-width: 60ch; }
+
+    h2 {
+        font-size: 1.15rem; font-weight: 600; margin: 44px 0 12px;
+        padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+    h3 { font-size: 14px; font-weight: 600; margin: 26px 0 6px; color: var(--text-primary); }
+    p { font-size: 14.5px; line-height: 1.75; color: var(--text-body); margin-bottom: 14px; }
+    ul { margin: 0 0 16px 20px; }
+    li { font-size: 14.5px; line-height: 1.75; color: var(--text-body); margin-bottom: 7px; }
+    strong { color: var(--text-primary); font-weight: 600; }
+    a { color: var(--accent); }
+
+    code.inline {
+        font-family: var(--font-mono); font-size: 0.89em; background: var(--surface-2);
+        border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; color: var(--text-primary);
+    }
+    pre {
+        background: var(--code-bg); color: var(--code-fg); border-radius: 4px;
+        padding: 13px 15px; margin: 4px 0 18px; overflow-x: auto;
+    }
+    pre code { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.65; display: block; white-space: pre; }
+
+    figure { margin: 8px 0 22px; }
+    figure svg { width: 100%; height: auto; display: block; }
+    figcaption { font-size: 12.5px; color: var(--text-muted); margin-top: 10px; line-height: 1.6; }
+
+    .callout {
+        background: var(--surface); border: 1px solid var(--border);
+        border-left: 3px solid var(--accent); border-radius: 4px;
+        padding: 14px 16px; margin: 4px 0 20px;
+    }
+    .callout p { margin: 0; font-size: 14px; }
+
+    table { border-collapse: collapse; width: 100%; font-size: 13.5px; margin-bottom: 18px; }
+    th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); font-weight: 600; }
+    td { color: var(--text-body); }
+    td:first-child { font-family: var(--font-mono); color: var(--text-primary); white-space: nowrap; }
+    .table-wrap { overflow-x: auto; }
+
+    footer {
+        border-top: 1px solid var(--border); margin-top: 52px; padding-top: 18px;
+        font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);
+    }
+    footer a { color: var(--text-muted); }
+</style>
+</head>
+<body>
+
+<nav>
+    <a class="nav-logo" href="/"><strong>davenn</strong>dotcom</a>
+    <div class="nav-right">
+        <button class="theme-toggle" id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
+            <div class="theme-toggle-track"><div class="theme-toggle-thumb" id="toggle-icon">🌙</div></div>
+        </button>
+        <a class="nav-back" href="/docs/">← Docs</a>
+    </div>
+</nav>
+
+<main>
+    <h1>Architecture</h1>
+    <p class="lede">A dozen small web apps, each one file, sharing a single backend. No framework, no build step, no dependencies. Here is how it fits together and what that choice costs.</p>
+
+    <h2>The shape of it</h2>
+
+    <p>Every app on this site is one <code class="inline">.html</code> file containing its own markup, styling and behaviour. Apps that need to remember something call a single PHP endpoint, which talks to one database. That is the whole system.</p>
+
+    <figure>
+        <svg viewBox="0 0 700 300" role="img" aria-labelledby="diagram-title diagram-desc">
+            <title id="diagram-title">Request flow on davenn.com</title>
+            <desc id="diagram-desc">A browser loads a single self-contained HTML file. That page calls api.php, which reads and writes one MySQL database and, for some features, calls out to the Anthropic API, Twilio and ESPN.</desc>
+
+            <defs>
+                <marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--text-muted)"/>
+                </marker>
+            </defs>
+
+            <g font-family="system-ui, sans-serif" font-size="13">
+                <!-- Browser -->
+                <rect x="14" y="112" width="132" height="58" rx="5" fill="var(--diagram-fill)" stroke="var(--border)" stroke-width="1.5"/>
+                <text x="80" y="138" text-anchor="middle" fill="var(--text-primary)" font-weight="600">Browser</text>
+                <text x="80" y="156" text-anchor="middle" fill="var(--text-muted)" font-size="11">one page, one app</text>
+
+                <!-- app file -->
+                <rect x="196" y="100" width="150" height="82" rx="5" fill="var(--diagram-accent)" stroke="var(--accent)" stroke-width="1.5"/>
+                <text x="271" y="128" text-anchor="middle" fill="var(--text-primary)" font-weight="600" font-family="'DM Mono', monospace" font-size="12">appname.html</text>
+                <text x="271" y="148" text-anchor="middle" fill="var(--text-muted)" font-size="11">HTML + CSS + JS</text>
+                <text x="271" y="164" text-anchor="middle" fill="var(--text-muted)" font-size="11">self-contained</text>
+
+                <!-- api -->
+                <rect x="396" y="100" width="130" height="82" rx="5" fill="var(--diagram-accent)" stroke="var(--accent)" stroke-width="1.5"/>
+                <text x="461" y="128" text-anchor="middle" fill="var(--text-primary)" font-weight="600" font-family="'DM Mono', monospace" font-size="12">api.php</text>
+                <text x="461" y="148" text-anchor="middle" fill="var(--text-muted)" font-size="11">every app,</text>
+                <text x="461" y="164" text-anchor="middle" fill="var(--text-muted)" font-size="11">every endpoint</text>
+
+                <!-- db -->
+                <rect x="576" y="112" width="110" height="58" rx="5" fill="var(--diagram-fill)" stroke="var(--border)" stroke-width="1.5"/>
+                <text x="631" y="138" text-anchor="middle" fill="var(--text-primary)" font-weight="600">MySQL</text>
+                <text x="631" y="156" text-anchor="middle" fill="var(--text-muted)" font-size="11">one database</text>
+
+                <!-- external -->
+                <rect x="396" y="232" width="130" height="52" rx="5" fill="var(--diagram-fill)" stroke="var(--border)" stroke-width="1.5" stroke-dasharray="4 3"/>
+                <text x="461" y="254" text-anchor="middle" fill="var(--text-primary)" font-size="12" font-weight="600">Outside services</text>
+                <text x="461" y="271" text-anchor="middle" fill="var(--text-muted)" font-size="11">Claude · Twilio · ESPN</text>
+
+                <!-- arrows -->
+                <line x1="150" y1="141" x2="190" y2="141" stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arw)"/>
+                <line x1="350" y1="141" x2="390" y2="141" stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arw)"/>
+                <line x1="530" y1="141" x2="570" y2="141" stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arw)"/>
+                <line x1="461" y1="186" x2="461" y2="228" stroke="var(--text-muted)" stroke-width="1.5" marker-end="url(#arw)"/>
+
+                <text x="370" y="132" text-anchor="middle" fill="var(--text-muted)" font-size="10.5" font-family="'DM Mono', monospace">fetch</text>
+                <text x="271" y="72" text-anchor="middle" fill="var(--text-muted)" font-size="11">served exactly as written — nothing compiles it</text>
+                <line x1="271" y1="80" x2="271" y2="96" stroke="var(--border)" stroke-width="1.5"/>
+            </g>
+        </svg>
+        <figcaption>One page, one file. The only shared server-side component is <code class="inline">api.php</code>.</figcaption>
+    </figure>
+
+    <h2>One file per app</h2>
+
+    <p>There is no bundler, no package manager and no <code class="inline">node_modules</code>. What sits in the repository is byte-for-byte what the browser receives.</p>
+
+    <p>This is unfashionable, and for a project this size it is the right trade. Each app can be opened, understood and changed on its own, without a toolchain standing between the source and the running page. A change to the cribbage scorer cannot break the flight tracker, because they share no code to break. When one of these apps goes untouched for a year, it still runs — there is no dependency tree quietly rotting underneath it.</p>
+
+    <p>The cost is real: styling and small utilities are duplicated across files rather than shared. That duplication is accepted deliberately. Extracting it into common files would buy tidiness and give back the independence that makes the whole arrangement work.</p>
+
+    <h2>One file behind them</h2>
+
+    <p>All server-side behaviour lives in a single PHP file. Requests select an operation by query parameter and always get JSON back:</p>
+
+    <pre><code>GET /api.php?action=cp_week&amp;season=2026&amp;week=3</code></pre>
+
+    <p>Internally that is a flat sequence of guard clauses, not a router. Each one checks the method and the action, does its work, emits JSON and exits. It is the least clever structure available, which is the point — the path any request takes can be read top to bottom with no indirection.</p>
+
+    <h3>Tables</h3>
+
+    <p>Each app's tables carry a short prefix, so one database serves everything without name collisions: <code class="inline">tb_</code> for the tool library, <code class="inline">cp_</code> for the pick pool, <code class="inline">bg_</code> for glucose readings, and so on. A handful of older tables predate the convention and keep their original names, because renaming a live table to satisfy a pattern is a bad trade.</p>
+
+    <p>Schema is created on demand rather than migrated. The table definitions run on every request and do nothing if the tables already exist, so a new table appears the first time the code that needs it is deployed. Changing a column on an existing table is a deliberate manual step.</p>
+
+    <h2>Look and feel</h2>
+
+    <p>The apps are visually consistent by convention rather than by shared stylesheet. Each file defines the same small set of colour tokens for light and dark, and the same rule for choosing between them: a stored preference wins, otherwise follow the operating system.</p>
+
+    <p>That choice is applied in a tiny inline script in the document head, before any other styling is parsed, so a page never paints in the wrong theme and then corrects itself. It is a few lines duplicated in every app, and worth it — a flash of white at 6am is the kind of small insult that makes something feel unfinished.</p>
+
+    <div class="callout">
+        <p><strong>Status colours are never themed, and never carry meaning alone.</strong> Win and loss, up and down, good and bad are always paired with a word or a shape as well as a hue. Red and green are exactly the distinction the most common form of colour blindness cannot make.</p>
+    </div>
+
+    <h2>Installing an app</h2>
+
+    <p>Most of the apps can be installed to a home screen. Each has its own manifest and icon, and one service worker serves all of them.</p>
+
+    <p>Its caching rule is split by kind. Pages are fetched from the network first and fall back to the cached copy only when offline, so an installed app is never stuck on a stale version of itself. Fonts, icons and other static files are served from cache first, since they change rarely and loading them twice helps nobody. Calls to the API are never intercepted at all — cached data that looks live is worse than no data.</p>
+
+    <h2>Shipping a change</h2>
+
+    <p>Pushing to the main branch is the deploy. Continuous integration checks the PHP for syntax errors, refuses to publish if anything fails to parse, and then uploads only the files that actually changed.</p>
+
+    <p>A second job checks that the <a href="/docs/api.html">API reference</a> still matches the code it describes. That page is generated from the source rather than written by hand: the description of each endpoint lives as a comment beside the code that implements it, and a script turns those into both an in-repository reference and the public page. If the two fall out of step, the build says so. It does not block a deploy, though — broken code should stop a release, and lagging documentation should not.</p>
+
+    <p>There is also a changelog. Adding an entry to it is what notifies anyone who has <a href="/#notify">signed up for updates</a>, which makes writing one a deliberate act rather than a formality.</p>
+
+    <h2>Outside services</h2>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr><th>Service</th><th>What it does here</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Claude</td>
+                    <td>Reads photographs. A picture of a tool becomes a catalogue entry; a photographed pick sheet becomes a set of picks, shown for correction before anything is saved.</td>
+                </tr>
+                <tr>
+                    <td>Twilio</td>
+                    <td>Sends update notifications by text, and receives the messages that let a pick sheet be submitted by photo.</td>
+                </tr>
+                <tr>
+                    <td>ESPN</td>
+                    <td>Scores and schedules for the football pool. An undocumented public feed, so it breaks without warning and the code assumes it will.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <p>These are described in more detail, from a data-handling point of view, in the <a href="/privacy.html">privacy policy</a>.</p>
+
+    <h2>What this is not</h2>
+
+    <p>This arrangement suits a personal site maintained by one person, where the apps are small, independent and mostly finished. It would be a poor choice for a team, for anything with a shared component library, or for an application whose parts genuinely need to know about each other.</p>
+
+    <p>The honest summary: the duplication is the price, and independence is what it buys. For twelve small apps that each want to keep working untouched for years, that is a price worth paying.</p>
+
+    <footer>
+        <a href="/">davenn.com</a> &nbsp;·&nbsp; <a href="/docs/">Docs</a> &nbsp;·&nbsp; <a href="/docs/api.html">API</a> &nbsp;·&nbsp; <a href="/privacy.html">Privacy</a> &nbsp;·&nbsp; <a href="/terms.html">Terms</a>
+    </footer>
+</main>
+
+<script>
+(function () {
+    'use strict';
+    var toggle = document.getElementById('theme-toggle');
+    var icon = document.getElementById('toggle-icon');
+    icon.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '🌙' : '☀️';
+    toggle.addEventListener('click', function () {
+        var t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+        icon.textContent = t === 'dark' ? '🌙' : '☀️';
+        try { localStorage.setItem('docs_theme', t); } catch (e) {}
+    });
+})();
+</script>
+
+</body>
+</html>
