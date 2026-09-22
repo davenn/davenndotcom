@@ -539,24 +539,55 @@ const TEAM_NAMES = {
 const TEAM_ORDER = Object.keys(TEAM_NAMES).sort((a, b) => TEAM_NAMES[a].localeCompare(TEAM_NAMES[b]));
 
 // ── Week maths ───────────────────────────────────────────────────────────
-// Week 1 is the Thursday after Labor Day (the first Monday in September).
-function laborDay(year) {
+// Week 1 is the Thursday after Labor Day (the first Monday in September), and
+// a new week arrives at midnight Pacific on the Tuesday.
+//
+// This is all done on Pacific *calendar dates* rather than on timestamps. Doing
+// the arithmetic in UTC put the boundary at 00:00 UTC Tuesday — 5pm Monday on
+// the west coast — so a new week appeared while Monday night football was still
+// being played. Counting whole days in the Pacific zone puts the rollover
+// exactly at local midnight and keeps it there through the daylight-saving
+// change in November.
+const PACIFIC = 'America/Los_Angeles';
+
+/** The calendar date showing on a Pacific clock at that instant. */
+function pacificYMD(date) {
+    try {
+        const parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: PACIFIC, year: 'numeric', month: '2-digit', day: '2-digit',
+        }).formatToParts(date);
+        const p = {};
+        for (const x of parts) if (x.type !== 'literal') p[x.type] = x.value;
+        return { y: +p.year, m: +p.month, d: +p.day };
+    } catch (e) {
+        // No time zone database available. A fixed -8 is wrong by an hour under
+        // daylight saving, which is a great deal better than being wrong by the
+        // seven that using UTC costs.
+        const s = new Date(date.getTime() - 8 * 3600e3);
+        return { y: s.getUTCFullYear(), m: s.getUTCMonth() + 1, d: s.getUTCDate() };
+    }
+}
+
+/** Whole days since the epoch, as a pure calendar count. */
+function dayNumber(y, m, d) { return Math.round(Date.UTC(y, m - 1, d) / 864e5); }
+
+/** Labor Day — the first Monday in September — as a day number. */
+function laborDayNumber(year) {
     const d = new Date(Date.UTC(year, 8, 1));
     while (d.getUTCDay() !== 1) d.setUTCDate(d.getUTCDate() + 1);
-    return d;
+    return Math.round(d.getTime() / 864e5);
 }
+
 function currentSeasonWeek() {
-    const now  = new Date();
-    let year   = now.getUTCFullYear();
-    let opener = new Date(laborDay(year).getTime() + 3 * 864e5);       // week 1 Thursday
-    if (now < opener) {                                                // still in last season
-        year -= 1;
-        opener = new Date(laborDay(year).getTime() + 3 * 864e5);
-    }
-    // Count from the Tuesday before kickoff so a week rolls over mid-week,
-    // not while Monday night is still being played.
-    const start = new Date(opener.getTime() - 2 * 864e5);
-    const week  = Math.floor((now - start) / (7 * 864e5)) + 1;
+    const p     = pacificYMD(new Date());
+    const today = dayNumber(p.y, p.m, p.d);
+
+    // Labor Day is the Monday; the Tuesday after it is where counting starts.
+    let year  = p.y;
+    let start = laborDayNumber(year) + 1;
+    if (today < start) start = laborDayNumber(--year) + 1;   // still last season
+
+    const week = Math.floor((today - start) / 7) + 1;
     return { season: year, week: Math.min(18, Math.max(1, week)) };
 }
 
