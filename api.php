@@ -2248,8 +2248,11 @@ function cpWeekPayload(PDO $pdo, array $week): array {
                 $locked += $pts; $live += $pts;
                 if (!$void) { $decided++; if ($won) $hits++; }
             } else {
-                // Undecided: count it live only while it is currently covering,
-                // and keep its full value in the still-winnable pile either way.
+                // Undecided. It counts towards the live score only while it is
+                // currently covering, but its full value goes in the winnable
+                // pile either way — which is why the ceiling has to be built on
+                // the locked score, never on the live one. Adding $pending to
+                // $live would count a covering game's points twice.
                 $live    += $pts;
                 $pending += $conf;
             }
@@ -2267,9 +2270,9 @@ function cpWeekPayload(PDO $pdo, array $week): array {
         $standings[] = [
             'id'          => (int)$e['id'],
             'player_name' => $e['player_name'],
-            'points'      => $locked,            // games that are final
-            'live_points' => $live,              // final + currently covering
-            'max_points'  => $live + $pending,   // if every undecided pick lands
+            'points'      => $locked,             // games that are final
+            'live_points' => $live,               // final + currently covering
+            'max_points'  => $locked + $pending,  // if every undecided pick lands
             'correct'     => $hits,
             'decided'     => $decided,
             'picks'       => $rows,
