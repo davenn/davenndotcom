@@ -447,28 +447,28 @@ to anyone else. Nothing in the site calls this — it is run by hand.
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Query parameters:** `season`, `week`
-- **Source:** [`api.php:3023`](../api.php#L3023)
+- **Source:** [`api.php:3026`](../api.php#L3026)
 
 ### DELETE `?action=cp_entry`
 
 - **Auth:** None
 - **Takes:** &id=X
 - **Query parameters:** `id`
-- **Source:** [`api.php:3083`](../api.php#L3083)
+- **Source:** [`api.php:3086`](../api.php#L3086)
 
 ### DELETE `?action=cp_pending`
 
 - **Auth:** Single-use link token — `?token=`
 - **Takes:** &token=… — drop a staged sheet once it is saved.
 - **Query parameters:** `token`
-- **Source:** [`api.php:2946`](../api.php#L2946)
+- **Source:** [`api.php:2949`](../api.php#L2949)
 
 ### GET `?action=cp_pending`
 
 - **Auth:** Single-use link token — `?token=`
 - **Takes:** &token=… — collect a staged sheet for review.
 - **Query parameters:** `token`
-- **Source:** [`api.php:2924`](../api.php#L2924)
+- **Source:** [`api.php:2927`](../api.php#L2927)
 
 ### POST `?action=cp_purge_photos`
 
@@ -478,14 +478,14 @@ run after the first.
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** header: X-Admin-Secret
-- **Source:** [`api.php:2990`](../api.php#L2990)
+- **Source:** [`api.php:2993`](../api.php#L2993)
 
 ### DELETE `?action=cp_roster`
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** &id=…  header: X-Admin-Secret — unlink a number.
 - **Query parameters:** `id`
-- **Source:** [`api.php:2975`](../api.php#L2975)
+- **Source:** [`api.php:2978`](../api.php#L2978)
 
 ### GET `?action=cp_roster`
 
@@ -494,13 +494,13 @@ number, which is the most sensitive thing the pool holds.
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** header: X-Admin-Secret — who is linked to what number.
-- **Source:** [`api.php:2958`](../api.php#L2958)
+- **Source:** [`api.php:2961`](../api.php#L2961)
 
 ### POST `?action=cp_save_entry`
 
 - **Auth:** None
 - **Takes:** {season, week, player_name, picks:[{game_id,pick,confidence}]}
-- **Source:** [`api.php:2609`](../api.php#L2609)
+- **Source:** [`api.php:2612`](../api.php#L2612)
 
 ### POST `?action=cp_save_week`
 
@@ -508,7 +508,7 @@ Creates the week, or updates the spreads on one that already has entries.
 
 - **Auth:** None
 - **Takes:** {season, week, push_rule, games:[{away,home,favorite,spread}]}
-- **Source:** [`api.php:2518`](../api.php#L2518)
+- **Source:** [`api.php:2521`](../api.php#L2521)
 
 ### POST `?action=cp_scan`
 
@@ -519,33 +519,33 @@ misread team name and both happen.
 - **Auth:** None
 - **Takes:** (multipart: photo, optional season + week)
 - **Query parameters:** `season`, `week`
-- **Source:** [`api.php:2465`](../api.php#L2465)
+- **Source:** [`api.php:2468`](../api.php#L2468)
 
 ### POST `?action=cp_sms`
 
 - **Auth:** None
 - **Takes:** Twilio inbound webhook.
-- **Source:** [`api.php:2811`](../api.php#L2811)
+- **Source:** [`api.php:2814`](../api.php#L2814)
 
 ### DELETE `?action=cp_week`
 
 - **Auth:** None
 - **Takes:** &season=&week=
 - **Query parameters:** `season`, `week`
-- **Source:** [`api.php:3092`](../api.php#L3092)
+- **Source:** [`api.php:3095`](../api.php#L3095)
 
 ### GET `?action=cp_week`
 
 - **Auth:** None
 - **Takes:** &season=&week=
 - **Query parameters:** `season`, `week`, `force`
-- **Source:** [`api.php:2681`](../api.php#L2681)
+- **Source:** [`api.php:2684`](../api.php#L2684)
 
 ### GET `?action=cp_weeks`
 
 - **Auth:** None
 - **Takes:** every week that has been set up, newest first.
-- **Source:** [`api.php:3068`](../api.php#L3068)
+- **Source:** [`api.php:3071`](../api.php#L3071)
 
 ## Daily Tasks
 

@@ -26,6 +26,23 @@ Texting a sheet in maps a phone number to a player through `cp_players`. That
 table is the one place a person is tied to a phone number, which is why the
 roster endpoints are admin-guarded while nothing else in the pool is.
 
+### Saving over an existing sheet
+
+`cp_save_entry` upserts on `(week_id, player_name)`, so entering a name that
+already has a sheet replaces its picks rather than creating a second entry.
+That is intended — re-uploading after fixing a misread row is the normal way
+to correct an entry.
+
+The review screen warns before it happens: it names the existing entry, says
+how many picks would be lost, and relabels the button `Replace picks`. It does
+not block, because replacing is usually what the person means to do.
+
+The match is **case-insensitive and trimmed**, deliberately. MySQL's default
+collation is case-insensitive, so `dave` and `Dave` are the same row to the
+database; matching exactly here would let a lower-cased name overwrite a sheet
+with no warning at all. The message shows the spelling already stored rather
+than the one just typed, so the collision is obvious.
+
 ## Weeks and scoring
 
 A week is a row in `cp_weeks` holding the games and the rule for pushes:

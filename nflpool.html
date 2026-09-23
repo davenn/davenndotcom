@@ -1035,6 +1035,7 @@ function renderReview(note, warnings) {
                 <label for="player">Whose sheet is this?</label>
                 <input id="player" type="text" maxlength="60" autocomplete="name"
                        placeholder="Name" value="${esc(state.player)}">
+                <div class="banner warn hidden" id="name-taken"></div>
             </div>
         </div>
         <div class="card">
@@ -1201,6 +1202,30 @@ function validate() {
     } else {
         box.className = 'banner hidden';
     }
+
+    // Saving over a name that already has a sheet replaces it — cp_save_entry
+    // upserts on (week, name). Deliberately a warning and not a problem: a
+    // corrected re-upload is a normal thing to want, so it must stay possible.
+    // Matched case-insensitively because the database collation is, so "dave"
+    // would overwrite "Dave" without ever looking like a collision here.
+    const typed    = state.player.trim();
+    const existing = typed
+        ? ((state.data && state.data.standings) || [])
+            .find(s => s.player_name.trim().toLowerCase() === typed.toLowerCase())
+        : null;
+
+    const taken = $('name-taken');
+    if (existing) {
+        taken.className = 'banner warn';
+        taken.innerHTML = '<strong>' + esc(existing.player_name) + ' already has a sheet for Week '
+            + state.week + '.</strong> Saving replaces those ' + existing.picks.length
+            + ' picks. Change the name above if this is a different person.';
+    } else {
+        taken.className = 'banner warn hidden';
+    }
+    // Say on the button what the button will actually do.
+    $('save').textContent = existing ? 'Replace picks' : 'Save picks';
+
     $('save').disabled = problems.length > 0 || state.busy;
     return problems.length === 0;
 }
@@ -1265,6 +1290,8 @@ $('save').addEventListener('click', async () => {
         box.scrollIntoView({ behavior: 'smooth', block: 'center' });
     } finally {
         state.busy = false;
+        // validate() owns the button label — it decides between Save and
+        // Replace — so let it restore the text rather than guessing here.
         $('save').textContent = 'Save picks';
         if (state.rows) validate();
     }
