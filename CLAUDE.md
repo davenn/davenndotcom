@@ -27,7 +27,8 @@ Browser ──► /appname.html  (self-contained: HTML + CSS + JS)
 
 | Path | What it is |
 |---|---|
-| `index.html` | Home page — the app grid, plus the update-notification signup |
+| `index.html` | Home page — the app grid. "Get updates" links to `notify.html` |
+| `notify.html` | The **only** update-notification signup. It is the opt-in page filed with the A2P campaign (`docs/a2p-campaign.md`), so do not add a second signup form anywhere |
 | `<app>.html` | One file per app; see the inventory below |
 | `api.php` | The entire backend. Every app, every endpoint |
 | `manifest-<app>.json` | PWA manifest, one per installable app |

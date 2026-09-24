@@ -22,7 +22,24 @@ message strings in `api.php`, change this too.
 > or a reviewer reads the website and the brand as two separate businesses.
 > That is a named rejection trap.
 
-## Why the last submission was rejected
+## Why the latest submission was rejected — 30909
+
+> Campaign rejected: Message Flow or Call to Action incomplete/unverified
+
+A reviewer who started at https://davenn.com and clicked **Get updates** did
+not reach the page named in the message flow. They got a collapsed inline
+form on the home page, which counted as a **second, unlisted opt-in path**.
+Its consent text did not match the filing either: it never named the program
+and gave no frequency. `terms.html` and `privacy.html` also said sign-up
+happens "on the home page," which contradicted the filing.
+
+Fixed by making `notify.html` the only place a number can be entered. The
+inline form is gone, both "Get updates" links and the footer link point at
+`notify.html`, and the legal pages name it. The message flow below now traces
+the path from the home page, so a reviewer can follow it click by click.
+Attach a screenshot of `notify.html` as well.
+
+## An earlier rejection
 
 > The Campaign field does not clearly explain the messaging program. Describe
 > who is sending the messages, who receives them, and why the messages are
@@ -50,7 +67,7 @@ Messages are sent by [LEGAL NAME], operating as davenn.com, a personal website t
 ## Message flow: How do end-users consent to receive messages?
 
 ```
-End users opt in on a public web form at https://davenn.com/notify.html. The page requires no login and no interaction to display - the form and its disclosures are visible on arrival. The user enters their mobile number and must tick an unchecked consent box reading: "I agree to receive recurring automated text messages and/or emails from davenn.com Update Notifications at the number or address I provide. Consent is not a condition of using anything on this site. Message frequency varies - typically no more than a few messages per month. Message and data rates may apply. Reply STOP to cancel or HELP for help at any time." The consent text links the Privacy Policy and the SMS program terms. The form will not submit without the box ticked. The number then receives a confirmation text. Consent is collected only for the person's own number and is never bought, shared or inferred.
+End users opt in on a single public web form at https://davenn.com/notify.html. It is reached from the davenn.com home page by the "Get updates" link in the top navigation (and the "Text & Email Updates" link in the footer); this is the only place on the site where a phone number can be entered for these messages. The page requires no login and no interaction to display - the form and its disclosures are visible on arrival. The user enters their mobile number and must tick an unchecked consent box reading: "I agree to receive recurring automated text messages and/or emails from davenn.com Update Notifications at the number or address I provide. Consent is not a condition of using anything on this site. Message frequency varies - typically no more than a few messages per month. Message and data rates may apply. Reply STOP to cancel or HELP for help at any time." The consent text links the Privacy Policy and the SMS program terms. The form will not submit without the box ticked. The number then receives a confirmation text. Consent is collected only for the person's own number and is never bought, shared or inferred.
 ```
 
 ## Opt-in method proof
@@ -58,6 +75,10 @@ End users opt in on a public web form at https://davenn.com/notify.html. The pag
 ```
 Web form, publicly accessible with no login required:
 https://davenn.com/notify.html
+
+Reached from https://davenn.com via "Get updates" in the top navigation or
+"Text & Email Updates" in the footer. It is the only opt-in path.
+Screenshot of the page attached.
 
 The page shows the sign-up field, the unticked consent checkbox with its full
 wording, the program name, message frequency, cost, opt-out and help
@@ -323,6 +344,9 @@ davenn.com Confidence Pool: text a photo of your filled-in pick sheet and I will
 
 ## Before resubmitting
 
+- [ ] The home-page change is deployed and live: "Get updates" opens `notify.html`.
+- [ ] Message flow and opt-in proof pasted from this file, as updated after 30909.
+- [ ] Screenshot of `notify.html` attached to the opt-in proof.
 - [ ] `[LEGAL NAME]` replaced in both descriptions.
 - [ ] Campaign A's description no longer begins "ecipients".
 - [ ] Opt-in keywords and opt-in message are filled in — both were blank.
