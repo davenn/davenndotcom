@@ -288,6 +288,12 @@ nav {
 .photo-preview img { width: 100%; height: 100%; object-fit: cover; }
 .photo-preview-hint { position: absolute; bottom: 8px; left: 0; right: 0; text-align: center; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text3); }
 .photo-input { display: none; }
+.btn-skip-photo {
+  display: block; width: 100%; margin: 4px 0 8px; padding: 6px; background: none; border: none; cursor: pointer;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em; color: var(--text2);
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.btn-skip-photo:hover { color: var(--text); }
 
 /* ══ TAG PICKER ══ */
 .tag-picker { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -597,6 +603,7 @@ nav {
       <span class="photo-preview-hint">Tap to add photo</span>
     </div>
     <input type="file" id="photo-input" class="photo-input" accept="image/*" capture="environment" onchange="previewPhoto(this)">
+    <button type="button" class="btn-skip-photo" id="btn-skip-photo" onclick="showToolFields()">No photo? Enter details manually</button>
     <div id="tool-form-fields" style="display:none;">
       <div class="field"><label>Tool name *</label><input type="text" id="tool-name" placeholder="e.g. DeWalt Circular Saw"></div>
       <div class="field"><label>Brand</label><input type="text" id="tool-brand" placeholder="e.g. DeWalt"></div>
@@ -681,7 +688,7 @@ function switchAuthTab(tab) {
 async function doLogin() {
   const btn = document.getElementById('btn-login');
   btn.disabled = true; btn.textContent = 'Signing in…';
-  const res = await apiFetch('?action=tb_login', { method:'POST', body: JSON.stringify({ username: v('login-user'), password: v('login-pass') }) });
+  const res = await apiFetch('?action=tb_login', { method:'POST', errors:'return', body: JSON.stringify({ username: v('login-user'), password: v('login-pass') }) });
   btn.disabled = false; btn.textContent = 'Sign in';
   if (res?.success) { saveAuth(res); await acceptPendingInvite(); showApp(); }
   else showAuthError(res?.error || 'Login failed');
@@ -690,14 +697,15 @@ async function doLogin() {
 async function doRegister() {
   const btn = document.getElementById('btn-register');
   btn.disabled = true; btn.textContent = 'Creating…';
-  const res = await apiFetch('?action=tb_register', { method:'POST', body: JSON.stringify({ username: v('reg-user'), display_name: v('reg-name'), email: v('reg-email'), password: v('reg-pass') }) });
+  const res = await apiFetch('?action=tb_register', { method:'POST', errors:'return', body: JSON.stringify({ username: v('reg-user'), display_name: v('reg-name'), email: v('reg-email'), password: v('reg-pass') }) });
   btn.disabled = false; btn.textContent = 'Create account';
   if (res?.success) { saveAuth(res); await acceptPendingInvite(); showApp(); }
   else showAuthError(res?.error || 'Registration failed');
 }
 
 async function doLogout() {
-  await apiFetch('?action=tb_logout', { method:'POST' });
+  stopBadgePolling();
+  await apiFetch('?action=tb_logout', { method:'POST', errors:'quiet' });
   localStorage.removeItem('tb_token');
   localStorage.removeItem('tb_user');
   authToken = null; currentUser = null;
@@ -723,7 +731,7 @@ function showApp() {
   document.querySelectorAll('.panel').forEach(p => p.style.display = '');
   document.getElementById('nav-user-label').innerHTML  = `<strong>${escHtml(currentUser.display_name)}</strong>`;
   loadLibrary();
-  pollBadge();
+  startBadgePolling();
 
   // Show any pending welcome toast from invite acceptance during auth
   if (pendingWelcomeToast) {
@@ -752,20 +760,20 @@ function showTab(tab) {
 // ── LIBRARY ────────────────────────────────────────────────────────────────
 async function loadLibrary() {
   document.getElementById('my-tools-grid').innerHTML = '<div class="spinner">Loading…</div>';
-  const data = await apiFetch('?action=tb_my_tools');
-  if (!data) return;
+  const [data, borrowed] = await Promise.all([apiFetch('?action=tb_my_tools'), getBorrowedTools()]);
+  if (!Array.isArray(data)) { document.getElementById('my-tools-grid').innerHTML = loadFailedHTML(); return; }
 
-  myTools      = data.filter(t => t.owner_id == currentUser.id);
-  borrowedTools = await getBorrowedTools();
+  myTools       = data;
+  borrowedTools = borrowed;
 
   renderLibrary();
-  pollBadge();
+  refreshBadge();
 }
 
 async function getBorrowedTools() {
   // get approved outgoing requests → tool details
-  const reqs = await apiFetch('?action=tb_requests');
-  if (!reqs) return [];
+  const reqs = await apiFetch('?action=tb_requests', { errors:'quiet' });
+  if (!reqs?.outgoing) return [];
   return reqs.outgoing.filter(r => r.status === 'approved');
 }
 
@@ -795,7 +803,7 @@ function renderLibrary() {
 async function loadCommunity() {
   document.getElementById('community-list').innerHTML = '<div class="spinner">Loading…</div>';
   const data = await apiFetch('?action=tb_tools');
-  if (!data) return;
+  if (!Array.isArray(data)) { document.getElementById('community-list').innerHTML = loadFailedHTML(); return; }
   allTools = data;
 
   // If user has no friends yet, show an invite nudge
@@ -828,7 +836,7 @@ function filterCommunity() {
   el.innerHTML = Object.entries(byOwner).map(([oid, group]) => {
     const isMe = parseInt(oid) === currentUser.id;
     const label = isMe ? 'You' : group.name;
-    const init  = label[0].toUpperCase();
+    const init  = escHtml((label || '?')[0].toUpperCase());
     const cards = group.tools.map(t => toolCardHTML(t, isMe ? 'mine' : 'community')).join('');
     return `<div class="owner-group">
       <div class="owner-label">
@@ -846,7 +854,7 @@ async function loadRequests() {
   document.getElementById('incoming-list').innerHTML = '<div class="spinner">Loading…</div>';
   document.getElementById('outgoing-list').innerHTML = '';
   const data = await apiFetch('?action=tb_requests');
-  if (!data) return;
+  if (!data?.incoming) { document.getElementById('incoming-list').innerHTML = loadFailedHTML(); return; }
 
   const inc = document.getElementById('incoming-list');
   const out = document.getElementById('outgoing-list');
@@ -889,20 +897,23 @@ function openAddTool() {
   document.getElementById('tool-modal-title').textContent  = 'Add a tool';
   document.getElementById('tool-modal-submit').textContent = 'Add tool';
   document.getElementById('tool-form-fields').style.display = 'none';
+  document.getElementById('btn-skip-photo').style.display   = '';
   selectedTags = new Set(); renderTagChips();
   loadTagSuggestions();
   resetPhotoPreview();
   openModal('tool-modal');
 }
 
-function openEditTool(t) {
+function openEditTool(id) {
+  const t = myTools.find(x => x.id == id);
+  if (!t) return;
   document.getElementById('tool-edit-id').value = t.id;
   document.getElementById('tool-name').value    = t.name;
   document.getElementById('tool-brand').value   = t.brand || '';
   document.getElementById('tool-notes').value   = t.notes || '';
   document.getElementById('tool-modal-title').textContent  = 'Edit tool';
   document.getElementById('tool-modal-submit').textContent = 'Save changes';
-  document.getElementById('tool-form-fields').style.display = 'block';
+  showToolFields();
   selectedTags = new Set((t.category || '').split(',').map(s => s.trim()).filter(Boolean));
   renderTagChips();
   loadTagSuggestions();
@@ -910,6 +921,13 @@ function openEditTool(t) {
   if (t.photo_url) { prev.innerHTML = `<img src="${escHtml(t.photo_url)}" alt="">`; }
   else resetPhotoPreview();
   openModal('tool-modal');
+}
+
+// The photo-first flow reveals the form once identification finishes; the
+// skip link reveals it straight away for tools added without a picture.
+function showToolFields() {
+  document.getElementById('tool-form-fields').style.display = 'block';
+  document.getElementById('btn-skip-photo').style.display   = 'none';
 }
 
 async function submitTool() {
@@ -941,8 +959,6 @@ async function submitTool() {
     closeModal('tool-modal');
     showToast(editId ? 'Tool updated' : 'Tool added ✓');
     loadLibrary();
-  } else {
-    showToast(res?.error || 'Something went wrong');
   }
 }
 
@@ -953,7 +969,9 @@ async function deleteTool(id) {
 }
 
 // ── BORROW MODAL ───────────────────────────────────────────────────────────
-function openBorrowModal(tool) {
+function openBorrowModal(id) {
+  const tool = allTools.find(x => x.id == id);
+  if (!tool) return;
   document.getElementById('borrow-tool-id').value = tool.id;
   document.getElementById('borrow-tool-info').textContent = `${tool.name}${tool.brand ? ' · ' + tool.brand : ''} — owned by ${tool.owner_name}`;
   document.getElementById('borrow-message').value = '';
@@ -968,8 +986,6 @@ async function submitBorrow() {
     closeModal('borrow-modal');
     showToast('Request sent ✓ Owner will be notified');
     loadCommunity();
-  } else {
-    showToast(res?.error || 'Could not send request');
   }
 }
 
@@ -986,19 +1002,23 @@ function toolCardHTML(t, mode) {
   let statusPill = '';
   let actions    = '';
 
+  // Handlers take only the numeric id and look the tool up in state — never
+  // splice tool or user data into an onclick string, where a friend's
+  // display name could close the string and run as script.
+  const id = parseInt(t.id);
   if (mode === 'mine') {
     if (t.status === 'borrowed') {
       statusPill = `<span class="status-pill borrowed">Out — ${escHtml(t.borrower_name || '?')}</span>`;
       actions    = `<div class="tool-actions">
-        <button class="btn-icon" onclick='openEditTool(${JSON.stringify(t)})' title="Edit">✏️</button>
-        <button class="btn-icon danger" onclick="deleteTool(${t.id})" title="Delete">🗑</button>
-        <button class="btn-icon" onclick="returnTool(${t.active_request_id})" title="Mark returned" style="font-size:11px;width:auto;padding:0 8px;">Returned</button>
+        <button class="btn-icon" onclick="openEditTool(${id})" title="Edit">✏️</button>
+        <button class="btn-icon danger" onclick="deleteTool(${id})" title="Delete">🗑</button>
+        <button class="btn-icon" onclick="returnTool(${parseInt(t.active_request_id)})" title="Mark returned" style="font-size:11px;width:auto;padding:0 8px;">Returned</button>
       </div>`;
     } else {
       statusPill = `<span class="status-pill mine">Yours</span>`;
       actions    = `<div class="tool-actions">
-        <button class="btn-icon" onclick='openEditTool(${JSON.stringify(t)})' title="Edit">✏️</button>
-        <button class="btn-icon danger" onclick="deleteTool(${t.id})" title="Delete">🗑</button>
+        <button class="btn-icon" onclick="openEditTool(${id})" title="Edit">✏️</button>
+        <button class="btn-icon danger" onclick="deleteTool(${id})" title="Delete">🗑</button>
       </div>`;
     }
   } else {
@@ -1008,7 +1028,7 @@ function toolCardHTML(t, mode) {
       actions    = '';
     } else {
       statusPill = `<span class="status-pill available">Available</span>`;
-      actions    = `<div class="tool-actions"><button class="btn-icon" onclick='openBorrowModal(${JSON.stringify(t).replace(/'/g,"&#39;")})' title="Request to borrow">📋</button></div>`;
+      actions    = `<div class="tool-actions"><button class="btn-icon" onclick="openBorrowModal(${id})" title="Request to borrow">📋</button></div>`;
     }
   }
 
@@ -1076,10 +1096,25 @@ function outgoingCardHTML(r) {
 }
 
 // ── BADGE ──────────────────────────────────────────────────────────────────
-async function pollBadge() {
-  const data = await apiFetch('?action=tb_request_count');
+// One timer for the life of the session. refreshBadge() is safe to call after
+// any action; only startBadgePolling() schedules, and it clears first, so
+// repeated sign-ins or reloads can never stack up parallel pollers.
+let badgeTimer = null;
+
+function startBadgePolling() {
+  stopBadgePolling();
+  refreshBadge();
+  badgeTimer = setInterval(() => { if (!document.hidden) refreshBadge(); }, 30000);
+}
+
+function stopBadgePolling() {
+  clearInterval(badgeTimer);
+  badgeTimer = null;
+}
+
+async function refreshBadge() {
+  const data = await apiFetch('?action=tb_request_count', { errors:'quiet' });
   if (data) updateBadge(data.count);
-  setTimeout(pollBadge, 30000); // poll every 30s
 }
 
 function updateBadge(count) {
@@ -1090,13 +1125,13 @@ function updateBadge(count) {
 
 // ── TAG INPUT ──────────────────────────────────────────────────────────────
 async function loadTagSuggestions() {
-  const res = await apiFetch('?action=tb_tag_suggestions');
+  const res = await apiFetch('?action=tb_tag_suggestions', { errors:'quiet' });
   if (Array.isArray(res)) tagSuggestions = res;
 }
 
 function renderTagChips() {
   document.getElementById('tag-chips').innerHTML = [...selectedTags].map(tag =>
-    `<span class="tag-chip">${escHtml(tag)}<button class="tag-chip-remove" onclick="removeTag('${escHtml(tag).replace(/'/g,"&#39;")}')">&times;</button></span>`
+    `<span class="tag-chip">${escHtml(tag)}<button class="tag-chip-remove" data-tag="${escHtml(tag)}" onclick="removeTag(this.dataset.tag)">&times;</button></span>`
   ).join('');
   document.getElementById('tool-category').value = [...selectedTags].join(',');
 }
@@ -1120,7 +1155,7 @@ function handleTagInput(input) {
   const sugEl = document.getElementById('tag-suggestions');
   if (matches.length) {
     sugEl.innerHTML = matches.slice(0, 6).map(s =>
-      `<div class="tag-suggestion" onmousedown="addTagFromSuggestion('${escHtml(s).replace(/'/g,"&#39;")}')">${escHtml(s)}</div>`
+      `<div class="tag-suggestion" data-tag="${escHtml(s)}" onmousedown="addTagFromSuggestion(this.dataset.tag)">${escHtml(s)}</div>`
     ).join('');
     sugEl.classList.add('show');
   } else {
@@ -1185,11 +1220,12 @@ async function identifyTool(file) {
   const resized = await resizeForIdentify(file);
   const fd = new FormData();
   fd.append('photo', resized, 'tool.jpg');
-  const res = await apiFetchForm('?action=tb_identify_tool', fd);
+  // Identification is a convenience: if it fails, the form still opens empty.
+  const res = await apiFetchForm('?action=tb_identify_tool', fd, { errors:'quiet' });
 
   document.getElementById('identify-badge')?.remove();
   fields.forEach(id => document.getElementById(id).disabled = false);
-  document.getElementById('tool-form-fields').style.display = 'block';
+  showToolFields();
 
   if (!res?.success) return;
   const { appropriate, name, brand, tags } = res.tool;
@@ -1220,28 +1256,65 @@ document.querySelectorAll('.modal-overlay').forEach(o => {
 });
 
 // ── API HELPERS ────────────────────────────────────────────────────────────
-async function apiFetch(path, options = {}) {
-  try {
-    const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
-    if (authToken) headers['X-Auth-Token'] = authToken;
-    const res = await fetch(API + path, { ...options, headers });
-    return await res.json();
-  } catch(e) { showToast('Network error'); return null; }
+// Every call resolves to the parsed body on success, or null on failure.
+// `errors` decides what a failure does:
+//   'toast'  (default) show the server's message, return null
+//   'quiet'  return null silently — background calls like the badge poll
+//   'return' hand back the error body so the caller can show it in place
+// A 401 on a signed-in call always means the session is gone, so it drops back
+// to the sign-in screen instead of leaving panels half-rendered.
+function apiFetch(path, options = {}) {
+  return apiRequest(path, { ...options, headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } });
 }
 
-async function apiFetchForm(path, formData) {
+function apiFetchForm(path, formData, options = {}) {
+  return apiRequest(path, { ...options, method:'POST', body: formData });
+}
+
+async function apiRequest(path, { errors = 'toast', ...options }) {
+  const headers = { ...(options.headers || {}) };
+  if (authToken) headers['X-Auth-Token'] = authToken;
+  let res, body;
   try {
-    const headers = {};
-    if (authToken) headers['X-Auth-Token'] = authToken;
-    const res = await fetch(API + path, { method:'POST', headers, body: formData });
-    return await res.json();
-  } catch(e) { showToast('Network error'); return null; }
+    res  = await fetch(API + path, { ...options, headers });
+    body = await res.json().catch(() => null);
+  } catch(e) {
+    if (errors !== 'quiet') showToast('Network error — check your connection');
+    return null;
+  }
+  if (res.status === 401 && authToken) { sessionExpired(); return null; }
+  if (res.ok && body) return body;
+  if (errors === 'return') return body || { error: 'Something went wrong' };
+  if (errors === 'toast') showToast(body?.error || 'Something went wrong');
+  return null;
+}
+
+function sessionExpired() {
+  if (!authToken) return;
+  localStorage.removeItem('tb_token');
+  localStorage.removeItem('tb_user');
+  authToken = null; currentUser = null;
+  stopBadgePolling();
+  document.querySelectorAll('.modal-overlay').forEach(o => o.classList.remove('open'));
+  document.getElementById('app-nav').style.display  = 'none';
+  document.getElementById('app-tabs').style.display = 'none';
+  document.getElementById('invite-banner').classList.remove('show');
+  document.querySelectorAll('.panel').forEach(p => p.style.display = 'none');
+  document.getElementById('auth-screen').style.display = 'flex';
+  switchAuthTab('login');
+  showAuthError('Your session has ended — please sign in again.');
+}
+
+// Shown in place of a list whose load failed, so it never sits on "Loading…".
+function loadFailedHTML() {
+  return '<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-text">Couldn\'t load — check your connection and try again</div></div>';
 }
 
 
 // ── FRIENDS ────────────────────────────────────────────────────────────────
 let pendingInviter      = null;
 let pendingWelcomeToast = null;
+let friendsCache        = [];
 
 async function loadFriends() {
   document.getElementById('friends-list').innerHTML = '<div class="spinner">Loading...</div>';
@@ -1254,20 +1327,22 @@ async function loadFriends() {
   }
 
   // Load friends list
-  const friends = await apiFetch('?action=tb_friends') || [];
+  const friends = await apiFetch('?action=tb_friends');
   const el = document.getElementById('friends-list');
+  if (!Array.isArray(friends)) { el.innerHTML = loadFailedHTML(); return; }
+  friendsCache = friends;
   if (!friends.length) {
     el.innerHTML = '<div class="empty"><div class="empty-icon">🤝</div><div class="empty-text">No friends yet — copy your invite link above and share it</div></div>';
     return;
   }
   el.innerHTML = friends.map(f => `
     <div class="friend-row" id="friend-row-${f.id}">
-      <div class="friend-avatar">${f.display_name[0].toUpperCase()}</div>
+      <div class="friend-avatar">${escHtml((f.display_name || '?')[0].toUpperCase())}</div>
       <div class="friend-info">
         <div class="friend-name">${escHtml(f.display_name)}</div>
-        <div class="friend-meta">@${escHtml(f.username)} &middot; ${f.tool_count} tool${f.tool_count != 1 ? 's' : ''}</div>
+        <div class="friend-meta">@${escHtml(f.username)} &middot; ${parseInt(f.tool_count)} tool${f.tool_count != 1 ? 's' : ''}</div>
       </div>
-      <button class="btn-danger" onclick="removeFriend(${f.id}, '${escHtml(f.display_name)}')">Remove</button>
+      <button class="btn-danger" onclick="removeFriend(${parseInt(f.id)})">Remove</button>
     </div>`).join('');
 }
 
@@ -1309,14 +1384,15 @@ function showQR() {
   }, 50);
 }
 
-async function removeFriend(id, name) {
+async function removeFriend(id) {
+  const name = friendsCache.find(f => f.id == id)?.display_name || 'this friend';
   if (!confirm('Remove ' + name + ' as a friend? They will not be able to see your tools.')) return;
   const res = await apiFetch('?action=tb_remove_friend&id=' + id, { method:'DELETE' });
   if (res?.success) { showToast(name + ' removed'); loadFriends(); loadCommunity(); }
 }
 
 async function previewInvite(code) {
-  const res = await apiFetch('?action=tb_invite_preview&code=' + code);
+  const res = await apiFetch('?action=tb_invite_preview&code=' + encodeURIComponent(code), { errors:'quiet' });
   if (!res?.success) return;
   pendingInviter = res.inviter;
   if (currentUser) showInviteBanner(res.inviter);
@@ -1365,7 +1441,7 @@ async function acceptPendingInvite() {
 function v(id) { return document.getElementById(id)?.value?.trim() || ''; }
 
 function escHtml(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 function timeAgo(dt) {
