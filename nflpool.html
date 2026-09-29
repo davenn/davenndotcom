@@ -179,13 +179,11 @@
         .bar span { display: block; height: 100%; background: var(--text-primary); border-radius: 2px; }
 
         .picklist { grid-column: 1 / 5; padding: 4px 0 2px; display: grid; gap: 4px; }
+        /* Matchup, then the result tag. The confidence lives in the tag — it
+           used to sit in a chip out here as well, which showed it twice. */
         .pickrow {
-            display: grid; grid-template-columns: 30px 1fr auto; gap: 8px; align-items: center;
+            display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;
             font-size: 13px; padding: 4px 0;
-        }
-        .pickconf {
-            font-family: var(--font-mono); font-size: 12px; text-align: center;
-            background: var(--surface-2); border-radius: 5px; padding: 3px 0; color: var(--text-secondary);
         }
         .tag {
             font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.05em;
@@ -837,7 +835,6 @@ function renderPicks(s, games) {
     const rows = games.map(g => {
         const p = byGame[g.id];
         if (!p) return `<div class="pickrow">
-            <div class="pickconf">–</div>
             <div style="color:var(--text-muted)">${esc(g.away_name)} at ${esc(g.home_name)}</div>
             <span class="tag">No pick</span>
         </div>`;
@@ -851,7 +848,6 @@ function renderPicks(s, games) {
         if (!p.final && p.result === 'loss') tag = '<span class="tag trailing">Not covering ' + p.confidence + '</span>';
         if (!p.final && p.result === 'push') tag = '<span class="tag push">On the number</span>';
         return `<div class="pickrow">
-            <div class="pickconf">${p.confidence}</div>
             <div>${esc(picked)} <span style="color:var(--text-muted)">over ${esc(other)}</span></div>
             ${tag}
         </div>`;
