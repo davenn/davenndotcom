@@ -2810,6 +2810,22 @@ function cpTwimlSilent(): void {
     exit;
 }
 
+/**
+ * An absolute URL back into this site.
+ *
+ * Deliberately not built on APP_URL: that points at Toolshare's own page
+ * because it is the call-to-action button in Toolshare's borrow emails, so
+ * treating it as a base produced /toolbox.html/nflpool.html. The request host
+ * is always right here and needs no configuration on the server.
+ *
+ * Scheme is fixed to https — the only consumer is a link inside a text
+ * message, and the site is served over TLS.
+ */
+function cpSiteUrl(string $path): string {
+    $host = $_SERVER['HTTP_HOST'] ?? 'davenn.com';
+    return 'https://' . $host . '/' . ltrim($path, '/');
+}
+
 /** Best-effort E.164 tidy-up so the same phone is one row, not several. */
 function cpNormalisePhone(string $raw): string {
     $digits = preg_replace('/[^0-9]/', '', $raw);
@@ -2901,7 +2917,7 @@ if ($method === 'POST' && $action === 'cp_sms') {
 
     // ── A sheet ──────────────────────────────────────────────────────────
     $api_key = $_ENV['ANTHROPIC_API_KEY'] ?? '';
-    if (!$api_key) cpTwiml('Sheet reading is offline right now - try the website instead: ' . ($_ENV['APP_URL'] ?? 'https://davenn.com') . '/nflpool.html');
+    if (!$api_key) cpTwiml('Sheet reading is offline right now - try the website instead: ' . cpSiteUrl('nflpool.html'));
 
     $media_url  = (string)($_POST['MediaUrl0'] ?? '');
     $media_type = (string)($_POST['MediaContentType0'] ?? '');
@@ -2922,7 +2938,7 @@ if ($method === 'POST' && $action === 'cp_sms') {
     // week number, and guessing from the calendar would file a late sheet into
     // the wrong week.
     $week_row = $pdo->query("SELECT * FROM cp_weeks ORDER BY season DESC, week DESC LIMIT 1")->fetch();
-    if (!$week_row) cpTwiml('No week is set up yet. The first sheet has to be entered on the website: ' . ($_ENV['APP_URL'] ?? 'https://davenn.com') . '/nflpool.html');
+    if (!$week_row) cpTwiml('No week is set up yet. The first sheet has to be entered on the website: ' . cpSiteUrl('nflpool.html'));
 
     $matched = cpMatchRows($pdo, $result, $week_row);
     $picked  = 0;
@@ -2936,7 +2952,7 @@ if ($method === 'POST' && $action === 'cp_sms') {
             mb_substr(trim((string)($result['note'] ?? '')), 0, 255) ?: null,
         ]);
 
-    $link  = rtrim($_ENV['APP_URL'] ?? 'https://davenn.com', '/') . '/nflpool.html?review=' . $token_str;
+    $link  = cpSiteUrl('nflpool.html?review=' . $token_str);
     // Leads with the brand because the A2P campaign filing requires every
     // sample message to identify who is texting, and this is one of them.
     // ASCII only — see the note on the broadcast suffix above.
