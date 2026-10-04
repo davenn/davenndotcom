@@ -1481,6 +1481,54 @@ if ($method === 'POST' && $action === 'notify_subscribers') {
     echo json_encode(['success' => true, 'emailed' => $emailed, 'texted' => $texted, 'failed' => $failed]); exit;
 }
 
+// POST ?action=delete_subscriber  header: X-Admin-Secret  body: { contact_value }
+// For testing the sign-up flow: subscribe only sends its confirmation text to
+// a number it has not seen, so re-testing with the same phone means removing
+// it first. Normalizes the value the same way subscribe does, so "555 010 0199"
+// finds the row stored as "+15550100199". Admin-gated because it removes
+// someone else's consent record and confirms whether a contact is on the list.
+if ($method === 'POST' && $action === 'delete_subscriber') {
+    $admin_secret = $_ENV['ADMIN_SECRET'] ?? '';
+    $given        = $_SERVER['HTTP_X_ADMIN_SECRET'] ?? '';
+    if (!$admin_secret || !hash_equals($admin_secret, $given)) {
+        http_response_code(401); echo json_encode(['error' => 'Unauthorized']); exit;
+    }
+
+    $body = json_decode(file_get_contents('php://input'), true);
+    $raw  = trim($body['contact_value'] ?? '');
+    if ($raw === '') { http_response_code(400); echo json_encode(['error' => 'Missing contact_value.']); exit; }
+
+    if (str_contains($raw, '@')) {
+        $value = strtolower($raw);
+    } else {
+        $value = preg_replace('/[^\d+]/', '', $raw);
+        if (!str_starts_with($value, '+')) {
+            $value = (strlen($value) === 10) ? '+1' . $value : '+' . $value;
+        }
+    }
+
+    $stmt = $pdo->prepare("DELETE FROM subscribers WHERE contact_value = ?");
+    $stmt->execute([$value]);
+    echo json_encode(['success' => true, 'contact_value' => $value, 'deleted' => $stmt->rowCount()]); exit;
+}
+
+// GET ?action=resetTestPhone
+// Removes the operator's own test phone from the list so the sign-up
+// confirmation can be tested again. Takes no input and needs no secret, so it
+// can be tapped from a phone browser. Safe to leave open only because it can
+// touch exactly one row: the number comes from server configuration, never
+// from the request, and the repo is public so it is not written here. With no
+// test phone configured it does nothing.
+if ($method === 'GET' && $action === 'resetTestPhone') {
+    $phone = $_ENV['TEST_PHONE'] ?? '';
+    if ($phone === '') {
+        http_response_code(404); echo json_encode(['error' => 'No test phone configured.']); exit;
+    }
+    $stmt = $pdo->prepare("DELETE FROM subscribers WHERE contact_type = 'phone' AND contact_value = ?");
+    $stmt->execute([$phone]);
+    echo json_encode(['success' => true, 'deleted' => $stmt->rowCount()]); exit;
+}
+
 // ══════════════════════════════════════════════════════════════
 // GLUCOSE (CGM)
 // ══════════════════════════════════════════════════════════════

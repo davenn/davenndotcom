@@ -179,7 +179,7 @@
     <h1>API Reference</h1>
     <p class="lede">Every app on davenn.com is served by a single <code class="inline">api.php</code>. Endpoints are selected by an <code class="inline">action</code> query parameter and always return JSON.</p>
     <div class="base">https://davenn.com/api.php?action=&lt;action&gt;</div>
-    <p class="counts">63 endpoints · 22 tables</p>
+    <p class="counts">64 endpoints · 22 tables</p>
 
     <div class="filter-row">
         <input type="search" id="filter" placeholder="Filter endpoints…" aria-label="Filter endpoints">
@@ -1201,6 +1201,19 @@
     </section>
     <section class="grp">
         <h2 class="tag">Update Notifications</h2>
+        <div class="op get" id="get-resetTestPhone" data-search="resettestphone get update notifications removes the operator's own test phone from the list so the sign-up">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=resetTestPhone</span>
+                <span class="op-sum">Removes the operator's own test phone from the list so the sign-up</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">Removes the operator's own test phone from the list so the sign-up confirmation can be tested again. Takes no input and needs no secret, so it can be tapped from a phone browser. Safe to leave open only because it can touch exactly one row: the number comes from server configuration, never from the request, and the repo is public so it is not written here. With no test phone configured it does nothing.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+            </div>
+        </div>
         <div class="op post" id="post-subscribe" data-search="subscribe post update notifications &quot;website&quot; is an invisible honeypot field — real users never fill it in.">
             <button class="op-head" type="button" aria-expanded="false">
                 <span class="method">POST</span>
@@ -1444,7 +1457,7 @@ UNIQUE KEY uniq_contact (contact_type, contact_value)</code></pre>
     </section>
 
     <section class="todo">
-        <p class="note">8 operator endpoints are not listed here.</p>
+        <p class="note">9 operator endpoints are not listed here.</p>
     </section>
 
     <footer>

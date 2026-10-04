@@ -241,7 +241,11 @@ must be made on the host** — pushing will not update it.
 `DB_HOST` `DB_NAME` `DB_USER` `DB_PASS` · `UPLOAD_DIR` `UPLOAD_URL` ·
 `MAIL_FROM` `MAIL_FROM_NAME` `MAIL_REPLY_TO` `APP_URL` ·
 `TWILIO_ACCOUNT_SID` `TWILIO_AUTH_TOKEN` `TWILIO_FROM_NUMBER` ·
-`ADMIN_SECRET` `BG_READ_TOKEN` `BG_TIMEZONE`
+`ADMIN_SECRET` `BG_READ_TOKEN` `BG_TIMEZONE` · `TEST_PHONE`
+
+`TEST_PHONE` is the one number `?action=resetTestPhone` may delete from
+`subscribers`, in stored form (`+1` and ten digits). The repo is public, so it
+lives only in the server `.env`. Unset, the endpoint does nothing.
 
 `ANTHROPIC_API_KEY` is read by `api.php` but is **not** in the local `.env` —
 it exists only in the server copy. Vision features will fail when testing
