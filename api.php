@@ -253,6 +253,18 @@ function sendEmail(string $to, string $to_name, string $subject, string $body_ht
     @mail($to, $subject, $body_html, $headers);
 }
 
+/**
+ * The update-notification opt-in confirmation, word for word as filed on the
+ * A2P campaign. Sent from both opt-in routes — the web form and the START
+ * keyword — so it lives in one place and the two cannot drift apart.
+ */
+function optInMessage(): string {
+    return "davenn.com Update Notifications: you're signed up. "
+         . "Expect a text when a new app or feature ships, typically no more than "
+         . "a few messages per month. Message and data rates may apply. "
+         . "Reply HELP for help, STOP to cancel.";
+}
+
 function sendSms(string $to, string $body): bool {
     $sid   = $_ENV['TWILIO_ACCOUNT_SID'] ?? '';
     $token = $_ENV['TWILIO_AUTH_TOKEN']  ?? '';
@@ -1329,10 +1341,7 @@ if ($method === 'POST' && $action === 'subscribe') {
     // Only on a genuinely new number: re-submitting the form must not text
     // somebody who is already subscribed, and every segment costs money.
     if ($is_new && $type === 'phone') {
-        sendSms($value, "davenn.com Update Notifications: you're signed up. "
-            . "Expect a text when a new app or feature ships, typically no more than "
-            . "a few messages per month. Message and data rates may apply. "
-            . "Reply HELP for help, STOP to cancel.");
+        sendSms($value, optInMessage());
     }
 
     echo json_encode(['success' => true]); exit;
@@ -2882,10 +2891,30 @@ if ($method === 'POST' && $action === 'cp_sms') {
         cpTwimlSilent();   // the carrier sends its own confirmation
     }
     if (in_array($word, ['START', 'UNSTOP', 'YES'], true)) {
-        if ($player) $pdo->prepare("UPDATE cp_players SET opted_out = 0 WHERE id = ?")->execute([$player['id']]);
-        // Doubles as the pool campaign's filed opt-in confirmation, so it has
-        // to name the program, the rates, and both keyword routes.
-        cpTwiml('davenn.com Confidence Pool: you are set up again. Text a photo of your pick sheet any time and I will reply with a link to check it. Message and data rates may apply. Reply HELP for help, STOP to opt out.');
+        // One number carries two programs, so START means different things
+        // depending on who sends it. A pool player resuming after STOP gets the
+        // pool back and nothing more — enrolling them in update alerts they
+        // never asked for would be exactly the unsolicited messaging the
+        // campaign forbids.
+        if ($player) {
+            $pdo->prepare("UPDATE cp_players SET opted_out = 0 WHERE id = ?")->execute([$player['id']]);
+            // Doubles as the pool campaign's filed opt-in confirmation, so it has
+            // to name the program, the rates, and both keyword routes.
+            cpTwiml('davenn.com Confidence Pool: you are set up again. Text a photo of your pick sheet any time and I will reply with a link to check it. Message and data rates may apply. Reply HELP for help, STOP to opt out.');
+        }
+
+        // Anyone else texting START is opting in to update notifications — the
+        // keyword route filed on the A2P campaign alongside the web form. Same
+        // row the form creates, same confirmation it sends. A repeat START is
+        // answered again rather than ignored: the person is asking whether they
+        // are signed up, and the confirmation is the answer.
+        try {
+            $pdo->prepare("INSERT INTO subscribers (contact_type, contact_value, unsub_token) VALUES ('phone', ?, ?)")
+                ->execute([$from, bin2hex(random_bytes(16))]);
+        } catch (PDOException $e) {
+            // already subscribed
+        }
+        cpTwiml(optInMessage());
     }
     if ($word === 'HELP' || $word === 'INFO') {
         // This webhook is only on the pool's number — update notifications go
