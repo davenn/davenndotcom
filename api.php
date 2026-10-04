@@ -1408,8 +1408,8 @@ if ($method === 'POST' && $action === 'notify_subscribers') {
 // POST ?action=delete_subscriber  header: X-Admin-Secret  body: { contact_value }
 // For testing the sign-up flow: subscribe only sends its confirmation text to
 // a number it has not seen, so re-testing with the same phone means removing
-// it first. Normalizes the value the same way subscribe does, so "928 420 9589"
-// finds the row stored as "+19284209589". Admin-gated because it removes
+// it first. Normalizes the value the same way subscribe does, so "555 010 0199"
+// finds the row stored as "+15550100199". Admin-gated because it removes
 // someone else's consent record and confirms whether a contact is on the list.
 if ($method === 'POST' && $action === 'delete_subscriber') {
     $admin_secret = $_ENV['ADMIN_SECRET'] ?? '';
@@ -1434,6 +1434,23 @@ if ($method === 'POST' && $action === 'delete_subscriber') {
     $stmt = $pdo->prepare("DELETE FROM subscribers WHERE contact_value = ?");
     $stmt->execute([$value]);
     echo json_encode(['success' => true, 'contact_value' => $value, 'deleted' => $stmt->rowCount()]); exit;
+}
+
+// GET ?action=resetTestPhone
+// Removes the operator's own test phone from the list so the sign-up
+// confirmation can be tested again. Takes no input and needs no secret, so it
+// can be tapped from a phone browser. Safe to leave open only because it can
+// touch exactly one row: the number comes from server configuration, never
+// from the request, and the repo is public so it is not written here. With no
+// test phone configured it does nothing.
+if ($method === 'GET' && $action === 'resetTestPhone') {
+    $phone = $_ENV['TEST_PHONE'] ?? '';
+    if ($phone === '') {
+        http_response_code(404); echo json_encode(['error' => 'No test phone configured.']); exit;
+    }
+    $stmt = $pdo->prepare("DELETE FROM subscribers WHERE contact_type = 'phone' AND contact_value = ?");
+    $stmt->execute([$phone]);
+    echo json_encode(['success' => true, 'deleted' => $stmt->rowCount()]); exit;
 }
 
 // ══════════════════════════════════════════════════════════════

@@ -40,7 +40,7 @@ const SOURCE = join(ROOT, 'api.php');
 const OUT_MD = join(ROOT, 'docs', 'api.md');
 const OUT_HTML = join(ROOT, 'docs', 'api.html');
 
-const BRANCH = /^if \(\$method === '(\w+)' && \$action === '([a-z_0-9]+)'\) \{/;
+const BRANCH = /^if \(\$method === '(\w+)' && \$action === '([A-Za-z_0-9]+)'\) \{/;
 const TABLE = /CREATE TABLE IF NOT EXISTS (\w+) \(([\s\S]*?)\n\s*\)"/g;
 
 // Which app each endpoint belongs to. Prefixed actions are grouped by prefix;
@@ -69,6 +69,7 @@ const EXPLICIT_GROUPS = {
   unsubscribe: 'Update Notifications',
   notify_subscribers: 'Update Notifications',
   delete_subscriber: 'Update Notifications',
+  resetTestPhone: 'Update Notifications',
 };
 
 // Order groups appear in the output.
