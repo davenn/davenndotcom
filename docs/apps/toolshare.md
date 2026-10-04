@@ -19,6 +19,11 @@ Three things drive everything else:
   columns and take whichever side is not the current user.
 - **Borrowing is a request, not a transfer.** A tool that is out is still the
   owner's; the request row carries the state.
+- **Only friends can borrow.** `tb_request` checks the friendship, and a
+  stranger's tool answers exactly like a missing one. Without that, anyone with
+  an account could walk the sequential tool ids and trigger an email to every
+  owner. Approval and return lock their rows in a transaction, so two taps
+  cannot lend the same tool twice.
 
 ## Connecting
 
@@ -41,6 +46,10 @@ survives the detour through registration.
 tags to prefill the add form. It fills the form rather than saving, because a
 misidentified drill is easier to correct before it is in the library than
 after.
+
+The photo is the main path, not a requirement: a "No photo?" link opens the
+form directly, and a failed identification opens it empty. Replacing a tool's
+photo deletes the old file from the upload directory.
 
 Tag suggestions (`tb_tag_suggestions`) come from tags already in use, which
 keeps the vocabulary from fragmenting into `drill`, `drills` and `power drill`.
@@ -68,6 +77,14 @@ Full detail in [`../api.md`](../api.md).
 - Four tabs: My Library, Community, Requests, Friends.
 - The Requests tab carries a badge, polled by `tb_request_count` — a cheap
   count endpoint rather than fetching the whole list to find out it is empty.
+  One interval runs per session (`startBadgePolling`), skipped while the tab is
+  hidden; everything else calls `refreshBadge()`, which never schedules.
 - Token and user are cached in `localStorage` under `tb_token` and `tb_user`.
+  Any 401 on a signed-in call clears them and returns to the sign-in screen.
+- All calls go through `apiRequest`, which checks the HTTP status and shows
+  the server's error unless the caller asks for `quiet` or `return`.
+- Never put tool or user data inside an `onclick` string — a friend's display
+  name or tag would run as script. Handlers take a numeric id and look the
+  object up in state, or read an escaped `data-` attribute.
 - Email goes out on borrow requests and responses, so the other person does not
   have to be in the app to find out.

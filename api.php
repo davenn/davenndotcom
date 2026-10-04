@@ -253,6 +253,18 @@ function sendEmail(string $to, string $to_name, string $subject, string $body_ht
     @mail($to, $subject, $body_html, $headers);
 }
 
+/**
+ * The update-notification opt-in confirmation, word for word as filed on the
+ * A2P campaign. Sent from both opt-in routes — the web form and the START
+ * keyword — so it lives in one place and the two cannot drift apart.
+ */
+function optInMessage(): string {
+    return "davenn.com Update Notifications: you're signed up. "
+         . "Expect a text when a new app or feature ships, typically no more than "
+         . "a few messages per month. Message and data rates may apply. "
+         . "Reply HELP for help, STOP to cancel.";
+}
+
 function sendSms(string $to, string $body): bool {
     $sid   = $_ENV['TWILIO_ACCOUNT_SID'] ?? '';
     $token = $_ENV['TWILIO_AUTH_TOKEN']  ?? '';
@@ -436,9 +448,15 @@ if ($method === 'POST' && $action === 'tb_register') {
         $stmt->execute([$uname, $hash, $dname, $email]);
         $id = $pdo->lastInsertId();
         $pdo->prepare("INSERT INTO tb_sessions (token, user_id) VALUES (?, ?)")->execute([$token, $id]);
-        echo json_encode(['success' => true, 'token' => $token, 'user' => ['id' => $id, 'username' => $uname, 'display_name' => $dname, 'email' => $email]]);
+        echo json_encode(['success' => true, 'token' => $token, 'user' => ['id' => (int)$id, 'username' => $uname, 'display_name' => $dname, 'email' => $email]]);
     } catch (PDOException $e) {
-        http_response_code(409); echo json_encode(['error' => 'Username already taken.']);
+        // 1062 is MySQL's duplicate-key error; anything else is a real failure
+        // and must not be reported to the user as a naming problem.
+        if (($e->errorInfo[1] ?? 0) == 1062) {
+            http_response_code(409); echo json_encode(['error' => 'Username already taken.']);
+        } else {
+            http_response_code(500); echo json_encode(['error' => 'Could not create account. Please try again.']);
+        }
     }
     exit;
 }
@@ -473,6 +491,20 @@ if ($method === 'POST' && $action === 'tb_logout') {
 // Toolshare — TOOLS
 // ══════════════════════════════════════════════════════════════
 
+// Helper: validate and store the uploaded $_FILES['photo'], returning its public
+// URL. Ends the request with a 400/500 itself, so callers only see success.
+function tbSavePhoto(string $upload_dir, string $upload_url): string {
+    $ext   = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
+    $allow = ['jpg','jpeg','png','gif','webp'];
+    if (!in_array($ext, $allow)) { http_response_code(400); echo json_encode(['error' => 'Invalid image type.']); exit; }
+    if ($_FILES['photo']['size'] > 5 * 1024 * 1024) { http_response_code(400); echo json_encode(['error' => 'Photo must be under 5 MB.']); exit; }
+    if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
+    $fname = uniqid('tool_', true) . '.' . $ext;
+    if (!move_uploaded_file($_FILES['photo']['tmp_name'], $upload_dir . $fname)) {
+        http_response_code(500); echo json_encode(['error' => 'Could not save photo.']); exit;
+    }
+    return $upload_url . $fname;
+}
 
 // GET ?action=tb_my_tools — current user's tools only
 if ($method === 'GET' && $action === 'tb_my_tools') {
@@ -504,14 +536,7 @@ if ($method === 'POST' && $action === 'tb_add_tool') {
     if (!$name) { http_response_code(400); echo json_encode(['error' => 'Tool name required.']); exit; }
 
     if (!empty($_FILES['photo']['tmp_name'])) {
-        if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
-        $ext   = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
-        $allow = ['jpg','jpeg','png','gif','webp'];
-        if (!in_array($ext, $allow)) { http_response_code(400); echo json_encode(['error' => 'Invalid image type.']); exit; }
-        if ($_FILES['photo']['size'] > 5 * 1024 * 1024) { http_response_code(400); echo json_encode(['error' => 'Photo must be under 5 MB.']); exit; }
-        $fname     = uniqid('tool_', true) . '.' . $ext;
-        move_uploaded_file($_FILES['photo']['tmp_name'], $upload_dir . $fname);
-        $photo_url = $upload_url . $fname;
+        $photo_url = tbSavePhoto($upload_dir, $upload_url);
     }
 
     $stmt = $pdo->prepare("INSERT INTO tb_tools (owner_id, name, brand, category, notes, photo_url) VALUES (?,?,?,?,?,?)");
@@ -523,13 +548,16 @@ if ($method === 'POST' && $action === 'tb_add_tool') {
     echo json_encode(['success' => true, 'tool' => $row->fetch()]); exit;
 }
 
-// PUT ?action=tb_edit_tool&id=X
+// POST ?action=tb_edit_tool&id=X
+// Multipart, owner only. A new photo replaces the old one and the old file is
+// deleted; sending no photo keeps the current one.
 if ($method === 'POST' && $action === 'tb_edit_tool') {
     $me    = requireAuth($pdo);
     $id    = intval($_POST['id'] ?? $_GET['id'] ?? 0);
     $check = $pdo->prepare("SELECT * FROM tb_tools WHERE id = ? AND owner_id = ?");
     $check->execute([$id, $me['id']]);
-    if (!$check->fetch()) { http_response_code(403); echo json_encode(['error' => 'Not your tool.']); exit; }
+    $existing = $check->fetch();
+    if (!$existing) { http_response_code(403); echo json_encode(['error' => 'Not your tool.']); exit; }
 
     $name     = trim($_POST['name']     ?? '');
     $brand    = trim($_POST['brand']    ?? '');
@@ -537,17 +565,12 @@ if ($method === 'POST' && $action === 'tb_edit_tool') {
     $notes    = trim($_POST['notes']    ?? '');
     if (!$name) { http_response_code(400); echo json_encode(['error' => 'Tool name required.']); exit; }
 
-    $photo_url = null;
     if (!empty($_FILES['photo']['tmp_name'])) {
-        if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
-        $ext   = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
-        $allow = ['jpg','jpeg','png','gif','webp'];
-        if (!in_array($ext, $allow)) { http_response_code(400); echo json_encode(['error' => 'Invalid image type.']); exit; }
-        $fname     = uniqid('tool_', true) . '.' . $ext;
-        move_uploaded_file($_FILES['photo']['tmp_name'], $upload_dir . $fname);
-        $photo_url = $upload_url . $fname;
+        $photo_url = tbSavePhoto($upload_dir, $upload_url);
         $pdo->prepare("UPDATE tb_tools SET name=?,brand=?,category=?,notes=?,photo_url=? WHERE id=?")
             ->execute([$name, $brand ?: null, $category ?: null, $notes ?: null, $photo_url, $id]);
+        // The replaced photo is referenced by nothing once the row points at the new one.
+        if ($existing['photo_url']) @unlink($upload_dir . basename($existing['photo_url']));
     } else {
         $pdo->prepare("UPDATE tb_tools SET name=?,brand=?,category=?,notes=? WHERE id=?")
             ->execute([$name, $brand ?: null, $category ?: null, $notes ?: null, $id]);
@@ -661,18 +684,22 @@ if ($method === 'DELETE' && $action === 'tb_delete_tool') {
 // ══════════════════════════════════════════════════════════════
 
 // POST ?action=tb_request  — create borrow request + email owner
+// Only friends of the owner may ask. A stranger's tool answers exactly like a
+// missing one, so sequential ids cannot be walked to email every owner.
 if ($method === 'POST' && $action === 'tb_request') {
     $me   = requireAuth($pdo);
     $body = json_decode(file_get_contents('php://input'), true);
     $tool_id = intval($body['tool_id'] ?? 0);
-    $message = trim($body['message'] ?? '');
+    $message = mb_substr(trim($body['message'] ?? ''), 0, 1000);
 
     // fetch tool + owner
     $stmt = $pdo->prepare("SELECT t.*, u.id AS uid, u.display_name, u.email FROM tb_tools t JOIN tb_users u ON u.id = t.owner_id WHERE t.id = ?");
     $stmt->execute([$tool_id]);
     $tool = $stmt->fetch();
-    if (!$tool) { http_response_code(404); echo json_encode(['error' => 'Tool not found.']); exit; }
-    if ($tool['owner_id'] == $me['id']) { http_response_code(400); echo json_encode(['error' => "You can't borrow your own tool."]); exit; }
+    if ($tool && $tool['owner_id'] == $me['id']) { http_response_code(400); echo json_encode(['error' => "You can't borrow your own tool."]); exit; }
+    if (!$tool || !areFriends($pdo, (int)$me['id'], (int)$tool['owner_id'])) {
+        http_response_code(404); echo json_encode(['error' => 'Tool not found.']); exit;
+    }
     if ($tool['status'] === 'borrowed') { http_response_code(409); echo json_encode(['error' => 'Tool is already borrowed.']); exit; }
 
     // check no open pending request from this user
@@ -739,11 +766,17 @@ if ($method === 'POST' && $action === 'tb_respond_request') {
         http_response_code(400); echo json_encode(['error' => 'status must be approved or declined.']); exit;
     }
 
-    // verify ownership
-    $stmt = $pdo->prepare("SELECT r.*, t.name AS tool_name FROM tb_requests r JOIN tb_tools t ON t.id = r.tool_id WHERE r.id = ? AND r.owner_id = ? AND r.status = 'pending'");
+    // Verify ownership and apply the change in one transaction, locking the
+    // request and tool rows so two taps (or two devices) cannot both approve,
+    // and a tool that is already out cannot be lent a second time.
+    $pdo->beginTransaction();
+    $stmt = $pdo->prepare("SELECT r.*, t.name AS tool_name, t.status AS tool_status FROM tb_requests r JOIN tb_tools t ON t.id = r.tool_id WHERE r.id = ? AND r.owner_id = ? AND r.status = 'pending' FOR UPDATE");
     $stmt->execute([$req_id, $me['id']]);
     $req = $stmt->fetch();
-    if (!$req) { http_response_code(404); echo json_encode(['error' => 'Request not found or already actioned.']); exit; }
+    if (!$req) { $pdo->rollBack(); http_response_code(404); echo json_encode(['error' => 'Request not found or already actioned.']); exit; }
+    if ($status === 'approved' && $req['tool_status'] === 'borrowed') {
+        $pdo->rollBack(); http_response_code(409); echo json_encode(['error' => 'That tool is already lent out.']); exit;
+    }
 
     $pdo->prepare("UPDATE tb_requests SET status = ? WHERE id = ?")->execute([$status, $req_id]);
 
@@ -753,6 +786,7 @@ if ($method === 'POST' && $action === 'tb_respond_request') {
         $pdo->prepare("UPDATE tb_requests SET status = 'declined' WHERE tool_id = ? AND id != ? AND status = 'pending'")
             ->execute([$req['tool_id'], $req_id]);
     }
+    $pdo->commit();
 
     // email requester
     $req_user = $pdo->prepare("SELECT * FROM tb_users WHERE id = ?");
@@ -769,12 +803,14 @@ if ($method === 'POST' && $action === 'tb_return_tool') {
     $me     = requireAuth($pdo);
     $req_id = intval($_GET['id'] ?? 0);
     // owner or borrower can mark returned
-    $stmt = $pdo->prepare("SELECT * FROM tb_requests WHERE id = ? AND status = 'approved' AND (owner_id = ? OR requester_id = ?)");
+    $pdo->beginTransaction();
+    $stmt = $pdo->prepare("SELECT * FROM tb_requests WHERE id = ? AND status = 'approved' AND (owner_id = ? OR requester_id = ?) FOR UPDATE");
     $stmt->execute([$req_id, $me['id'], $me['id']]);
     $req = $stmt->fetch();
-    if (!$req) { http_response_code(404); echo json_encode(['error' => 'Active loan not found.']); exit; }
+    if (!$req) { $pdo->rollBack(); http_response_code(404); echo json_encode(['error' => 'Active loan not found.']); exit; }
     $pdo->prepare("UPDATE tb_requests SET status = 'returned' WHERE id = ?")->execute([$req_id]);
     $pdo->prepare("UPDATE tb_tools SET status = 'available' WHERE id = ?")->execute([$req['tool_id']]);
+    $pdo->commit();
     echo json_encode(['success' => true]); exit;
 }
 
@@ -1305,10 +1341,7 @@ if ($method === 'POST' && $action === 'subscribe') {
     // Only on a genuinely new number: re-submitting the form must not text
     // somebody who is already subscribed, and every segment costs money.
     if ($is_new && $type === 'phone') {
-        sendSms($value, "davenn.com Update Notifications: you're signed up. "
-            . "Expect a text when a new app or feature ships, typically no more than "
-            . "a few messages per month. Message and data rates may apply. "
-            . "Reply HELP for help, STOP to cancel.");
+        sendSms($value, optInMessage());
     }
 
     echo json_encode(['success' => true]); exit;
@@ -2817,6 +2850,22 @@ function cpTwimlSilent(): void {
     exit;
 }
 
+/**
+ * An absolute URL back into this site.
+ *
+ * Deliberately not built on APP_URL: that points at Toolshare's own page
+ * because it is the call-to-action button in Toolshare's borrow emails, so
+ * treating it as a base produced /toolbox.html/nflpool.html. The request host
+ * is always right here and needs no configuration on the server.
+ *
+ * Scheme is fixed to https — the only consumer is a link inside a text
+ * message, and the site is served over TLS.
+ */
+function cpSiteUrl(string $path): string {
+    $host = $_SERVER['HTTP_HOST'] ?? 'davenn.com';
+    return 'https://' . $host . '/' . ltrim($path, '/');
+}
+
 /** Best-effort E.164 tidy-up so the same phone is one row, not several. */
 function cpNormalisePhone(string $raw): string {
     $digits = preg_replace('/[^0-9]/', '', $raw);
@@ -2873,10 +2922,30 @@ if ($method === 'POST' && $action === 'cp_sms') {
         cpTwimlSilent();   // the carrier sends its own confirmation
     }
     if (in_array($word, ['START', 'UNSTOP', 'YES'], true)) {
-        if ($player) $pdo->prepare("UPDATE cp_players SET opted_out = 0 WHERE id = ?")->execute([$player['id']]);
-        // Doubles as the pool campaign's filed opt-in confirmation, so it has
-        // to name the program, the rates, and both keyword routes.
-        cpTwiml('davenn.com Confidence Pool: you are set up again. Text a photo of your pick sheet any time and I will reply with a link to check it. Message and data rates may apply. Reply HELP for help, STOP to opt out.');
+        // One number carries two programs, so START means different things
+        // depending on who sends it. A pool player resuming after STOP gets the
+        // pool back and nothing more — enrolling them in update alerts they
+        // never asked for would be exactly the unsolicited messaging the
+        // campaign forbids.
+        if ($player) {
+            $pdo->prepare("UPDATE cp_players SET opted_out = 0 WHERE id = ?")->execute([$player['id']]);
+            // Doubles as the pool campaign's filed opt-in confirmation, so it has
+            // to name the program, the rates, and both keyword routes.
+            cpTwiml('davenn.com Confidence Pool: you are set up again. Text a photo of your pick sheet any time and I will reply with a link to check it. Message and data rates may apply. Reply HELP for help, STOP to opt out.');
+        }
+
+        // Anyone else texting START is opting in to update notifications — the
+        // keyword route filed on the A2P campaign alongside the web form. Same
+        // row the form creates, same confirmation it sends. A repeat START is
+        // answered again rather than ignored: the person is asking whether they
+        // are signed up, and the confirmation is the answer.
+        try {
+            $pdo->prepare("INSERT INTO subscribers (contact_type, contact_value, unsub_token) VALUES ('phone', ?, ?)")
+                ->execute([$from, bin2hex(random_bytes(16))]);
+        } catch (PDOException $e) {
+            // already subscribed
+        }
+        cpTwiml(optInMessage());
     }
     if ($word === 'HELP' || $word === 'INFO') {
         // This webhook is only on the pool's number — update notifications go
@@ -2908,7 +2977,7 @@ if ($method === 'POST' && $action === 'cp_sms') {
 
     // ── A sheet ──────────────────────────────────────────────────────────
     $api_key = $_ENV['ANTHROPIC_API_KEY'] ?? '';
-    if (!$api_key) cpTwiml('Sheet reading is offline right now - try the website instead: ' . ($_ENV['APP_URL'] ?? 'https://davenn.com') . '/nflpool.html');
+    if (!$api_key) cpTwiml('Sheet reading is offline right now - try the website instead: ' . cpSiteUrl('nflpool.html'));
 
     $media_url  = (string)($_POST['MediaUrl0'] ?? '');
     $media_type = (string)($_POST['MediaContentType0'] ?? '');
@@ -2929,7 +2998,7 @@ if ($method === 'POST' && $action === 'cp_sms') {
     // week number, and guessing from the calendar would file a late sheet into
     // the wrong week.
     $week_row = $pdo->query("SELECT * FROM cp_weeks ORDER BY season DESC, week DESC LIMIT 1")->fetch();
-    if (!$week_row) cpTwiml('No week is set up yet. The first sheet has to be entered on the website: ' . ($_ENV['APP_URL'] ?? 'https://davenn.com') . '/nflpool.html');
+    if (!$week_row) cpTwiml('No week is set up yet. The first sheet has to be entered on the website: ' . cpSiteUrl('nflpool.html'));
 
     $matched = cpMatchRows($pdo, $result, $week_row);
     $picked  = 0;
@@ -2943,7 +3012,7 @@ if ($method === 'POST' && $action === 'cp_sms') {
             mb_substr(trim((string)($result['note'] ?? '')), 0, 255) ?: null,
         ]);
 
-    $link  = rtrim($_ENV['APP_URL'] ?? 'https://davenn.com', '/') . '/nflpool.html?review=' . $token_str;
+    $link  = cpSiteUrl('nflpool.html?review=' . $token_str);
     // Leads with the brand because the A2P campaign filing requires every
     // sample message to identify who is texting, and this is one of them.
     // ASCII only — see the note on the broadcast suffix above.

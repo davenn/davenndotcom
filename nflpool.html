@@ -179,14 +179,13 @@
         .bar span { display: block; height: 100%; background: var(--text-primary); border-radius: 2px; }
 
         .picklist { grid-column: 1 / 5; padding: 4px 0 2px; display: grid; gap: 4px; }
+        /* Matchup, then the result tag. The confidence lives in the tag — it
+           used to sit in a chip out here as well, which showed it twice. */
         .pickrow {
-            display: grid; grid-template-columns: 30px 1fr auto; gap: 8px; align-items: center;
+            display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;
             font-size: 13px; padding: 4px 0;
         }
-        .pickconf {
-            font-family: var(--font-mono); font-size: 12px; text-align: center;
-            background: var(--surface-2); border-radius: 5px; padding: 3px 0; color: var(--text-secondary);
-        }
+        .pickline { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); }
         .tag {
             font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.05em;
             text-transform: uppercase; padding: 2px 7px; border-radius: 20px;
@@ -837,12 +836,16 @@ function renderPicks(s, games) {
     const rows = games.map(g => {
         const p = byGame[g.id];
         if (!p) return `<div class="pickrow">
-            <div class="pickconf">–</div>
             <div style="color:var(--text-muted)">${esc(g.away_name)} at ${esc(g.home_name)}</div>
             <span class="tag">No pick</span>
         </div>`;
         const picked = p.pick === 'home' ? g.home_name : g.away_name;
         const other  = p.pick === 'home' ? g.away_name : g.home_name;
+        // The line from the picked team's side: laying the points if that was
+        // the favourite, taking them if it was the underdog. Showing the
+        // favourite's number regardless would misreport half the rows.
+        const line = g.spread === 0 ? 'PK'
+                   : (p.pick === g.favorite ? '-' : '+') + g.spread;
         let tag = '<span class="tag">Not started</span>';
         if (p.result === 'win'   && p.final) tag = '<span class="tag win">Won ' + p.confidence + '</span>';
         if (p.result === 'loss'  && p.final) tag = '<span class="tag loss">Lost ' + p.confidence + '</span>';
@@ -851,8 +854,8 @@ function renderPicks(s, games) {
         if (!p.final && p.result === 'loss') tag = '<span class="tag trailing">Not covering ' + p.confidence + '</span>';
         if (!p.final && p.result === 'push') tag = '<span class="tag push">On the number</span>';
         return `<div class="pickrow">
-            <div class="pickconf">${p.confidence}</div>
-            <div>${esc(picked)} <span style="color:var(--text-muted)">over ${esc(other)}</span></div>
+            <div>${esc(picked)} <span class="pickline">(${line})</span>
+                <span style="color:var(--text-muted)">over ${esc(other)}</span></div>
             ${tag}
         </div>`;
     }).join('');

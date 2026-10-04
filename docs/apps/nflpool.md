@@ -26,6 +26,16 @@ Texting a sheet in maps a phone number to a player through `cp_players`. That
 table is the one place a person is tied to a phone number, which is why the
 roster endpoints are admin-guarded while nothing else in the pool is.
 
+### One number, two programs
+
+The pool's inbound number is also the number update notifications are sent
+from, so `cp_sms` sees traffic for both. `START` is the one keyword that has to
+tell them apart: from a number in `cp_players` it resumes the pool; from any
+other number it is an opt-in to update notifications, inserts the same
+`subscribers` row the web form does, and replies with `optInMessage()` — the
+confirmation text filed on the A2P campaign. Both opt-in routes call that one
+function so the wording cannot drift.
+
 ### Saving over an existing sheet
 
 `cp_save_entry` upserts on `(week_id, player_name)`, so entering a name that
