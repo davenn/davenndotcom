@@ -265,11 +265,18 @@ function optInMessage(): string {
          . "Reply HELP for help, STOP to cancel.";
 }
 
-function sendSms(string $to, string $body): bool {
+/**
+ * One Twilio send, keeping the outcome instead of throwing it away.
+ * Returns ['ok' => bool, 'http' => int, 'sid' => ?string, 'status' => ?string, 'error' => ?string].
+ */
+function twilioSend(string $to, string $body): array {
     $sid   = $_ENV['TWILIO_ACCOUNT_SID'] ?? '';
     $token = $_ENV['TWILIO_AUTH_TOKEN']  ?? '';
     $from  = $_ENV['TWILIO_FROM_NUMBER'] ?? '';
-    if (!$sid || !$token || !$from) return false;
+    if (!$sid || !$token || !$from) {
+        return ['ok' => false, 'http' => 0, 'sid' => null, 'status' => null,
+                'error' => 'Twilio account SID, auth token or from-number missing from .env'];
+    }
 
     $ch = curl_init("https://api.twilio.com/2010-04-01/Accounts/{$sid}/Messages.json");
     curl_setopt_array($ch, [
@@ -279,10 +286,31 @@ function sendSms(string $to, string $body): bool {
         CURLOPT_POSTFIELDS     => http_build_query(['To' => $to, 'From' => $from, 'Body' => $body]),
         CURLOPT_TIMEOUT        => 15,
     ]);
-    curl_exec($ch);
-    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $res  = curl_exec($ch);
+    $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $cerr = curl_error($ch);
     curl_close($ch);
-    return $code >= 200 && $code < 300;
+
+    $j  = is_string($res) ? (json_decode($res, true) ?: []) : [];
+    $ok = $code >= 200 && $code < 300;
+    return [
+        'ok'     => $ok,
+        'http'   => $code,
+        'sid'    => $j['sid']    ?? null,
+        'status' => $j['status'] ?? null,
+        // Twilio's own error code and text, e.g. "21610 Attempt to send to
+        // unsubscribed recipient" — the thing worth knowing when a text never
+        // turns up.
+        'error'  => $ok ? null : trim(($j['code'] ?? '') . ' ' . ($j['message'] ?? ($cerr ?: 'HTTP ' . $code))),
+    ];
+}
+
+function sendSms(string $to, string $body): bool {
+    $r = twilioSend($to, $body);
+    // Failures used to be discarded outright, which is how a missing opt-in
+    // confirmation went unexplained. They now land in the PHP error log.
+    if (!$r['ok']) error_log('sendSms to ' . substr($to, 0, 5) . '... failed: ' . $r['error']);
+    return $r['ok'];
 }
 
 function borrowRequestEmail(array $owner, array $requester, array $tool, array $request,
@@ -1359,6 +1387,54 @@ if ($method === 'GET' && $action === 'unsubscribe') {
     echo "<!DOCTYPE html><html><head><meta charset='utf-8'><title>Unsubscribed — davenn.com</title>
     <style>body{font-family:sans-serif;max-width:480px;margin:80px auto;text-align:center;color:#111;padding:0 20px;}
     a{color:#111;}</style></head><body><h2>{$msg}</h2><p><a href='/'>Return to davenn.com</a></p></body></html>";
+    exit;
+}
+
+// GET ?action=sms_diag&to=…  header: X-Admin-Secret
+// Why did a text not arrive? Reports whether this server has Twilio configured
+// and whether the number is on the subscriber list, which between them explain
+// most silent failures. Sends nothing. Admin-gated because it reports on the
+// host's configuration.
+if ($method === 'GET' && $action === 'sms_diag') {
+    $admin_secret = $_ENV['ADMIN_SECRET'] ?? '';
+    if (!$admin_secret || !hash_equals($admin_secret, $_SERVER['HTTP_X_ADMIN_SECRET'] ?? '')) {
+        http_response_code(401); echo json_encode(['error' => 'Unauthorized']); exit;
+    }
+    $to   = cpNormalisePhone((string)($_GET['to'] ?? ''));
+    $from = (string)($_ENV['TWILIO_FROM_NUMBER'] ?? '');
+    $sub  = null;
+    if ($to !== '') {
+        $st = $pdo->prepare("SELECT created_at FROM subscribers WHERE contact_type = 'phone' AND contact_value = ?");
+        $st->execute([$to]);
+        $sub = $st->fetchColumn() ?: null;
+    }
+    echo json_encode([
+        'success' => true,
+        'env'     => [
+            'account_sid' => !empty($_ENV['TWILIO_ACCOUNT_SID']),
+            'auth_token'  => !empty($_ENV['TWILIO_AUTH_TOKEN']),
+            'from_number' => $from === '' ? null : substr($from, 0, 5) . '...' . substr($from, -4),
+        ],
+        'to'          => $to ?: null,
+        'subscribed'  => $sub !== null,
+        'subscribed_at' => $sub,
+        'curl'        => function_exists('curl_init'),
+    ]);
+    exit;
+}
+
+// POST ?action=sms_diag&to=…  header: X-Admin-Secret
+// Sends the opt-in confirmation to one number and returns Twilio's verdict
+// verbatim — HTTP status, message SID and error code. The only way to see why
+// a send failed without reading the host's error log. Costs one message.
+if ($method === 'POST' && $action === 'sms_diag') {
+    $admin_secret = $_ENV['ADMIN_SECRET'] ?? '';
+    if (!$admin_secret || !hash_equals($admin_secret, $_SERVER['HTTP_X_ADMIN_SECRET'] ?? '')) {
+        http_response_code(401); echo json_encode(['error' => 'Unauthorized']); exit;
+    }
+    $to = cpNormalisePhone((string)($_GET['to'] ?? ''));
+    if ($to === '') { http_response_code(400); echo json_encode(['error' => 'Pass ?to=']); exit; }
+    echo json_encode(['success' => true, 'to' => $to, 'twilio' => twilioSend($to, optInMessage())]);
     exit;
 }
 

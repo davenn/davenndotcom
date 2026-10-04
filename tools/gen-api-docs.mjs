@@ -68,6 +68,7 @@ const EXPLICIT_GROUPS = {
   subscribe: 'Update Notifications',
   unsubscribe: 'Update Notifications',
   notify_subscribers: 'Update Notifications',
+  sms_diag: 'Update Notifications',
 };
 
 // Order groups appear in the output.
