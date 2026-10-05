@@ -1352,12 +1352,10 @@ if ($method === 'POST' && $action === 'subscribe') {
         http_response_code(400); echo json_encode(['error' => 'contact_type must be email or phone.']); exit;
     }
 
-    $token  = bin2hex(random_bytes(16));
-    $is_new = false;
+    $token = bin2hex(random_bytes(16));
     try {
         $stmt = $pdo->prepare("INSERT INTO subscribers (contact_type, contact_value, unsub_token) VALUES (?,?,?)");
         $stmt->execute([$type, $value, $token]);
-        $is_new = true;
     } catch (PDOException $e) {
         // already subscribed — treat as success, no need to leak that to the client
     }
@@ -1366,9 +1364,11 @@ if ($method === 'POST' && $action === 'subscribe') {
     // declares happens, so it has to actually happen. Word for word the same
     // message filed as the campaign's opt-in message — a reviewer may compare.
     //
-    // Only on a genuinely new number: re-submitting the form must not text
-    // somebody who is already subscribed, and every segment costs money.
-    if ($is_new && $type === 'phone') {
+    // Sent on every opt-in, not just a new number, matching the START keyword:
+    // someone re-submitting the form is asking whether they are signed up, and
+    // the confirmation is the answer. It also means the response looks the
+    // same either way, so it still does not reveal who is on the list.
+    if ($type === 'phone') {
         sendSms($value, optInMessage());
     }
 
@@ -1482,9 +1482,8 @@ if ($method === 'POST' && $action === 'notify_subscribers') {
 }
 
 // POST ?action=delete_subscriber  header: X-Admin-Secret  body: { contact_value }
-// For testing the sign-up flow: subscribe only sends its confirmation text to
-// a number it has not seen, so re-testing with the same phone means removing
-// it first. Normalizes the value the same way subscribe does, so "555 010 0199"
+// Removes one contact from the update list, e.g. to test the sign-up flow from
+// a clean slate. Normalizes the value the same way subscribe does, so "555 010 0199"
 // finds the row stored as "+15550100199". Admin-gated because it removes
 // someone else's consent record and confirms whether a contact is on the list.
 if ($method === 'POST' && $action === 'delete_subscriber') {
@@ -1513,8 +1512,8 @@ if ($method === 'POST' && $action === 'delete_subscriber') {
 }
 
 // GET ?action=resetTestPhone
-// Removes the operator's own test phone from the list so the sign-up
-// confirmation can be tested again. Takes no input and needs no secret, so it
+// Removes the operator's own test phone from the list so sign-up can be tested
+// from a clean slate. Takes no input and needs no secret, so it
 // can be tapped from a phone browser. Safe to leave open only because it can
 // touch exactly one row: the number comes from server configuration, never
 // from the request, and the repo is public so it is not written here. With no

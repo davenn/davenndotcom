@@ -372,7 +372,7 @@ aggregation happens in SQL so a year of history stays a small response.
 - **Auth:** Glucose read token — `X-BG-Token` or `?token=`
 - **Takes:** &token=…&days=30&low=70&high=180 → one row per local day.
 - **Query parameters:** `days`, `low`, `high`
-- **Source:** [`api.php:1798`](../api.php#L1798)
+- **Source:** [`api.php:1797`](../api.php#L1797)
 
 ### GET `?action=bg_embed`
 
@@ -382,14 +382,14 @@ device can index an arrow glyph straight off it:
 
 - **Auth:** Glucose read token — `X-BG-Token` or `?token=`
 - **Query parameters:** `low`, `high`, `spark`
-- **Source:** [`api.php:1708`](../api.php#L1708)
+- **Source:** [`api.php:1707`](../api.php#L1707)
 
 ### DELETE `?action=bg_event_delete`
 
 - **Auth:** Glucose read token — `X-BG-Token` or `?token=`
 - **Takes:** &id=…&token=…
 - **Query parameters:** `id`
-- **Source:** [`api.php:1997`](../api.php#L1997)
+- **Source:** [`api.php:1996`](../api.php#L1996)
 
 ### POST `?action=bg_event_save`
 
@@ -398,7 +398,7 @@ Creates, or updates when id is given. Returns the stored row.
 
 - **Auth:** Glucose read token — `X-BG-Token` or `?token=`
 - **Takes:** &token=…
-- **Source:** [`api.php:1922`](../api.php#L1922)
+- **Source:** [`api.php:1921`](../api.php#L1921)
 
 ### GET `?action=bg_events`
 
@@ -407,14 +407,14 @@ Read token: anything that may read the readings may read what explains them.
 - **Auth:** Glucose read token — `X-BG-Token` or `?token=`
 - **Takes:** &token=…&hours=24 → annotations overlapping the window.
 - **Query parameters:** `hours`
-- **Source:** [`api.php:1887`](../api.php#L1887)
+- **Source:** [`api.php:1886`](../api.php#L1886)
 
 ### GET `?action=bg_history`
 
 - **Auth:** Glucose read token — `X-BG-Token` or `?token=`
 - **Takes:** &token=…&hours=24&low=70&high=180 → raw readings + summary.
 - **Query parameters:** `hours`, `low`, `high`
-- **Source:** [`api.php:1751`](../api.php#L1751)
+- **Source:** [`api.php:1750`](../api.php#L1750)
 
 ### POST `?action=bg_ingest`
 
@@ -424,7 +424,7 @@ replaying it just refreshes rows already stored.
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** header: X-Admin-Secret
-- **Source:** [`api.php:1576`](../api.php#L1576)
+- **Source:** [`api.php:1575`](../api.php#L1575)
 
 ### GET `?action=bg_latest`
 
@@ -433,7 +433,7 @@ the age, and never present an old number as though it were current.
 
 - **Auth:** Glucose read token — `X-BG-Token` or `?token=`
 - **Takes:** &token=…  → the newest stored reading.
-- **Source:** [`api.php:1683`](../api.php#L1683)
+- **Source:** [`api.php:1682`](../api.php#L1682)
 
 ### POST `?action=bg_refresh`
 
@@ -444,7 +444,7 @@ proxy rather than the browser calling the poller directly.
 
 - **Auth:** Glucose read token — `X-BG-Token` or `?token=`
 - **Takes:** &token=…
-- **Source:** [`api.php:1631`](../api.php#L1631)
+- **Source:** [`api.php:1630`](../api.php#L1630)
 
 ## Confidence Pool
 
@@ -457,28 +457,28 @@ to anyone else. Nothing in the site calls this — it is run by hand.
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Query parameters:** `season`, `week`
-- **Source:** [`api.php:3219`](../api.php#L3219)
+- **Source:** [`api.php:3218`](../api.php#L3218)
 
 ### DELETE `?action=cp_entry`
 
 - **Auth:** None
 - **Takes:** &id=X
 - **Query parameters:** `id`
-- **Source:** [`api.php:3279`](../api.php#L3279)
+- **Source:** [`api.php:3278`](../api.php#L3278)
 
 ### DELETE `?action=cp_pending`
 
 - **Auth:** Single-use link token — `?token=`
 - **Takes:** &token=… — drop a staged sheet once it is saved.
 - **Query parameters:** `token`
-- **Source:** [`api.php:3142`](../api.php#L3142)
+- **Source:** [`api.php:3141`](../api.php#L3141)
 
 ### GET `?action=cp_pending`
 
 - **Auth:** Single-use link token — `?token=`
 - **Takes:** &token=… — collect a staged sheet for review.
 - **Query parameters:** `token`
-- **Source:** [`api.php:3120`](../api.php#L3120)
+- **Source:** [`api.php:3119`](../api.php#L3119)
 
 ### POST `?action=cp_purge_photos`
 
@@ -488,14 +488,14 @@ run after the first.
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** header: X-Admin-Secret
-- **Source:** [`api.php:3186`](../api.php#L3186)
+- **Source:** [`api.php:3185`](../api.php#L3185)
 
 ### DELETE `?action=cp_roster`
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** &id=…  header: X-Admin-Secret — unlink a number.
 - **Query parameters:** `id`
-- **Source:** [`api.php:3171`](../api.php#L3171)
+- **Source:** [`api.php:3170`](../api.php#L3170)
 
 ### GET `?action=cp_roster`
 
@@ -504,13 +504,13 @@ number, which is the most sensitive thing the pool holds.
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** header: X-Admin-Secret — who is linked to what number.
-- **Source:** [`api.php:3154`](../api.php#L3154)
+- **Source:** [`api.php:3153`](../api.php#L3153)
 
 ### POST `?action=cp_save_entry`
 
 - **Auth:** None
 - **Takes:** {season, week, player_name, picks:[{game_id,pick,confidence}]}
-- **Source:** [`api.php:2769`](../api.php#L2769)
+- **Source:** [`api.php:2768`](../api.php#L2768)
 
 ### POST `?action=cp_save_week`
 
@@ -518,7 +518,7 @@ Creates the week, or updates the spreads on one that already has entries.
 
 - **Auth:** None
 - **Takes:** {season, week, push_rule, games:[{away,home,favorite,spread}]}
-- **Source:** [`api.php:2678`](../api.php#L2678)
+- **Source:** [`api.php:2677`](../api.php#L2677)
 
 ### POST `?action=cp_scan`
 
@@ -529,33 +529,33 @@ misread team name and both happen.
 - **Auth:** None
 - **Takes:** (multipart: photo, optional season + week)
 - **Query parameters:** `season`, `week`
-- **Source:** [`api.php:2625`](../api.php#L2625)
+- **Source:** [`api.php:2624`](../api.php#L2624)
 
 ### POST `?action=cp_sms`
 
 - **Auth:** None
 - **Takes:** Twilio inbound webhook.
-- **Source:** [`api.php:2987`](../api.php#L2987)
+- **Source:** [`api.php:2986`](../api.php#L2986)
 
 ### DELETE `?action=cp_week`
 
 - **Auth:** None
 - **Takes:** &season=&week=
 - **Query parameters:** `season`, `week`
-- **Source:** [`api.php:3288`](../api.php#L3288)
+- **Source:** [`api.php:3287`](../api.php#L3287)
 
 ### GET `?action=cp_week`
 
 - **Auth:** None
 - **Takes:** &season=&week=
 - **Query parameters:** `season`, `week`, `force`
-- **Source:** [`api.php:2841`](../api.php#L2841)
+- **Source:** [`api.php:2840`](../api.php#L2840)
 
 ### GET `?action=cp_weeks`
 
 - **Auth:** None
 - **Takes:** every week that has been set up, newest first.
-- **Source:** [`api.php:3264`](../api.php#L3264)
+- **Source:** [`api.php:3263`](../api.php#L3263)
 
 ## Daily Tasks
 
@@ -632,15 +632,14 @@ the app should be able to say so without dressing it up as a failure.
 
 ### POST `?action=delete_subscriber`
 
-For testing the sign-up flow: subscribe only sends its confirmation text to
-a number it has not seen, so re-testing with the same phone means removing
-it first. Normalizes the value the same way subscribe does, so "555 010 0199"
+Removes one contact from the update list, e.g. to test the sign-up flow from
+a clean slate. Normalizes the value the same way subscribe does, so "555 010 0199"
 finds the row stored as "+15550100199". Admin-gated because it removes
 someone else's consent record and confirms whether a contact is on the list.
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** header: X-Admin-Secret  body: { contact_value }
-- **Source:** [`api.php:1490`](../api.php#L1490)
+- **Source:** [`api.php:1489`](../api.php#L1489)
 
 ### POST `?action=notify_subscribers`
 
@@ -652,15 +651,15 @@ Called by the GitHub Actions deploy workflow when CHANGELOG.md changes.
 
 ### GET `?action=resetTestPhone`
 
-Removes the operator's own test phone from the list so the sign-up
-confirmation can be tested again. Takes no input and needs no secret, so it
+Removes the operator's own test phone from the list so sign-up can be tested
+from a clean slate. Takes no input and needs no secret, so it
 can be tapped from a phone browser. Safe to leave open only because it can
 touch exactly one row: the number comes from server configuration, never
 from the request, and the repo is public so it is not written here. With no
 test phone configured it does nothing.
 
 - **Auth:** None
-- **Source:** [`api.php:1522`](../api.php#L1522)
+- **Source:** [`api.php:1521`](../api.php#L1521)
 
 ### GET `?action=sms_diag`
 
