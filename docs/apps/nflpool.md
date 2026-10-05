@@ -22,6 +22,13 @@ directly. The read result is staged in `cp_pending` behind a single-use
 first. The reasoning is in the endpoint comment: a misread confidence number
 costs more than a misread team name, and both happen.
 
+A texted sheet gets two replies. Twilio gives up on a webhook after 15 seconds
+and a sheet read takes longer, so `cp_sms` answers at once with a "reading it
+now" TwiML reply, closes the connection, and keeps running; the review link
+(or the failure) follows as a separate outbound text through the REST API.
+Answering after the read instead shows up in Twilio's log as error 11200 and
+the sender hears nothing.
+
 Texting a sheet in maps a phone number to a player through `cp_players`. That
 table is the one place a person is tied to a phone number, which is why the
 roster endpoints are admin-guarded while nothing else in the pool is.

@@ -2991,6 +2991,35 @@ function cpTwimlSilent(): void {
 }
 
 /**
+ * A TwiML reply sent now, with the script carrying on after Twilio has it.
+ *
+ * Twilio abandons a messaging webhook after 15 seconds (error 11200 / 11203)
+ * and the limit cannot be raised. Reading a sheet takes longer than that, so
+ * the webhook answers straight away and the result goes out afterwards as a
+ * fresh message through the REST API.
+ *
+ * fastcgi_finish_request() closes the connection cleanly under PHP-FPM; the
+ * Content-Length / Connection: close fallback covers other handlers, and
+ * Content-Encoding: none stops mod_deflate holding the body back to compress it.
+ */
+function cpTwimlAndContinue(string $message): void {
+    ignore_user_abort(true);
+    @set_time_limit(300);
+    $xml = '<?xml version="1.0" encoding="UTF-8"?><Response><Message>'
+         . htmlspecialchars($message, ENT_XML1 | ENT_QUOTES, 'UTF-8')
+         . '</Message></Response>';
+    header('Content-Type: text/xml; charset=UTF-8');
+    header('Content-Length: ' . strlen($xml));
+    header('Content-Encoding: none');
+    header('Connection: close');
+    echo $xml;
+    if (function_exists('fastcgi_finish_request'))   { fastcgi_finish_request();   return; }
+    if (function_exists('litespeed_finish_request')) { litespeed_finish_request(); return; }
+    while (ob_get_level() > 0) ob_end_flush();
+    flush();
+}
+
+/**
  * An absolute URL back into this site.
  *
  * Deliberately not built on APP_URL: that points at Toolshare's own page
@@ -3125,20 +3154,26 @@ if ($method === 'POST' && $action === 'cp_sms') {
         cpTwiml('That attachment is not a photo I can read (' . ($media_type ?: 'unknown type') . '). Send a JPG or PNG.');
     }
 
+    // Stage it against the newest week that has been set up. A text carries no
+    // week number, and guessing from the calendar would file a late sheet into
+    // the wrong week. Checked before the read so a sheet with nowhere to go
+    // costs nothing.
+    $week_row = $pdo->query("SELECT * FROM cp_weeks ORDER BY season DESC, week DESC LIMIT 1")->fetch();
+    if (!$week_row) cpTwiml('No week is set up yet. The first sheet has to be entered on the website: ' . cpSiteUrl('nflpool.html'));
+
+    // Everything from here outlasts Twilio's 15-second webhook limit, so the
+    // sender hears back now and every later answer is a new outbound text.
+    cpTwimlAndContinue('davenn.com Confidence Pool: got your sheet, reading it now. I will text you back in about a minute.');
+    $later = function (string $msg) use ($from): void { sendSms($from, $msg); exit; };
+
     $fetched = cpFetchTwilioMedia($media_url, $sid, $token);
-    if ($fetched['body'] === null) cpTwiml('I could not download that photo. Try sending it again.');
+    if ($fetched['body'] === null) $later('davenn.com Confidence Pool: I could not download that photo. Try sending it again.');
 
     [$bytes, $mt] = cpPrepareImage($fetched['body'], $media_type);
     $result = cpReadSheet($bytes, $mt, $api_key);
     if ($result === null || empty($result['readable']) || !is_array($result['games'] ?? null) || !count($result['games'])) {
-        cpTwiml('davenn.com Confidence Pool: I could not read that sheet. Try again with the whole page in frame, flat, in even light. Reply HELP for help.');
+        $later('davenn.com Confidence Pool: I could not read that sheet. Try again with the whole page in frame, flat, in even light. Reply HELP for help.');
     }
-
-    // Stage it against the newest week that has been set up. A text carries no
-    // week number, and guessing from the calendar would file a late sheet into
-    // the wrong week.
-    $week_row = $pdo->query("SELECT * FROM cp_weeks ORDER BY season DESC, week DESC LIMIT 1")->fetch();
-    if (!$week_row) cpTwiml('No week is set up yet. The first sheet has to be entered on the website: ' . cpSiteUrl('nflpool.html'));
 
     $matched = cpMatchRows($pdo, $result, $week_row);
     $picked  = 0;
@@ -3160,7 +3195,7 @@ if ($method === 'POST' && $action === 'cp_sms') {
            . ' picks for Week ' . (int)$week_row['week'] . '.';
     if ($matched['warnings']) $reply .= ' ' . count($matched['warnings']) . ' thing(s) to check.';
     $reply .= ' Nothing is saved yet - open this to confirm: ' . $link;
-    cpTwiml($reply);
+    $later($reply);
 }
 
 // GET ?action=cp_pending&token=… — collect a staged sheet for review.
