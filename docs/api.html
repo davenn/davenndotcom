@@ -179,7 +179,7 @@
     <h1>API Reference</h1>
     <p class="lede">Every app on davenn.com is served by a single <code class="inline">api.php</code>. Endpoints are selected by an <code class="inline">action</code> query parameter and always return JSON.</p>
     <div class="base">https://davenn.com/api.php?action=&lt;action&gt;</div>
-    <p class="counts">64 endpoints · 22 tables</p>
+    <p class="counts">64 endpoints · 23 tables</p>
 
     <div class="filter-row">
         <input type="search" id="filter" placeholder="Filter endpoints…" aria-label="Filter endpoints">
@@ -1454,6 +1454,15 @@ contact_value VARCHAR(120) NOT NULL
 unsub_token   VARCHAR(64)  NOT NULL
 created_at    DATETIME     DEFAULT CURRENT_TIMESTAMP
 UNIQUE KEY uniq_contact (contact_type, contact_value)</code></pre>
+        <p class="group">Other</p>
+        <h3>subscribe_attempts</h3>
+        <pre><code>id            INT AUTO_INCREMENT PRIMARY KEY
+ip            VARCHAR(45)  NOT NULL
+contact_value VARCHAR(120) NOT NULL
+texted        TINYINT(1)   NOT NULL DEFAULT 0
+created_at    DATETIME     DEFAULT CURRENT_TIMESTAMP
+KEY idx_ip (ip, created_at)
+KEY idx_contact (contact_value, created_at)</code></pre>
     </section>
 
     <section class="todo">

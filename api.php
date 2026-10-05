@@ -179,6 +179,18 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS subscribers (
     UNIQUE KEY uniq_contact (contact_type, contact_value)
 )");
 
+// One row per accepted sign-up form submission, kept for a day. Exists only to
+// rate-limit the public form: per IP, and per number for the confirmation text.
+$pdo->exec("CREATE TABLE IF NOT EXISTS subscribe_attempts (
+    id            INT AUTO_INCREMENT PRIMARY KEY,
+    ip            VARCHAR(45)  NOT NULL,
+    contact_value VARCHAR(120) NOT NULL,
+    texted        TINYINT(1)   NOT NULL DEFAULT 0,
+    created_at    DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_ip (ip, created_at),
+    KEY idx_contact (contact_value, created_at)
+)");
+
 $pdo->exec("CREATE TABLE IF NOT EXISTS bg_readings (
     id         INT AUTO_INCREMENT PRIMARY KEY,
     reading_at DATETIME     NOT NULL,
@@ -1347,9 +1359,28 @@ if ($method === 'POST' && $action === 'subscribe') {
         if (!preg_match('/^\+[1-9]\d{7,14}$/', $digits)) {
             http_response_code(400); echo json_encode(['error' => 'Enter a valid phone number.']); exit;
         }
+        // US and Canada only. The A2P 10DLC campaign covers US messaging, and a
+        // public form that will text any international number is exactly what
+        // SMS-pumping bots look for. NANP shape: area code and exchange both
+        // start 2-9. +1 also covers Caribbean nations, so Twilio's Messaging
+        // Geo Permissions stay the backstop for those.
+        if (!preg_match('/^\+1[2-9]\d{2}[2-9]\d{6}$/', $digits)) {
+            http_response_code(400); echo json_encode(['error' => 'Texts are available to US and Canadian numbers only.']); exit;
+        }
         $value = $digits;
     } else {
         http_response_code(400); echo json_encode(['error' => 'contact_type must be email or phone.']); exit;
+    }
+
+    // At most 5 sign-ups an hour from one IP. A per-number cooldown alone does
+    // nothing against a bot cycling through fresh numbers. REMOTE_ADDR, not
+    // X-Forwarded-For, because the header is whatever the client says it is.
+    $ip = substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45);
+    $pdo->exec("DELETE FROM subscribe_attempts WHERE created_at < NOW() - INTERVAL 1 DAY");
+    $st = $pdo->prepare("SELECT COUNT(*) FROM subscribe_attempts WHERE ip = ? AND created_at > NOW() - INTERVAL 1 HOUR");
+    $st->execute([$ip]);
+    if ((int)$st->fetchColumn() >= 5) {
+        http_response_code(429); echo json_encode(['error' => 'Too many sign-ups from this connection. Try again in an hour.']); exit;
     }
 
     $token = bin2hex(random_bytes(16));
@@ -1368,9 +1399,21 @@ if ($method === 'POST' && $action === 'subscribe') {
     // someone re-submitting the form is asking whether they are signed up, and
     // the confirmation is the answer. It also means the response looks the
     // same either way, so it still does not reveal who is on the list.
+    //
+    // At most once per number per 10 minutes, so the form cannot be used to
+    // flood one phone. A skipped send still reports success, for the same
+    // reason.
+    $texted = false;
     if ($type === 'phone') {
-        sendSms($value, optInMessage());
+        $st = $pdo->prepare("SELECT 1 FROM subscribe_attempts WHERE contact_value = ? AND texted = 1 AND created_at > NOW() - INTERVAL 10 MINUTE LIMIT 1");
+        $st->execute([$value]);
+        if (!$st->fetchColumn()) {
+            sendSms($value, optInMessage());
+            $texted = true;
+        }
     }
+    $pdo->prepare("INSERT INTO subscribe_attempts (ip, contact_value, texted) VALUES (?,?,?)")
+        ->execute([$ip, $value, $texted ? 1 : 0]);
 
     echo json_encode(['success' => true]); exit;
 }
@@ -1508,6 +1551,8 @@ if ($method === 'POST' && $action === 'delete_subscriber') {
 
     $stmt = $pdo->prepare("DELETE FROM subscribers WHERE contact_value = ?");
     $stmt->execute([$value]);
+    // Its rate-limit history too, or a re-test inside 10 minutes gets no text.
+    $pdo->prepare("DELETE FROM subscribe_attempts WHERE contact_value = ?")->execute([$value]);
     echo json_encode(['success' => true, 'contact_value' => $value, 'deleted' => $stmt->rowCount()]); exit;
 }
 
@@ -1525,6 +1570,9 @@ if ($method === 'GET' && $action === 'resetTestPhone') {
     }
     $stmt = $pdo->prepare("DELETE FROM subscribers WHERE contact_type = 'phone' AND contact_value = ?");
     $stmt->execute([$phone]);
+    // Its rate-limit history too, so the cooldown and the per-IP cap do not
+    // block the next test.
+    $pdo->prepare("DELETE FROM subscribe_attempts WHERE contact_value = ?")->execute([$phone]);
     echo json_encode(['success' => true, 'deleted' => $stmt->rowCount()]); exit;
 }
 

@@ -45,7 +45,7 @@ Browser ──► /appname.html  (self-contained: HTML + CSS + JS)
 
 | App | File(s) | Tables | Auth |
 |---|---|---|---|
-| Home / notify | `index.html`, `notify.html` | `subscribers` | — |
+| Home / notify | `index.html`, `notify.html` | `subscribers` `subscribe_attempts` | — |
 | Meeting Cost Timer | `meetingtimer.html` | `meetings` | — |
 | Track Timer | `tracktimer.html` | `track_sessions` | — |
 | Toolshare | `toolshare.html` | `tb_users` `tb_tools` `tb_requests` `tb_sessions` `tb_friendships` | `X-Auth-Token` |
