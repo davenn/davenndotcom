@@ -2545,9 +2545,9 @@ For every game row, report:
 - pick: "home" or "away" for the team this player marked, or "" if the row is not marked.
 - confidence: the number written for that row, or 0 if you cannot read one.
 
-Also report player_name if a name is written on the sheet, otherwise "".
+Also report player_name: the name written on the sheet, as your best reading even when the handwriting is unclear. It is shown to a person to check and correct, so a best guess is more useful than a blank. If you are unsure of it, say so in note. Use "" only if no name is written at all.
 
-Read carefully and do not guess. A wrong confidence number is worse than a 0, so use 0 whenever a digit is ambiguous and say so in note. List the games in the order they appear on the sheet. Set readable to false only if this is not a pick sheet or is too unclear to read at all.';
+For the picks, read carefully and do not guess. A wrong confidence number is worse than a 0, so use 0 whenever a digit is ambiguous and say so in note. List the games in the order they appear on the sheet. Set readable to false only if this is not a pick sheet or is too unclear to read at all.';
 
     $schema = [
         'type'       => 'object',
@@ -3179,10 +3179,15 @@ if ($method === 'POST' && $action === 'cp_sms') {
     $picked  = 0;
     foreach ($matched['rows'] as $r) if ($r['pick'] !== '' && $r['confidence'] > 0) $picked++;
 
+    // The name written on the sheet wins over the one linked to the phone: one
+    // person often texts in sheets for several players. It is only the default
+    // in the review form, so a misread name is corrected there before saving.
+    $sheet_name = mb_substr(trim(preg_replace('/\s+/', ' ', (string)($result['player_name'] ?? ''))), 0, 60);
+
     $token_str = bin2hex(random_bytes(16));
     $pdo->prepare("INSERT INTO cp_pending (token, week_id, player_name, phone, rows_json, note) VALUES (?,?,?,?,?,?)")
         ->execute([
-            $token_str, $week_row['id'], $player['player_name'], $from,
+            $token_str, $week_row['id'], $sheet_name !== '' ? $sheet_name : $player['player_name'], $from,
             json_encode($matched['rows']),
             mb_substr(trim((string)($result['note'] ?? '')), 0, 255) ?: null,
         ]);

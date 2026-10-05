@@ -31,7 +31,11 @@ the sender hears nothing.
 
 Texting a sheet in maps a phone number to a player through `cp_players`. That
 table is the one place a person is tied to a phone number, which is why the
-roster endpoints are admin-guarded while nothing else in the pool is.
+roster endpoints are admin-guarded while nothing else in the pool is. The
+linked name is only a fallback, though: the review form defaults to the name
+written on the sheet, because one person often texts in sheets for several
+players. The read prompt asks for a best guess at that name rather than a
+blank, since unlike a confidence number it is checked by eye before saving.
 
 ### One number, two programs
 

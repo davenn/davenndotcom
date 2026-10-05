@@ -457,28 +457,28 @@ to anyone else. Nothing in the site calls this — it is run by hand.
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Query parameters:** `season`, `week`
-- **Source:** [`api.php:3301`](../api.php#L3301)
+- **Source:** [`api.php:3306`](../api.php#L3306)
 
 ### DELETE `?action=cp_entry`
 
 - **Auth:** None
 - **Takes:** &id=X
 - **Query parameters:** `id`
-- **Source:** [`api.php:3361`](../api.php#L3361)
+- **Source:** [`api.php:3366`](../api.php#L3366)
 
 ### DELETE `?action=cp_pending`
 
 - **Auth:** Single-use link token — `?token=`
 - **Takes:** &token=… — drop a staged sheet once it is saved.
 - **Query parameters:** `token`
-- **Source:** [`api.php:3224`](../api.php#L3224)
+- **Source:** [`api.php:3229`](../api.php#L3229)
 
 ### GET `?action=cp_pending`
 
 - **Auth:** Single-use link token — `?token=`
 - **Takes:** &token=… — collect a staged sheet for review.
 - **Query parameters:** `token`
-- **Source:** [`api.php:3202`](../api.php#L3202)
+- **Source:** [`api.php:3207`](../api.php#L3207)
 
 ### POST `?action=cp_purge_photos`
 
@@ -488,14 +488,14 @@ run after the first.
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** header: X-Admin-Secret
-- **Source:** [`api.php:3268`](../api.php#L3268)
+- **Source:** [`api.php:3273`](../api.php#L3273)
 
 ### DELETE `?action=cp_roster`
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** &id=…  header: X-Admin-Secret — unlink a number.
 - **Query parameters:** `id`
-- **Source:** [`api.php:3253`](../api.php#L3253)
+- **Source:** [`api.php:3258`](../api.php#L3258)
 
 ### GET `?action=cp_roster`
 
@@ -504,7 +504,7 @@ number, which is the most sensitive thing the pool holds.
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** header: X-Admin-Secret — who is linked to what number.
-- **Source:** [`api.php:3236`](../api.php#L3236)
+- **Source:** [`api.php:3241`](../api.php#L3241)
 
 ### POST `?action=cp_save_entry`
 
@@ -542,7 +542,7 @@ misread team name and both happen.
 - **Auth:** None
 - **Takes:** &season=&week=
 - **Query parameters:** `season`, `week`
-- **Source:** [`api.php:3370`](../api.php#L3370)
+- **Source:** [`api.php:3375`](../api.php#L3375)
 
 ### GET `?action=cp_week`
 
@@ -555,7 +555,7 @@ misread team name and both happen.
 
 - **Auth:** None
 - **Takes:** every week that has been set up, newest first.
-- **Source:** [`api.php:3346`](../api.php#L3346)
+- **Source:** [`api.php:3351`](../api.php#L3351)
 
 ## Daily Tasks
 
