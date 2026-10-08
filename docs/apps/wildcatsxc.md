@@ -218,6 +218,12 @@ the two in step.
 - Rows are flat in state and each carries its race; the overlay groups them.
   Renaming a race applies to every row in it, and renaming it to match another
   race merges the two.
+- **Delete race** (shown only when a meet has more than one race) drops every
+  row of that race from the review after a confirm. It is a local edit like
+  any other: nothing reaches the server until Save, Cancel discards it, and
+  because saving an existing meet replaces its results, the race's stored
+  results go when the meet is saved. Deleting the last race is Delete meet's
+  job, so the button is not offered there. Both share `askConfirm()`.
 - Field edits update state without re-rendering so typing keeps focus;
   structural changes (remove, add, accept a suggestion) re-render.
 - Theme under `localStorage['wildcatsxc_theme']`, school filter under

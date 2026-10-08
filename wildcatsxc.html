@@ -244,6 +244,9 @@
             text-transform: uppercase; color: var(--text-muted);
         }
         .addrow:hover { color: var(--text-primary); }
+        .racefoot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; }
+        .racefoot .addrow { margin-top: 0; }
+        .addrow.droprace:hover { color: var(--crit); }
 
         .actions {
             position: fixed; left: 0; right: 0; bottom: 0; z-index: 310;
@@ -973,7 +976,7 @@ function renderReview() {
                     <input id="m-loc" type="text" maxlength="160" value="${esc(review.location)}"></div>
             </div>
         </div>
-        ${races().map((race, i) => `
+        ${races().map((race, i, all) => `
         <div class="card">
             <div class="racehead">
                 <input type="text" maxlength="80" aria-label="Race name" data-race="${i}" data-rfield="race" value="${esc(race.name)}">
@@ -982,7 +985,10 @@ function renderReview() {
             </div>
             <div class="runners-head"><span>Pl</span><span>Name · school</span><span style="text-align:center">Time</span><span></span></div>
             ${race.rows.map(runnerHtml).join('')}
-            <button class="addrow" type="button" data-addrow="${i}">+ Add runner</button>
+            <div class="racefoot">
+                <button class="addrow" type="button" data-addrow="${i}">+ Add runner</button>
+                ${all.length > 1 ? `<button class="addrow droprace" type="button" data-droprace="${i}">Delete race</button>` : ''}
+            </div>
         </div>`).join('')}
         <div class="banner bad hidden" id="review-error"></div>`;
 
@@ -1061,8 +1067,23 @@ $('review-body').addEventListener('click', e => {
         review.rows.splice(review.rows.indexOf(last) + 1, 0, row);
         renderReview();
         document.querySelector(`.runner[data-uid="${row.uid}"] [data-field="name"]`).focus();
+    } else if (t.dataset.droprace !== undefined) {
+        dropRace(races()[+t.dataset.droprace]);
     }
 });
+
+// Only takes the race out of what is on screen: nothing changes on the server
+// until the meet is saved, and Cancel still throws the edit away. Saving an
+// existing meet replaces its results, so the race's results go then.
+async function dropRace(race) {
+    const n = race.rows.length;
+    const ok = await askConfirm('Delete this race?',
+        `${race.name} and its ${n} runner${n === 1 ? '' : 's'} will be taken out of this meet. Nothing changes until you save the meet.`);
+    if (!ok || !review) return;
+    review.rows = review.rows.filter(r => r.race !== race.name);
+    renderReview();
+    toast(`Removed ${race.name}`);
+}
 
 // ── Saving ───────────────────────────────────────────────────────────────
 function validate() {
@@ -1113,13 +1134,26 @@ $('save').addEventListener('click', async () => {
 });
 
 // ── Deleting ─────────────────────────────────────────────────────────────
-$('delete-meet').addEventListener('click', () => {
-    $('confirm-body').textContent = `${review.name} and its ${review.rows.length} results will be removed. This cannot be undone.`;
+// One confirm box for every destructive step. Resolves true on Delete.
+let confirmResolve = null;
+function askConfirm(title, body) {
+    $('confirm-title').textContent = title;
+    $('confirm-body').textContent = body;
     $('confirm').classList.remove('hidden');
-});
-$('confirm-no').addEventListener('click', () => $('confirm').classList.add('hidden'));
-$('confirm-yes').addEventListener('click', async () => {
+    $('confirm-no').focus();
+    return new Promise(resolve => { confirmResolve = resolve; });
+}
+function settleConfirm(ok) {
     $('confirm').classList.add('hidden');
+    if (confirmResolve) { confirmResolve(ok); confirmResolve = null; }
+}
+$('confirm-no').addEventListener('click', () => settleConfirm(false));
+$('confirm-yes').addEventListener('click', () => settleConfirm(true));
+
+$('delete-meet').addEventListener('click', async () => {
+    const ok = await askConfirm('Delete this meet?',
+        `${review.name} and its ${review.rows.length} results will be removed. This cannot be undone.`);
+    if (!ok || !review) return;
     try {
         await api('?action=xc_meet&id=' + review.meet_id, { method: 'DELETE' });
         closeOverlay();
