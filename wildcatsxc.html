@@ -410,7 +410,7 @@
 <div class="modal hidden" id="paste" role="dialog" aria-modal="true" aria-labelledby="paste-title">
     <div class="modal-box wide">
         <div class="modal-title" id="paste-title">Paste results</div>
-        <p class="msg">Copy one race's results (on MileSplit, one event and division) and paste them below. Each line needs a name, grade, school and time; place and points are optional. The "Only these schools" filter applies.</p>
+        <p class="msg">Copy one race's results from MileSplit or Athletic.net (one event and division) and paste them below. Each line needs a name, school and time, plus a grade unless the columns are tab-separated; place and points are optional. The "Only these schools" filter applies.</p>
         <div class="pastefields">
             <div class="field"><label for="paste-race">Race</label>
                 <input id="paste-race" type="text" maxlength="80" placeholder="Varsity Boys"></div>
@@ -767,30 +767,66 @@ const personName = s => {
 };
 
 function parseLine(line) {
-    const tabbed = line.includes('\t');
-    const cells  = tabbed ? line.split('\t').map(c => c.trim()).filter(Boolean) : line.trim().split(/\s+/);
+    return line.includes('\t') ? parseTabbed(line) : parseSpaced(line);
+}
+
+// Marks a site prints beside a time: personal record, season record, and so on.
+const MARKS = /^(PR|SR|SB|PB|NR|MR|CR|Q|q)$/;
+
+/**
+ * A line copied out of an HTML table, where every cell is whole. Cells are
+ * told apart by what they look like rather than where they sit, because sites
+ * order the columns differently:
+ *     MileSplit       318  Jameson Rothwell  SO  Whitewater      21:53.20  318
+ *     Athletic.net    1.   12  Noah Gailey   15:58.2  Hartford Union
+ * The time is the last time-shaped cell; the place is a number in the first
+ * cell; the grade is a grade-shaped cell before the time; points and PR/SR
+ * marks are skipped; what is left is text, and the first text is the name.
+ */
+function parseTabbed(line) {
+    const cells = line.split('\t').map(c => c.trim()).filter(Boolean);
+    let ti = -1;
+    for (let i = cells.length - 1; i >= 0; i--) if (TIME_RE.test(cells[i])) { ti = i; break; }
+    if (ti < 0) return null;
+
+    const place = /^\d+\.?$/.test(cells[0]) ? parseInt(cells[0], 10) : 0;
+    let grade = 0;
+    const text = [];
+    cells.forEach((c, i) => {
+        if (i === ti || (i === 0 && place)) return;
+        if (i < ti && !grade && gradeOf(c)) { grade = gradeOf(c); return; }
+        if (MARKS.test(c) || !/[a-z]/i.test(c)) return;     // PR, points, other numbers
+        text.push(c);
+    });
+    let name, school;
+    if (text.length >= 3) { name = text[0] + ' ' + text[1]; school = text.slice(2).join(' '); }   // First | Last | School
+    else if (text.length === 2) { [name, school] = text; }                                         // Name | School
+    else if (text.length === 1) { name = text[0]; school = ''; }                                   // no school column
+    else return null;
+    return { place, name: personName(name), grade, school, time: cells[ti] };
+}
+
+/** A line whose columns are only spaces apart: the grade is the anchor. */
+function parseSpaced(line) {
+    const cells = line.trim().split(/\s+/);
     let ti = -1;
     for (let i = cells.length - 1; i >= 0; i--) if (TIME_RE.test(cells[i])) { ti = i; break; }
     if (ti < 0) return null;
 
     const place = /^\d+\.?$/.test(cells[0]) ? parseInt(cells[0], 10) : 0;
     const body  = cells.slice(place ? 1 : 0, ti);
-    // A name is at least two words when split on spaces, one cell when tabbed.
-    const gi = body.findIndex((tok, j) => j >= (tabbed ? 1 : 2) && gradeOf(tok));
-    let name, school, grade = 0;
+    // A name is at least two words, so the grade cannot be the first or second.
+    const gi = body.findIndex((tok, j) => j >= 2 && gradeOf(tok));
     if (gi >= 0) {
-        name = body.slice(0, gi).join(' ');
-        school = body.slice(gi + 1).join(' ');
-        grade = gradeOf(body[gi]);
-    } else if (tabbed && body.length === 3) {      // First | Last | School
-        name = body[0] + ' ' + body[1]; school = body[2];
-    } else if (tabbed && body.length === 2) {      // Name | School
-        name = body[0]; school = body[1];
-    } else {
-        return null;
+        const name = body.slice(0, gi).join(' ');
+        return { place, name: personName(name), grade: gradeOf(body[gi]), school: body.slice(gi + 1).join(' ').trim(), time: cells[ti] };
     }
-    if (!name) return null;
-    return { place, name: personName(name), grade, school: school.trim(), time: cells[ti] };
+    // Athletic.net's order with the tabs lost: grade, name, time, then school.
+    if (body.length >= 3 && gradeOf(body[0])) {
+        const school = cells.slice(ti + 1).filter(t => /[a-z]/i.test(t) && !MARKS.test(t)).join(' ');
+        return { place, name: personName(body.slice(1).join(' ')), grade: gradeOf(body[0]), school, time: cells[ti] };
+    }
+    return null;
 }
 
 function openPaste() {

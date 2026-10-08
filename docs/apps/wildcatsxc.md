@@ -116,22 +116,36 @@ text is regular enough that a model read would only add cost and minutes.
 `xc_match` then runs the rows through the same `xcMatchRows()` a scan uses, so
 pasted runners get the same known / new / "Same as …?" tags.
 
-A line splits on whitespace, or on tabs when the browser copied a table:
+`parseLine()` takes two paths, because sites copy differently and order their
+columns differently:
 
 ```
-318 Jameson Rothwell SO Whitewater 21:53.20 318
-place  name ........ grade school  time    points (ignored)
+MileSplit, spaces:      318 Jameson Rothwell SO Whitewater 21:53.20 318
+                        place name ........ grade school   time    points
+Athletic.net, tabs:     1.<tab>12<tab>Noah Gailey<tab><tab>15:58.2<tab><tab>Hartford Union
+                        place  grade  name                 time             school
 ```
 
-**The grade is the anchor.** Names and schools are both often several words
-("Mary Kate O'Neil", "Sun Prairie East"), so neither can be found by position:
-the name is everything between the place and the first grade token (FR/SO/JR/SR
-or 9–12, at least two words in), the school everything between the grade and
-the time. The time is the last time-shaped token, so trailing points or a PR
-mark don't matter. "Last, First" is reordered. Tab-separated lines without a
-grade still work from the cell boundaries; space-separated ones without a grade
-are ambiguous and skipped — reported in the review with an example, never
-guessed.
+**Tab-separated (`parseTabbed()`)** — copied out of an HTML table, so every
+cell is whole, and cells are classified by what they look like rather than
+where they sit: the time is the last time-shaped cell, the place a number in
+the first cell, the grade a grade-shaped cell (FR/SO/JR/SR or 9–12) before the
+time; points and marks like PR/SR are skipped; what is left is text, and the
+first text is the name. That one rule covers MileSplit's order and
+Athletic.net's (grade before the name, school after the time). Three text
+cells read as First | Last | School.
+
+**Space-separated (`parseSpaced()`)** — here the grade is the anchor. Names and
+schools are both often several words ("Mary Kate O'Neil", "Sun Prairie East"),
+so neither can be found by position: the name is everything between the place
+and the first grade token (at least two words in), the school everything
+between the grade and the time. The time is the last time-shaped token, so
+trailing points or a PR mark don't matter. If no grade follows the name but one
+leads it, the line is read as Athletic.net's order with the tabs lost — grade,
+name, time, school. Space-separated lines without a grade are ambiguous and
+skipped — reported in the review with an example, never guessed.
+
+Either way, "Last, First" is reordered.
 
 The race name and distance come from the paste box (default 5000m), and the
 "Only these schools" filter applies, matched on the normalised school name
