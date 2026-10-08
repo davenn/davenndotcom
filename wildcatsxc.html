@@ -49,15 +49,19 @@
             --text-secondary: #c3c2b7;
             --text-muted:     #898781;
         }
-        /* Chart roles: one accent for the runner (checked against --surface
-           in both themes with the dataviz palette validator), and the chrome. */
+        /* Chart roles: blue for a runner or the top five, orange for the whole
+           team, and the chrome. The pair was checked against --surface in both
+           themes with the dataviz palette validator; light orange sits just
+           under 3:1, so its line always carries a direct label. */
         :root, [data-theme="light"] {
             --series-1: #2a78d6;
+            --series-2: #eb6834;
             --grid:     #e1e0d9;
             --axis:     #c3c2b7;
         }
         [data-theme="dark"] {
             --series-1: #3987e5;
+            --series-2: #d95926;
             --grid:     #2c2c2a;
             --axis:     #383835;
         }
@@ -361,6 +365,13 @@
 
         /* ── PROGRESSION CHART ── */
         .progress-head { font-size: 15px; font-weight: 600; }
+        .progress-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+        .teamview {
+            background: none; border: none; padding: 0; cursor: pointer; white-space: nowrap;
+            font-family: var(--font-mono); font-size: 11px; font-weight: 400; letter-spacing: 0.04em;
+            color: var(--text-muted);
+        }
+        .teamview:hover, .teamview:focus-visible { color: var(--text-primary); }
         .progress-head small { display: block; font-size: 12px; font-weight: 400; color: var(--text-muted); margin-top: 2px; }
         .chart { position: relative; margin: 10px 0 16px; }
         .chart svg { display: block; overflow: visible; }
@@ -1469,44 +1480,96 @@ const axisDate = ms => new Date(ms).toLocaleDateString([], { month: 'short', day
 const ordinal = n => n + ([, 'st', 'nd', 'rd'][(n % 100 >> 3 ^ 1) && n % 10] || 'th');
 const inSection = (squad, sel) => [...$('team-body').querySelectorAll(sel)].find(el => el.dataset.chart === squad || el.dataset.caption === squad);
 
+const tenths = ms => fmtTime(Math.round(ms / 100) * 100);
+
+/** Caption above a section's chart: a heading, a line of detail, and optionally a way back to the team view. */
+function setCaption(squad, title, detail, back) {
+    const cap = inSection(squad, '[data-caption]');
+    cap.textContent = '';
+    const row = document.createElement('div');
+    row.className = 'progress-title';
+    row.append(document.createTextNode(title));
+    if (back) {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'teamview'; b.dataset.teamview = squad;
+        b.textContent = '← Team averages';
+        row.append(b);
+    }
+    const sub = document.createElement('small');
+    sub.textContent = detail;
+    cap.append(row, sub);
+}
+
 /**
- * The picked runner's season as a line: their time at each meet, the axis
- * fitted to their times alone. The squad's median at each meet is context, but
- * it is not drawn: it sits minutes away from a varsity runner's times (it
- * counts the whole JV squad), so on a shared axis it squashed the runner's
- * line flat — the very changes the chart is for. It rides in the tooltip
- * instead, where it still tells a slow course from a slow race.
+ * A section's chart: the team until a runner is picked, then that runner.
+ * Each fits its own axis.
  */
 function drawProgress(squad) {
     const card = team.cards.get(squad);
     const el = inSection(squad, '.chart[data-chart]');
     if (!card || !el) return;                 // folded squads have no chart
-    const a = card.runners.find(r => r.id === team.selected.get(squad)) || card.runners[0];
+    const a = card.runners.find(r => r.id === team.selected.get(squad));
+    if (!a) return drawTeamChart(squad, card, el);
+    drawRunnerChart(squad, card, el, a);
+}
+
+/**
+ * The team view: top-five and whole-team averages at each meet. Both lines
+ * carry a direct label as well as the legend — the light orange is just under
+ * 3:1 against the card. Plotted on one axis they sit minutes apart, so each
+ * line's meet-to-meet movement reads flatter than it would alone.
+ */
+function drawTeamChart(squad, card, el) {
+    setCaption(squad, 'Team averages',
+        'Top-5 and whole-team average at each meet. The whole-team line also moves with how many JV ran.');
+    const last = card.meets[card.meets.length - 1];
+    const lastTop5 = [...card.meets].reverse().find(m => card.agg.get(m.id).top5 !== null);
+    const runnersNote = m => card.agg.get(m.id).n + (card.agg.get(m.id).n === 1 ? ' runner' : ' runners') + ' at this meet';
+    lineChart(el, {
+        label: `Team averages by meet: top 5 and whole team, ${card.meets.length} meets`,
+        series: [
+            { name: 'Top 5 average', color: 'var(--series-1)', points: card.meets
+                .filter(m => card.agg.get(m.id).top5 !== null)
+                .map(m => ({ x: dayMs(m.date), y: card.agg.get(m.id).top5, sub: m.name })) },
+            { name: 'Team average', color: 'var(--series-2)', points: card.meets
+                .map(m => ({ x: dayMs(m.date), y: card.agg.get(m.id).avg, sub: m.name, notes: [runnersNote(m)] })) },
+        ],
+        annotate: [
+            ...(lastTop5 ? [{ x: dayMs(lastTop5.date), y: card.agg.get(lastTop5.id).top5, text: 'Top 5', end: true }] : []),
+            { x: dayMs(last.date), y: card.agg.get(last.id).avg, text: 'Team', end: true },
+        ],
+    });
+}
+
+/**
+ * One runner's season: their time at each meet, the axis fitted to their
+ * times alone. Team figures for the day ride in the tooltip rather than as
+ * lines — drawn on the runner's axis they sat minutes away and squashed the
+ * runner's line flat, the very changes this chart is for.
+ */
+function drawRunnerChart(squad, card, el, a) {
     const bestRun = a.runs.find(r => r.time_ms === a.best);
-
-    const cap = inSection(squad, '[data-caption]');
-    cap.textContent = a.name;
-    const sub = document.createElement('small');
-    sub.textContent = (a.grade ? 'Grade ' + a.grade + ' · ' : '') + a.runs.length + (a.runs.length === 1 ? ' race' : ' races') +
-        ' · season best ' + fmtTime(a.best) + ' at ' + bestRun.meet;
-    cap.appendChild(sub);
-
-    const med = new Map(card.meets.map(m => [m.id, card.median.get(m.id)]));
+    setCaption(squad, a.name, (a.grade ? 'Grade ' + a.grade + ' · ' : '') + a.runs.length + (a.runs.length === 1 ? ' race' : ' races') +
+        ' · season best ' + fmtTime(a.best) + ' at ' + bestRun.meet, true);
     lineChart(el, {
         label: `${a.name}: ${a.runs.length} races, season best ${fmtTime(a.best)}`,
         series: [
-            { name: a.name, color: 'var(--series-1)', points: a.runs.map(r => ({
-                x: dayMs(r.date), y: r.time_ms, sub: r.meet,
-                notes: [r.race + (r.place ? ' · ' + ordinal(r.place) + ' place' : ''),
-                        'Team median that day ' + fmtTime(Math.round(med.get(r.meet_id) / 100) * 100)] })) },
+            { name: a.name, color: 'var(--series-1)', points: a.runs.map(r => {
+                const day = card.agg.get(r.meet_id);
+                return { x: dayMs(r.date), y: r.time_ms, sub: r.meet, notes: [
+                    r.race + (r.place ? ' · ' + ordinal(r.place) + ' place' : ''),
+                    (day.top5 !== null ? 'Top 5 average ' + tenths(day.top5) + ' · ' : '') + 'Team average ' + tenths(day.avg)] };
+            }) },
         ],
         annotate: [{ x: dayMs(bestRun.date), y: a.best, text: 'SB ' + fmtTime(a.best) }],
     });
 }
 
-/** Whole-second ticks at a step that gives three to five of them. */
-function timeTicks(lo, hi) {
-    const step = [1, 2, 5, 10, 15, 20, 30, 60, 120, 300, 600].map(s => s * 1000).find(s => (hi - lo) / s <= 5) || 600000;
+/** The whole-second tick step that splits a span into at most five. */
+const tickStep = span => [1, 2, 5, 10, 15, 20, 30, 60, 120, 300, 600].map(s => s * 1000).find(s => span / s <= 5) || 600000;
+
+/** Ticks every `step` from lo to hi; drawLine has already rounded both onto the step. */
+function timeTicks(lo, hi, step) {
     const out = [];
     for (let t = Math.ceil(lo / step) * step; t <= hi; t += step) out.push(t);
     return out;
@@ -1534,20 +1597,27 @@ function drawLine(el) {
     const W = el.clientWidth;
     if (!W) return;
     el._w = W;
-    const H = 210, m = { t: 22, r: 22, b: 26, l: 46 };
+    // Lines labelled at their end need room to the right for the label.
+    const ends = annotate.filter(a => a.end);
+    const H = 210, m = { t: 22, r: ends.length ? 58 : 22, b: 26, l: 46 };
 
     const pts = series.flatMap(s => s.points);
     const xs = [...new Set(pts.map(p => p.x))].sort((a, b) => a - b);
     let x0 = xs[0], x1 = xs[xs.length - 1];
     if (x0 === x1) { x0 -= 3 * 864e5; x1 += 3 * 864e5; }
+    // The axis runs from tick to tick, so every line has a labelled gridline
+    // above and below it — padding alone left the top line with no time to
+    // read it against.
     let lo = Math.min(...pts.map(p => p.y)), hi = Math.max(...pts.map(p => p.y));
-    const pad = Math.max((hi - lo) * 0.12, 3000);
-    lo -= pad; hi += pad;
+    if (hi - lo < 10000) { const mid = (hi + lo) / 2; lo = mid - 5000; hi = mid + 5000; }
+    const step = tickStep(hi - lo);
+    lo = Math.floor(lo / step) * step;
+    hi = Math.ceil(hi / step) * step;
     const X = x => m.l + (x - x0) / (x1 - x0) * (W - m.l - m.r);
     const Y = y => m.t + (y - lo) / (hi - lo) * (H - m.t - m.b);
 
     let svg = `<svg width="${W}" height="${H}" role="img" tabindex="0" aria-label="${esc(label)}">`;
-    timeTicks(lo, hi).forEach(t => {
+    timeTicks(lo, hi, step).forEach(t => {
         svg += `<line class="grid" x1="${m.l}" x2="${W - m.r}" y1="${Y(t)}" y2="${Y(t)}"/>
                 <text class="ax" x="${m.l - 8}" y="${Y(t) + 4}" text-anchor="end">${tickLabel(t)}</text>`;
     });
@@ -1568,9 +1638,16 @@ function drawLine(el) {
         if (ps.length > 1) svg += `<path class="ln" style="stroke:${s.color}" d="${ps.map((p, i) => (i ? 'L' : 'M') + X(p.x).toFixed(1) + ',' + Y(p.y).toFixed(1)).join('')}"/>`;
         ps.forEach(p => { svg += `<circle class="dot" style="fill:${s.color}" cx="${X(p.x)}" cy="${Y(p.y)}" r="4"/>`; });
     });
-    annotate.forEach(a => {
+    annotate.filter(a => !a.end).forEach(a => {
         const ax = Math.min(Math.max(X(a.x), m.l + 34), W - m.r - 34);
         svg += `<text class="lab" x="${ax}" y="${Y(a.y) - 11}" text-anchor="middle">${esc(a.text)}</text>`;
+    });
+    // End labels sit just past a line's last point, nudged apart if two land
+    // within a line-height of each other.
+    const placed = ends.map(a => ({ a, y: Y(a.y) + 4 })).sort((p, q) => p.y - q.y);
+    placed.forEach((p, i) => { if (i && p.y - placed[i - 1].y < 13) p.y = placed[i - 1].y + 13; });
+    placed.forEach(p => {
+        svg += `<text class="lab" x="${X(p.a.x) + 9}" y="${p.y}" text-anchor="start">${esc(p.a.text)}</text>`;
     });
     svg += `<rect x="${m.l}" y="0" width="${W - m.l - m.r}" height="${H}" fill="transparent"/></svg>`;
 
@@ -1654,12 +1731,18 @@ function drawLine(el) {
     });
 }
 
-/** Tap or Enter on a grid row charts that runner — no re-render, so a grid scrolled sideways stays put. */
-function pickRunner(tr) {
-    const section = tr.closest('section');
+/**
+ * Tap or Enter on a grid row charts that runner; on the runner already
+ * charted it goes back to the team. No re-render, so a grid scrolled sideways
+ * stays put. `tr` null means back to the team.
+ */
+function pickRunner(section, tr) {
     const squad = section.querySelector('[data-squad]').dataset.squad;
-    team.selected.set(squad, +tr.dataset.runner);
-    section.querySelectorAll('tr[data-runner]').forEach(row => row.setAttribute('aria-selected', String(row === tr)));
+    const id = tr ? +tr.dataset.runner : null;
+    if (id === null || team.selected.get(squad) === id) team.selected.delete(squad);
+    else team.selected.set(squad, id);
+    const now = team.selected.get(squad);
+    section.querySelectorAll('tr[data-runner]').forEach(row => row.setAttribute('aria-selected', String(+row.dataset.runner === now)));
     drawProgress(squad);
 }
 
@@ -1717,17 +1800,18 @@ function squadCard(squad, rows) {
         .map(a => Object.assign(a, { best: Math.min(...a.times.values()) }))
         .sort((x, y) => x.best - y.best);
 
-    // The squad's median time at each meet, shown in the chart's tooltip as a
-    // read on the course and the day. Every squad runner at the meet counts,
-    // varsity and JV alike — so it also shifts with who was entered, which is
-    // one reason it is a tooltip figure and not a line.
-    const median = new Map(meets.map(m => {
+    // Per meet: the top-five average (the scoring five, whichever race they
+    // ran) and the whole-team average (every squad runner there, varsity and
+    // JV). The second moves with how many JV were entered as much as with
+    // how anyone ran — the team chart's caption and tooltip say so.
+    const agg = new Map(meets.map(m => {
         const t = rows.filter(r => r.meet_id === m.id).map(r => r.time_ms).sort((x, y) => x - y);
-        const n = t.length;
-        return [m.id, n % 2 ? t[(n - 1) / 2] : (t[n / 2 - 1] + t[n / 2]) / 2];
+        const mean = a => a.reduce((s, v) => s + v, 0) / a.length;
+        return [m.id, { n: t.length, avg: mean(t), top5: t.length >= 5 ? mean(t.slice(0, 5)) : null }];
     }));
-    team.cards.set(squad, { runners, meets, median });
-    if (!runners.some(a => a.id === team.selected.get(squad))) team.selected.set(squad, runners[0].id);
+    team.cards.set(squad, { runners, meets, agg });
+    // No runner is charted until one is picked: the section opens on the team.
+    if (!runners.some(a => a.id === team.selected.get(squad))) team.selected.delete(squad);
     const picked = team.selected.get(squad);
 
     const head = `<tr><th class="who lead">Runner</th><th>Races</th><th class="lead">Best</th>` +
@@ -1767,12 +1851,14 @@ try { JSON.parse(load(FOLD_KEY) || '[]').forEach(s => team.folded.add(s)); } cat
 
 $('team-body').addEventListener('keydown', e => {
     const tr = e.target.closest('tr[data-runner]');
-    if (tr && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pickRunner(tr); }
+    if (tr && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pickRunner(tr.closest('section'), tr); }
 });
 
 $('team-body').addEventListener('click', e => {
     const tr = e.target.closest('tr[data-runner]');
-    if (tr) { pickRunner(tr); return; }
+    if (tr) { pickRunner(tr.closest('section'), tr); return; }
+    const back = e.target.closest('[data-teamview]');
+    if (back) { pickRunner(back.closest('section'), null); return; }
     const btn = e.target.closest('[data-squad]');
     if (!btn) return;
     const squad = btn.dataset.squad;

@@ -252,19 +252,30 @@ squad — so every time is visible before anything is summarised.
   still identical after the whole last name show in full. The full name is in
   the cell's title (hover) and aria-label. Only this grid shortens names; the
   edit screen always shows them in full, since that is where they are fixed.
-- **Progression chart.** Each open section starts with one runner's season
-  as a line — their time at each meet, faster plotted higher, season best
-  labelled — above the grid. It starts on the squad's fastest runner; tapping
-  a row (or Enter on it) charts that runner without re-rendering, so a grid
-  scrolled sideways stays put. The axis is fitted to that runner's times
-  alone. The squad's median at each meet was first drawn as a gray context
-  line, but it sat minutes away from a varsity runner (it counts the whole JV
-  squad) and squashed the runner's line flat, and it also shifts with who was
-  entered — so it is a figure in the tooltip ("Team median that day"), next to
-  the race and place, not a line. Hand-drawn SVG (`lineChart()`), no library;
-  the accent was checked against `--surface` in both themes with the dataviz
-  palette validator. Raw times still carry course differences, and the chart
-  does not adjust for them.
+- **Progression chart.** Each open section has a chart above the grid,
+  faster plotted higher. It opens on the **team view** (`drawTeamChart()`):
+  two lines per meet, the **top-5 average** (the scoring five, whichever race
+  they ran; blank at a meet with fewer than five) and the **whole-team
+  average** (every squad runner there, varsity and JV). The owner chose that
+  pair over a top-7 or median line. The whole-team line moves with how many JV
+  were entered as much as with how anyone ran — the caption says so and the
+  tooltip gives the runner count. On one axis the two sit minutes apart, so
+  each line's meet-to-meet movement reads flatter than it would alone.
+- **Tapping a row** (or Enter on it) switches to that runner
+  (`drawRunnerChart()`): their time at each meet, season best labelled, axis
+  fitted to their times alone. Team figures for the day — top-5 and team
+  average — ride in the tooltip, not as lines: drawn on the runner's axis an
+  earlier team median line sat minutes away and squashed the runner's line
+  flat. **Back to the team**: the "← Team averages" button, or tapping the
+  charted runner's row again. Switching never re-renders the grid, so one
+  scrolled sideways stays put.
+- **Chart mechanics.** Hand-drawn SVG (`lineChart()`), no library. The axis
+  runs tick to tick (`tickStep()`), so every line has a labelled gridline above
+  and below it. Blue (`--series-1`) is a runner or the top five, orange
+  (`--series-2`) the whole team; the pair passed the dataviz palette validator
+  against `--surface` in both themes, with light orange just under 3:1, so
+  team lines carry direct end labels ("Top 5", "Team") as well as the legend.
+  Raw times still carry course differences, and neither view adjusts for them.
 - **Reading a meet off the chart** works three ways, and they differ because
   the devices do. *Mouse*: a crosshair follows the pointer, snapping to the
   nearest meet, and leaving hides it. *Touch or pen*: there is no hover —
