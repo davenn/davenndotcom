@@ -605,7 +605,7 @@
 <div class="modal hidden" id="paste" role="dialog" aria-modal="true" aria-labelledby="paste-title">
     <div class="modal-box wide">
         <div class="modal-title" id="paste-title">Paste results</div>
-        <p class="msg">Copy one race's results from MileSplit or Athletic.net (one event and division) and paste them below. Each line needs a name, school and time, plus a grade unless the columns are tab-separated; place and points are optional. The "Only these schools" filter applies.</p>
+        <p class="msg">Copy one race's results from MileSplit, Athletic.net or PT Timing (one event and division) and paste them below. Each line needs a name, school and time, plus a grade unless the columns are tab-separated; place and points are optional. The "Only these schools" filter applies.</p>
         <div class="pastefields">
             <div class="field"><label for="paste-race">Race</label>
                 <input id="paste-race" type="text" maxlength="80" placeholder="Varsity Boys"></div>
@@ -1026,6 +1026,42 @@ function parseSpaced(line) {
     return null;
 }
 
+/**
+ * PT Timing's results copy as five lines per runner, not one:
+ *     1<tab>Benjamin Motelet
+ *     Verona Area [SR] - 7760        school, [grade], bib
+ *     16:44.7
+ *     -                              gap to the leader ("+6.6")
+ *     1                              team-score place
+ * A runner starts at a "place name" line followed by a "School [GR]" line;
+ * the time is the next time-shaped line. Bib, gap and score are ignored.
+ * Returns { rows, skipped } when the paste is in this format, else null so
+ * the line-by-line parsers take over.
+ */
+const PT_SCHOOL = /^(.+?)\s*\[\s*([A-Za-z]{2}|\d{1,2})\s*\](?:\s*-\s*\S+)?$/;
+function parsePtTiming(text) {
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const rows = [], skipped = [];
+    let found = false;
+    for (let i = 0; i < lines.length; i++) {
+        const head = /^(\d+)\.?\s+(\D.*)$/.exec(lines[i]);
+        const sch = i + 1 < lines.length ? PT_SCHOOL.exec(lines[i + 1]) : null;
+        if (!head || !sch) continue;
+        found = true;
+        // The time sits on the line after the school; allow one stray line
+        // between, but never reach into the next runner.
+        let time = null, j = i + 2;
+        for (; j <= i + 3 && j < lines.length; j++) {
+            if (TIME_RE.test(lines[j])) { time = lines[j]; break; }
+            if (/^\d+\.?\s+\D/.test(lines[j])) break;
+        }
+        if (!time) { skipped.push(head[2] + ' · ' + sch[1].trim()); continue; }
+        rows.push({ place: +head[1], name: personName(head[2]), grade: gradeOf(sch[2].toUpperCase()), school: sch[1].trim(), time });
+        i = j;
+    }
+    return found ? { rows, skipped } : null;
+}
+
 function openPaste() {
     $('paste-error').classList.add('hidden');
     $('paste-text').value = '';
@@ -1083,8 +1119,10 @@ $('paste-go').addEventListener('click', async () => {
     const dist = parseInt($('paste-dist').value, 10) || 0;
     const fail = msg => { $('paste-error').textContent = msg; $('paste-error').classList.remove('hidden'); };
 
-    const parsed = [], skipped = [];
-    $('paste-text').value.split(/\r?\n/).forEach(line => {
+    // PT Timing's five-lines-a-runner layout first; otherwise one runner per line.
+    const pt = parsePtTiming($('paste-text').value);
+    const parsed = pt ? pt.rows : [], skipped = pt ? pt.skipped : [];
+    if (!pt) $('paste-text').value.split(/\r?\n/).forEach(line => {
         if (!line.trim()) return;
         const r = parseLine(line);
         if (r) parsed.push(r);
@@ -1106,7 +1144,9 @@ $('paste-go').addEventListener('click', async () => {
         });
         const notes = [...(r.warnings || [])];
         if (skipped.length) {
-            notes.push(`${skipped.length} line(s) with a time could not be split into name, grade and school, e.g. "${skipped[0].slice(0, 80)}". Add those runners by hand if they matter.`);
+            notes.push(pt
+                ? `${skipped.length} runner(s) had no finishing time (DNF, DNS, DQ) and were left out, e.g. "${skipped[0].slice(0, 80)}".`
+                : `${skipped.length} line(s) with a time could not be split into name, grade and school, e.g. "${skipped[0].slice(0, 80)}". Add those runners by hand if they matter.`);
         }
         closePaste();
         if (appending && review) {

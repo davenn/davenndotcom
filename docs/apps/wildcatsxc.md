@@ -150,6 +150,23 @@ leads it, the line is read as Athletic.net's order with the tabs lost — grade,
 name, time, school. Space-separated lines without a grade are ambiguous and
 skipped — reported in the review with an example, never guessed.
 
+**PT Timing (`parsePtTiming()`)** copies as five lines per runner, so it is
+tried first, on the whole paste, before the line-by-line parsers:
+
+```
+1<tab>Benjamin Motelet          place, name
+Verona Area [SR] - 7760         school, [grade], bib
+16:44.7                         time
+-                               gap to the leader ("+6.6")
+1                               team-score place
+```
+
+A runner starts at a "place name" line followed by a "School [GR]" line —
+that pair is how the format is recognised, and MileSplit or Athletic.net
+pastes never contain it. The time is the next time-shaped line (one stray line
+allowed, never reaching into the next runner); bib, gap and score are ignored.
+A runner with no time (DNF, DNS) is left out and counted in the review note.
+
 Either way, "Last, First" is reordered.
 
 The race name and distance come from the paste box (default 5000m), and the
