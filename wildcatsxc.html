@@ -1292,12 +1292,37 @@ $('delete-meet').addEventListener('click', async () => {
 const TEAM_KEY = 'wildcatsxc_team';
 let team = { schools: null, school: null, results: null, season: null, dist: null };
 
-// Runners carry no gender, so the squad is read off the race name. Girls is
-// tested first because "women" contains "men".
+// What a race name says about who ran it: Girls, Boys, or nothing ('Other')
+// for names like "Varsity" or "JV1". Girls is tested first because "women"
+// contains "men".
 function squadOf(race) {
     if (/girl|women|female|\bw\b|\bg\b/i.test(race)) return 'Girls';
     if (/boy|\bmen\b|male|\bm\b|\bb\b/i.test(race)) return 'Boys';
     return 'Other';
+}
+
+/**
+ * Each runner's squad, decided per runner rather than per race. Plenty of
+ * sheets name a race just "Varsity" or "JV1", and splitting by race name put
+ * those results in a separate section, cutting a runner's season in two. A
+ * runner only ever races one gender's races, so any race of theirs that does
+ * name one settles it for all of them. Only a runner with no named race at
+ * all is left in 'Other'. Uses every result for the school, not just the
+ * filtered ones, so a label from another season or distance still counts.
+ */
+function squadsByRunner(results) {
+    const seen = new Map();
+    results.forEach(r => {
+        const s = squadOf(r.race);
+        if (s === 'Other') return;
+        const c = seen.get(r.athlete_id) || { Boys: 0, Girls: 0 };
+        c[s]++;
+        seen.set(r.athlete_id, c);
+    });
+    return id => {
+        const c = seen.get(id);
+        return !c ? 'Other' : (c.Girls > c.Boys ? 'Girls' : 'Boys');
+    };
 }
 
 const shortDate = ymd => {
@@ -1373,8 +1398,9 @@ function renderTeam() {
     fillSelect('t-dist', dists, team.dist, d => d ? distLabel(d) : 'Unknown distance');
 
     const rows = inSeason.filter(r => r.distance_m === team.dist);
+    const squad = squadsByRunner(all);
     $('team-body').innerHTML = ['Boys', 'Girls', 'Other']
-        .map(sq => squadCard(sq, rows.filter(r => squadOf(r.race) === sq)))
+        .map(sq => squadCard(sq, rows.filter(r => squad(r.athlete_id) === sq)))
         .join('');
 }
 

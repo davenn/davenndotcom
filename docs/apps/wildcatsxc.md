@@ -222,10 +222,16 @@ squad — so every time is visible before anything is summarised.
 - `xc_schools` fills the team picker (most results first); `xc_results`
   returns that school's results flat, and the page arranges them. The last
   team picked is remembered in `localStorage['wildcatsxc_team']`.
-- **Squad comes from the race name** (`squadOf()`): runners carry no gender,
-  so "Varsity Girls" / "Women" → Girls, "Boys" / "Men" → Boys, anything else
-  → "Other races". Girls is tested first because "women" contains "men". A
-  race named without either word lands in Other — rename it in the meet.
+- **Squad is decided per runner** (`squadsByRunner()`), not per race. Runners
+  carry no gender, so it is read off race names (`squadOf()`: "Varsity Girls"
+  / "Women" → Girls, "Boys" / "Men" → Boys; Girls tested first because
+  "women" contains "men"). But many sheets name a race just "Varsity" or
+  "JV1", and splitting race by race cut those runners' seasons in two — in
+  the first real data, 82 of Verona's 203 results sat in a separate "Other"
+  section. A runner only races one gender's races, so any named race of theirs
+  places all of them, across every season and distance. Only a runner whose
+  races are all unnamed lands in "Other races" — naming one of their races
+  (edit the meet) moves them.
 - **Season and distance filter the whole page.** A time at 4K and one at 5K
   are not comparable, so only one distance is shown — the one the team ran
   most — with a picker that appears only when there is a choice (the season
