@@ -179,7 +179,7 @@
     <h1>API Reference</h1>
     <p class="lede">Every app on davenn.com is served by a single <code class="inline">api.php</code>. Endpoints are selected by an <code class="inline">action</code> query parameter and always return JSON.</p>
     <div class="base">https://davenn.com/api.php?action=&lt;action&gt;</div>
-    <p class="counts">71 endpoints · 27 tables</p>
+    <p class="counts">73 endpoints · 27 tables</p>
 
     <div class="filter-row">
         <input type="search" id="filter" placeholder="Filter endpoints…" aria-label="Filter endpoints">
@@ -1131,6 +1131,25 @@
                 <p class="op-desc">{url}</p>
             </div>
         </div>
+        <div class="op get" id="get-xc_results" data-search="xc_results get wildcatsxc date order, for the team tab to arrange. flat rather than pre-arranged: a">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=xc_results</span>
+                <span class="op-sum">date order, for the Team tab to arrange. Flat rather than pre-arranged: a</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">date order, for the Team tab to arrange. Flat rather than pre-arranged: a school's season is a few hundred rows, and how they are grouped (boys and girls, which distance) is a view choice that belongs in the browser.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">WildcatsXC team PIN — <code class="inline">X-XC-PIN</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;school=X — every result for one school, flat and in</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">school</td></tr>
+                </tbody></table></div>
+            </div>
+        </div>
         <div class="op post" id="post-xc_save_meet" data-search="xc_save_meet post wildcatsxc with meet_id, the rows replace that meet's results — the edit path, where a">
             <button class="op-head" type="button" aria-expanded="false">
                 <span class="method">POST</span>
@@ -1159,6 +1178,21 @@
                 <p class="op-desc">WildcatsXC team PIN — <code class="inline">X-XC-PIN</code></p>
                 <h4>Takes</h4>
                 <p class="op-desc">(multipart: files[] — page photos or PDFs; optional schools)</p>
+            </div>
+        </div>
+        <div class="op get" id="get-xc_schools" data-search="xc_schools get wildcatsxc counts, most results first. feeds the team picker on the team tab.">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=xc_schools</span>
+                <span class="op-sum">counts, most results first. Feeds the team picker on the Team tab.</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">counts, most results first. Feeds the team picker on the Team tab.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">WildcatsXC team PIN — <code class="inline">X-XC-PIN</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">every school on record with its runner and result</p>
             </div>
         </div>
     </section>

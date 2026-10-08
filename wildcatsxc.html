@@ -318,6 +318,52 @@
             max-width: calc(100% - 32px);
         }
 
+        /* ── VIEW TABS ── */
+        .viewtabs { display: flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; width: max-content; }
+        .viewtabs button {
+            padding: 8px 18px; background: none; border: none; cursor: pointer;
+            font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em;
+            text-transform: uppercase; color: var(--text-secondary);
+        }
+        .viewtabs button[aria-selected="true"] { background: var(--text-primary); color: var(--page); }
+        .viewpane { display: grid; gap: 14px; }
+        /* Grid items default to min-width: auto and grow to fit a wide table;
+           this lets them stay page-width so the table scrolls inside its card. */
+        .wrap > *, .viewpane > * { min-width: 0; }
+        #team-view.refreshing #team-body { opacity: 0.55; transition: opacity 0.15s; }
+
+        /* ── TEAM ── */
+        .filters { display: flex; flex-wrap: wrap; gap: 8px; }
+        .filters select {
+            font-family: var(--font-mono); font-size: 13px; padding: 9px 10px; max-width: 100%;
+            background: var(--surface); color: var(--text-primary);
+            border: 1px solid var(--border); border-radius: 9px;
+        }
+        .card-sub { font-size: 12px; color: var(--text-muted); margin: -6px 0 12px; line-height: 1.45; }
+        /* The season grid: a runner per row, a meet per column. It scrolls
+           sideways on a phone with the runner column pinned, so a name never
+           leaves the screen while their times do. */
+        .gridwrap { overflow-x: auto; }
+        table.season { border-collapse: separate; border-spacing: 0; font-size: 13px; min-width: 100%; }
+        table.season th, table.season td {
+            padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap;
+            text-align: right; font-variant-numeric: tabular-nums;
+        }
+        table.season thead th {
+            font-family: var(--font-mono); font-size: 10px; font-weight: 400; letter-spacing: 0.06em;
+            text-transform: uppercase; color: var(--text-muted); vertical-align: bottom;
+        }
+        table.season thead th small {
+            display: block; max-width: 92px; overflow: hidden; text-overflow: ellipsis;
+            text-transform: none; letter-spacing: 0; font-family: var(--font-ui); font-size: 11px; margin-top: 2px;
+        }
+        table.season tbody tr:last-child td { border-bottom: none; }
+        table.season .who { text-align: left; position: sticky; left: 0; z-index: 1; background: var(--surface); padding-left: 0; }
+        table.season .who small { display: block; color: var(--text-muted); font-size: 11px; margin-top: 1px; }
+        table.season .sb { font-weight: 600; }
+        table.season .none { color: var(--text-muted); }
+        table.season .lead { border-right: 1px solid var(--border); }
+
         footer { text-align: center; padding: 28px 16px 40px; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
         footer a { color: var(--text-muted); }
 
@@ -356,9 +402,15 @@
         <div class="banner bad hidden" id="pin-error" style="margin-top:12px"></div>
     </section>
 
+    <div class="viewtabs hidden" id="viewtabs" role="tablist">
+        <button type="button" role="tab" id="tab-meets" aria-selected="true">Meets</button>
+        <button type="button" role="tab" id="tab-team" aria-selected="false">Team</button>
+    </div>
+
     <div class="banner bad hidden" id="page-error"></div>
 
-    <section class="card hidden" id="scan-card">
+    <div class="viewpane hidden" id="meets-view">
+    <section class="card" id="scan-card">
         <div class="card-title">Scan a meet</div>
         <div class="field">
             <label for="schools">Only these schools</label>
@@ -381,10 +433,21 @@
         </div>
     </section>
 
-    <section class="card hidden" id="meets-card">
+    <section class="card" id="meets-card">
         <div class="card-title"><span>Meets</span><span id="meets-note"></span></div>
         <div id="meets"></div>
     </section>
+    </div>
+
+    <!-- Team: one school's runners and every time they ran, a section per squad. -->
+    <div class="viewpane hidden" id="team-view">
+        <div class="filters">
+            <select id="t-school" aria-label="Team"></select>
+            <select id="t-season" aria-label="Season" class="hidden"></select>
+            <select id="t-dist" aria-label="Distance" class="hidden"></select>
+        </div>
+        <div id="team-body"></div>
+    </div>
 
 </div>
 
@@ -494,6 +557,7 @@ let pin = load(PIN_KEY);
 // saved meet being edited. Rows are flat and carry their race; the overlay
 // groups them for display.
 let review    = null;
+let view      = load('wildcatsxc_view') === 'team' ? 'team' : 'meets';
 let appending = false;
 let nextUid   = 1;
 
@@ -558,6 +622,7 @@ $('pin-form').addEventListener('submit', async e => {
         $('pin').value = '';
         render();
         renderMeets(d.meets);
+        if (view === 'team') loadTeam();
     } catch (err) {
         pin = null;
         $('pin-error').textContent = err.message;
@@ -579,8 +644,11 @@ function lock() {
 function render() {
     const inn = !!pin;
     $('locked').classList.toggle('hidden', inn);
-    $('scan-card').classList.toggle('hidden', !inn);
-    $('meets-card').classList.toggle('hidden', !inn);
+    $('viewtabs').classList.toggle('hidden', !inn);
+    $('meets-view').classList.toggle('hidden', !inn || view !== 'meets');
+    $('team-view').classList.toggle('hidden', !inn || view !== 'team');
+    $('tab-meets').setAttribute('aria-selected', String(view === 'meets'));
+    $('tab-team').setAttribute('aria-selected', String(view === 'team'));
     $('lock-btn').classList.toggle('hidden', !inn);
     if (!inn) { showError(''); setTimeout(() => $('pin').focus(), 0); }
 }
@@ -1176,6 +1244,7 @@ $('save').addEventListener('click', async () => {
         });
         closeOverlay();
         toast('Saved ' + r.saved + (r.saved === 1 ? ' result' : ' results'));
+        team.schools = null; team.results = null;
         loadMeets();
     } catch (e) {
         box.textContent = e.message; box.classList.remove('hidden');
@@ -1209,12 +1278,145 @@ $('delete-meet').addEventListener('click', async () => {
         await api('?action=xc_meet&id=' + review.meet_id, { method: 'DELETE' });
         closeOverlay();
         toast('Meet deleted');
+        team.schools = null; team.results = null;
         loadMeets();
     } catch (e) {
         $('review-error').textContent = e.message;
         $('review-error').classList.remove('hidden');
     }
 });
+
+// ── Team ─────────────────────────────────────────────────────────────────
+// One school's season: every runner, their grade, and the time they ran at
+// each meet — a runner per row, a meet per column, a section per squad.
+const TEAM_KEY = 'wildcatsxc_team';
+let team = { schools: null, school: null, results: null, season: null, dist: null };
+
+// Runners carry no gender, so the squad is read off the race name. Girls is
+// tested first because "women" contains "men".
+function squadOf(race) {
+    if (/girl|women|female|\bw\b|\bg\b/i.test(race)) return 'Girls';
+    if (/boy|\bmen\b|male|\bm\b|\bb\b/i.test(race)) return 'Boys';
+    return 'Other';
+}
+
+const shortDate = ymd => {
+    const [y, m, d] = ymd.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString([], { month: 'short', day: 'numeric' });
+};
+const distLabel = m => !m ? 'an unrecorded distance' : (m === 3219 ? '2 miles' : (m % 1000 === 0 ? (m / 1000) + 'K' : m + 'm'));
+
+/** Milliseconds as results print them: tenths or hundredths only when present. Mirrors xcFormatTime(). */
+function fmtTime(ms) {
+    const s = Math.floor(ms / 1000), frac = ms % 1000;
+    const out = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+    if (!frac) return out;
+    return out + '.' + (frac % 100 === 0 ? String(frac / 100) : String(Math.floor(frac / 10)).padStart(2, '0'));
+}
+
+function setView(v) {
+    view = v;
+    store('wildcatsxc_view', v);
+    render();
+    if (v === 'team') loadTeam();
+}
+
+async function loadTeam() {
+    if (!pin) return;
+    $('team-view').classList.add('refreshing');      // hold the last render while fetching
+    try {
+        if (!team.schools) team.schools = (await api('?action=xc_schools')).schools;
+        if (!team.schools.length) {
+            $('t-school').classList.add('hidden');
+            $('team-body').innerHTML = '<section class="card"><p class="msg">No results saved yet. Add a meet on the Meets tab first.</p></section>';
+            return;
+        }
+        $('t-school').classList.remove('hidden');
+        const saved = team.school || load(TEAM_KEY);
+        const want = team.schools.some(s => s.school === saved) ? saved : team.schools[0].school;
+        $('t-school').innerHTML = team.schools.map(s =>
+            `<option value="${esc(s.school)}"${s.school === want ? ' selected' : ''}>${esc(s.school)} (${s.athletes})</option>`).join('');
+        if (team.school !== want || !team.results) {
+            team.results = (await api('?action=xc_results&school=' + encodeURIComponent(want))).results;
+            team.school = want;
+        }
+        store(TEAM_KEY, want);
+        showError('');
+        renderTeam();
+    } catch (e) {
+        showError(e.message);
+    } finally {
+        $('team-view').classList.remove('refreshing');
+    }
+}
+
+function fillSelect(id, values, selected, label) {
+    $(id).innerHTML = values.map(v =>
+        `<option value="${esc(v)}"${String(v) === String(selected) ? ' selected' : ''}>${esc(label(v))}</option>`).join('');
+    $(id).classList.toggle('hidden', values.length < 2);   // a choice of one is not a choice
+}
+
+function renderTeam() {
+    const all = team.results;
+    if (!all.length) { $('team-body').innerHTML = ''; return; }
+
+    // Season, then distance: times only compare at one distance, so the
+    // page shows the one this team ran most unless another is picked.
+    const seasons = [...new Set(all.map(r => r.date.slice(0, 4)))].sort().reverse();
+    if (!seasons.includes(team.season)) team.season = seasons[0];
+    const inSeason = all.filter(r => r.date.startsWith(team.season));
+    const count = {};
+    inSeason.forEach(r => { count[r.distance_m] = (count[r.distance_m] || 0) + 1; });
+    const dists = Object.keys(count).map(Number).sort((a, b) => count[b] - count[a]);
+    if (!dists.includes(team.dist)) team.dist = dists[0];
+    fillSelect('t-season', seasons, team.season, y => y + ' season');
+    fillSelect('t-dist', dists, team.dist, d => d ? distLabel(d) : 'Unknown distance');
+
+    const rows = inSeason.filter(r => r.distance_m === team.dist);
+    $('team-body').innerHTML = ['Boys', 'Girls', 'Other']
+        .map(sq => squadCard(sq, rows.filter(r => squadOf(r.race) === sq)))
+        .join('');
+}
+
+function squadCard(squad, rows) {
+    if (!rows.length) return '';
+    const meets = [];                 // in date order, as the API sends them
+    rows.forEach(r => { if (!meets.some(m => m.id === r.meet_id)) meets.push({ id: r.meet_id, name: r.meet, date: r.date }); });
+    const by = new Map();
+    rows.forEach(r => {
+        if (!by.has(r.athlete_id)) by.set(r.athlete_id, { name: r.name, grade: 0, times: new Map() });
+        const a = by.get(r.athlete_id);
+        a.times.set(r.meet_id, r.time_ms);
+        if (r.grade) a.grade = r.grade;          // rows are in date order, so this ends on the latest
+    });
+    const runners = [...by.values()]
+        .map(a => Object.assign(a, { best: Math.min(...a.times.values()) }))
+        .sort((x, y) => x.best - y.best);
+
+    const head = `<tr><th class="who lead">Runner</th><th>Races</th><th class="lead">Best</th>` +
+        meets.map(m => `<th title="${esc(m.name)}">${esc(shortDate(m.date))}<small>${esc(m.name)}</small></th>`).join('') + '</tr>';
+    const body = runners.map(a => `<tr>
+        <td class="who lead">${esc(a.name)}<small>${a.grade ? 'Grade ' + a.grade : '&nbsp;'}</small></td>
+        <td>${a.times.size}</td>
+        <td class="lead sb">${fmtTime(a.best)}</td>` +
+        meets.map(m => {
+            const t = a.times.get(m.id);
+            return t === undefined ? '<td class="none">—</td>' : `<td${t === a.best ? ' class="sb"' : ''}>${fmtTime(t)}</td>`;
+        }).join('') + '</tr>').join('');
+
+    const label = squad === 'Other' ? 'Other races' : squad;
+    return `<section class="card">
+        <div class="card-title"><span>${esc(label)}</span><span>${runners.length} runner${runners.length === 1 ? '' : 's'}</span></div>
+        <p class="card-sub">Fastest season best first. Bold marks each runner's season best; times are at ${esc(distLabel(team.dist))}.</p>
+        <div class="gridwrap"><table class="season"><thead>${head}</thead><tbody>${body}</tbody></table></div>
+    </section>`;
+}
+
+$('tab-meets').addEventListener('click', () => setView('meets'));
+$('tab-team').addEventListener('click', () => setView('team'));
+$('t-school').addEventListener('change', e => { team.school = e.target.value; team.results = null; loadTeam(); });
+$('t-season').addEventListener('change', e => { team.season = e.target.value; renderTeam(); });
+$('t-dist').addEventListener('change', e => { team.dist = +e.target.value; renderTeam(); });
 
 // ── Wiring ───────────────────────────────────────────────────────────────
 $('lock-btn').addEventListener('click', lock);
@@ -1233,6 +1435,7 @@ if ('serviceWorker' in navigator) {
 
 render();
 loadMeets();
+if (view === 'team') loadTeam();
 </script>
 </body>
 </html>

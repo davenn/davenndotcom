@@ -213,6 +213,32 @@ the two in step.
 - **Effort `medium`** set explicitly. Raise it if reads of rough photos come
   back with gaps; lower it if speed matters more.
 
+## Team tab
+
+The first of the metrics views, and deliberately a plain one: one school's
+season laid out as a grid — a runner per row, a meet per column, a section per
+squad — so every time is visible before anything is summarised.
+
+- `xc_schools` fills the team picker (most results first); `xc_results`
+  returns that school's results flat, and the page arranges them. The last
+  team picked is remembered in `localStorage['wildcatsxc_team']`.
+- **Squad comes from the race name** (`squadOf()`): runners carry no gender,
+  so "Varsity Girls" / "Women" → Girls, "Boys" / "Men" → Boys, anything else
+  → "Other races". Girls is tested first because "women" contains "men". A
+  race named without either word lands in Other — rename it in the meet.
+- **Season and distance filter the whole page.** A time at 4K and one at 5K
+  are not comparable, so only one distance is shown — the one the team ran
+  most — with a picker that appears only when there is a choice (the season
+  picker likewise).
+- Columns: runner (with their latest recorded grade), races run, season best,
+  then each meet in date order. Sorted fastest season best first; the season
+  best is bold in its meet column too. A dash means the runner did not race
+  that meet at this distance.
+- The grid scrolls sideways inside its card with the runner column pinned
+  (`position: sticky`). That needs `min-width: 0` on the layout's grid items —
+  without it a grid item grows to fit the table and pushes the card off the
+  page.
+
 ## Front-end notes
 
 - Rows are flat in state and each carries its race; the overlay groups them.
