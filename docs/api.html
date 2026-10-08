@@ -179,7 +179,7 @@
     <h1>API Reference</h1>
     <p class="lede">Every app on davenn.com is served by a single <code class="inline">api.php</code>. Endpoints are selected by an <code class="inline">action</code> query parameter and always return JSON.</p>
     <div class="base">https://davenn.com/api.php?action=&lt;action&gt;</div>
-    <p class="counts">69 endpoints · 27 tables</p>
+    <p class="counts">70 endpoints · 27 tables</p>
 
     <div class="filter-row">
         <input type="search" id="filter" placeholder="Filter endpoints…" aria-label="Filter endpoints">
@@ -1048,6 +1048,21 @@
     </section>
     <section class="grp">
         <h2 class="tag">WildcatsXC</h2>
+        <div class="op post" id="post-xc_match" data-search="xc_match post wildcatsxc lines rows the app parsed itself — results pasted from a site such as">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=xc_match</span>
+                <span class="op-sum">Lines rows the app parsed itself — results pasted from a site such as</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">Lines rows the app parsed itself — results pasted from a site such as MileSplit — up against the stored athletes, exactly as xc_scan does for a read sheet, so a paste gets the same known / new / &quot;same as&quot; tags. Saves nothing. The parsing stays in the browser: pasted text is regular enough that a model read would only add cost and minutes.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">WildcatsXC team PIN — <code class="inline">X-XC-PIN</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">{rows:[{race, distance_m, place, name, grade, school, time}]}</p>
+            </div>
+        </div>
         <div class="op delete" id="delete-xc_meet" data-search="xc_meet delete wildcatsxc results anywhere go with it.">
             <button class="op-head" type="button" aria-expanded="false">
                 <span class="method">DELETE</span>

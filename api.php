@@ -3514,6 +3514,56 @@ function xcPruneAthletes(PDO $pdo): void {
 }
 
 /**
+ * Line freshly read or pasted rows up against the stored athletes. A school
+ * that normalises to a stored one takes the stored spelling; an exact name +
+ * school match is marked existing and takes the stored name; a new name close
+ * to a stored teammate's carries that name as `similar`, for the coach to
+ * accept or ignore. Unusable times are blanked so the row shows as needing one.
+ * Returns ['rows' => [...], 'warnings' => [...]].
+ */
+function xcMatchRows(PDO $pdo, array $rows): array {
+    $by_key = []; $by_school = []; $school_spelling = [];
+    foreach ($pdo->query("SELECT name, school, match_key FROM xc_athletes")->fetchAll() as $a) {
+        $by_key[$a['match_key']] = $a;
+        $sn = xcSchoolNorm($a['school']);
+        $by_school[$sn][] = $a;
+        $school_spelling[$sn] = $a['school'];
+    }
+    $keys_in_batch = [];
+    foreach ($rows as $r) $keys_in_batch[xcKey($r['name'], $r['school'])] = true;
+
+    $warnings = []; $no_time = 0;
+    foreach ($rows as &$r) {
+        $sn = xcSchoolNorm($r['school']);
+        if (isset($school_spelling[$sn])) $r['school'] = $school_spelling[$sn];
+        $key = xcKey($r['name'], $r['school']);
+        $r['status']  = 'new';
+        $r['similar'] = null;
+        if (isset($by_key[$key])) {
+            $r['status'] = 'existing';
+            $r['name']   = $by_key[$key]['name'];
+        } else {
+            // Suggest, never merge: a near miss is offered only when the
+            // existing athlete is not also in this batch under their own name.
+            $n = xcNorm($r['name']);
+            foreach ($by_school[$sn] ?? [] as $a) {
+                if (isset($keys_in_batch[$a['match_key']])) continue;
+                $an = xcNorm($a['name']);
+                if (strlen($n) >= 5 && $n[0] === ($an[0] ?? '') && levenshtein($n, $an) <= 2) { $r['similar'] = $a['name']; break; }
+            }
+        }
+        if ($r['time'] !== '' && xcParseTime($r['time']) === null) {
+            $warnings[] = $r['name'] . ': could not make sense of the time "' . $r['time'] . '".';
+            $r['time'] = '';
+        }
+        if ($r['time'] === '') $no_time++;
+    }
+    unset($r);
+    if ($no_time) $warnings[] = $no_time . ' runner(s) need a time entered.';
+    return ['rows' => $rows, 'warnings' => $warnings];
+}
+
+/**
  * Gate for every WildcatsXC endpoint: the X-XC-PIN header must match XC_PIN
  * from .env. Unset, the app stays locked rather than open.
  *
@@ -3766,46 +3816,7 @@ if ($method === 'POST' && $action === 'xc_scan') {
         ]); exit;
     }
 
-    // Line the rows up against the athletes already on record.
-    $st = $pdo->query("SELECT name, school, match_key FROM xc_athletes");
-    $by_key = []; $by_school = []; $school_spelling = [];
-    foreach ($st->fetchAll() as $a) {
-        $by_key[$a['match_key']] = $a;
-        $sn = xcSchoolNorm($a['school']);
-        $by_school[$sn][] = $a;
-        $school_spelling[$sn] = $a['school'];
-    }
-    $keys_in_scan = [];
-    foreach ($rows as $r) $keys_in_scan[xcKey($r['name'], $r['school'])] = true;
-
-    $warnings = []; $no_time = 0;
-    foreach ($rows as &$r) {
-        $sn = xcSchoolNorm($r['school']);
-        if (isset($school_spelling[$sn])) $r['school'] = $school_spelling[$sn];
-        $key = xcKey($r['name'], $r['school']);
-        $r['status']  = 'new';
-        $r['similar'] = null;
-        if (isset($by_key[$key])) {
-            $r['status'] = 'existing';
-            $r['name']   = $by_key[$key]['name'];
-        } else {
-            // Suggest, never merge: a near miss is offered only when the
-            // existing athlete is not also on this sheet under their own name.
-            $n = xcNorm($r['name']);
-            foreach ($by_school[$sn] ?? [] as $a) {
-                if (isset($keys_in_scan[$a['match_key']])) continue;
-                $an = xcNorm($a['name']);
-                if (strlen($n) >= 5 && $n[0] === ($an[0] ?? '') && levenshtein($n, $an) <= 2) { $r['similar'] = $a['name']; break; }
-            }
-        }
-        if ($r['time'] !== '' && xcParseTime($r['time']) === null) {
-            $warnings[] = $r['name'] . ': could not make sense of the time "' . $r['time'] . '".';
-            $r['time'] = '';
-        }
-        if ($r['time'] === '') $no_time++;
-    }
-    unset($r);
-    if ($no_time) $warnings[] = $no_time . ' runner(s) need a time entered.';
+    $matched = xcMatchRows($pdo, $rows);
 
     echo json_encode([
         'success'  => true,
@@ -3816,9 +3827,38 @@ if ($method === 'POST' && $action === 'xc_scan') {
             'location' => trim((string)($result['location'] ?? '')),
         ],
         'note'     => (string)($result['note'] ?? ''),
-        'rows'     => $rows,
-        'warnings' => $warnings,
+        'rows'     => $matched['rows'],
+        'warnings' => $matched['warnings'],
     ]);
+    exit;
+}
+
+// POST ?action=xc_match  {rows:[{race, distance_m, place, name, grade, school, time}]}
+// Lines rows the app parsed itself — results pasted from a site such as
+// MileSplit — up against the stored athletes, exactly as xc_scan does for a
+// read sheet, so a paste gets the same known / new / "same as" tags. Saves
+// nothing. The parsing stays in the browser: pasted text is regular enough
+// that a model read would only add cost and minutes.
+if ($method === 'POST' && $action === 'xc_match') {
+    xcRequirePin($pdo);
+    $body = json_decode(file_get_contents('php://input'), true) ?: [];
+    $in   = is_array($body['rows'] ?? null) ? $body['rows'] : [];
+    if (count($in) < 1 || count($in) > 3000) { http_response_code(400); echo json_encode(['error' => 'Paste between 1 and 3000 results.']); exit; }
+
+    $rows = [];
+    foreach ($in as $r) {
+        $rows[] = [
+            'race'       => mb_substr(trim((string)($r['race'] ?? '')), 0, 80) ?: 'Race',
+            'distance_m' => min(20000, max(0, (int)($r['distance_m'] ?? 0))),
+            'place'      => min(5000, max(0, (int)($r['place'] ?? 0))),
+            'name'       => mb_substr(trim((string)($r['name'] ?? '')), 0, 80),
+            'grade'      => (int)($r['grade'] ?? 0),
+            'school'     => mb_substr(trim((string)($r['school'] ?? '')), 0, 120),
+            'time'       => mb_substr(trim((string)($r['time'] ?? '')), 0, 16),
+        ];
+    }
+    $matched = xcMatchRows($pdo, $rows);
+    echo json_encode(['success' => true, 'rows' => $matched['rows'], 'warnings' => $matched['warnings']]);
     exit;
 }
 

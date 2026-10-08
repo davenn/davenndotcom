@@ -269,6 +269,17 @@
         }
         .pinrow .banner { margin-top: 0; }
 
+        /* ── PASTE BOX ── */
+        .modal-box.wide { max-width: 620px; }
+        .pastefields { display: grid; grid-template-columns: 1fr 110px; gap: 10px; }
+        .pastefields .field + .field { margin-top: 0; }
+        #paste-text {
+            width: 100%; min-height: 220px; resize: vertical;
+            font-family: var(--font-mono); font-size: 12px; line-height: 1.5; padding: 10px 12px;
+            background: var(--page); color: var(--text-primary);
+            border: 1px solid var(--border); border-radius: 10px; white-space: pre; overflow-x: auto;
+        }
+
         .spinner {
             width: 22px; height: 22px; border: 2px solid var(--border);
             border-top-color: var(--text-primary); border-radius: 50%;
@@ -342,6 +353,7 @@
                     <circle cx="12" cy="13.2" r="3.6"/>
                 </svg>
             </button>
+            <button class="ghost" id="paste-btn" type="button">Paste results</button>
             <button class="primary" id="upload-btn" type="button">Upload photos or PDF</button>
         </div>
     </section>
@@ -370,6 +382,7 @@
 <div class="actions hidden" id="review-actions">
     <button class="danger hidden" id="delete-meet" type="button">Delete meet</button>
     <button class="ghost" id="add-page" type="button">Add a page</button>
+    <button class="ghost" id="paste-more" type="button">Paste a race</button>
     <span class="spacer"></span>
     <button class="primary" id="save" type="button">Save meet</button>
 </div>
@@ -381,6 +394,28 @@
         <div class="modal-actions">
             <button class="ghost" id="confirm-no" type="button">Cancel</button>
             <button class="danger" id="confirm-yes" type="button">Delete</button>
+        </div>
+    </div>
+</div>
+
+<!-- Paste box: one race copied from a results site such as MileSplit. Sits
+     above the review overlay so "Paste a race" can add to an open meet. -->
+<div class="modal hidden" id="paste" role="dialog" aria-modal="true" aria-labelledby="paste-title">
+    <div class="modal-box wide">
+        <div class="modal-title" id="paste-title">Paste results</div>
+        <p class="msg">Copy one race's results (on MileSplit, one event and division) and paste them below. Each line needs a name, grade, school and time; place and points are optional. The "Only these schools" filter applies.</p>
+        <div class="pastefields">
+            <div class="field"><label for="paste-race">Race</label>
+                <input id="paste-race" type="text" maxlength="80" placeholder="Varsity Boys"></div>
+            <div class="field"><label for="paste-dist">Meters</label>
+                <input id="paste-dist" type="number" min="0" max="20000" value="5000"></div>
+        </div>
+        <textarea id="paste-text" spellcheck="false" aria-label="Pasted results"
+                  placeholder="318 Jameson Rothwell SO Whitewater 21:53.20 318"></textarea>
+        <div class="banner bad hidden" id="paste-error"></div>
+        <div class="modal-actions">
+            <button class="ghost" id="paste-cancel" type="button">Cancel</button>
+            <button class="primary" id="paste-go" type="button">Read rows</button>
         </div>
     </div>
 </div>
@@ -623,6 +658,109 @@ function scanStatus(kind, msg) {
 }
 
 function withUid(r) { return Object.assign({ uid: nextUid++ }, r); }
+
+// ── Pasting ──────────────────────────────────────────────────────────────
+// Results copied off a site come as one runner per line, either space- or
+// tab-separated depending on how the page laid them out:
+//     318 Jameson Rothwell SO Whitewater 21:53.20 318
+// The grade is the anchor. Everything between the place and the grade is the
+// name, everything between the grade and the time is the school — both can
+// be several words, so neither can be found by position. Points, and any
+// PR / SR mark after the time, are ignored.
+const GRADES  = { FR: 9, SO: 10, JR: 11, SR: 12 };
+const TIME_RE = /^(?:\d{1,2}:)?\d{1,2}:\d{2}(?:\.\d{1,3})?$/;
+const gradeOf = tok => GRADES[tok] || (/^(9|10|11|12)$/.test(tok) ? +tok : 0);
+// "Rothwell, Jameson" → "Jameson Rothwell"
+const personName = s => {
+    const m = /^([^,]+),\s*(.+)$/.exec(s.trim());
+    return (m ? m[2] + ' ' + m[1] : s).replace(/\s+/g, ' ').trim();
+};
+
+function parseLine(line) {
+    const tabbed = line.includes('\t');
+    const cells  = tabbed ? line.split('\t').map(c => c.trim()).filter(Boolean) : line.trim().split(/\s+/);
+    let ti = -1;
+    for (let i = cells.length - 1; i >= 0; i--) if (TIME_RE.test(cells[i])) { ti = i; break; }
+    if (ti < 0) return null;
+
+    const place = /^\d+\.?$/.test(cells[0]) ? parseInt(cells[0], 10) : 0;
+    const body  = cells.slice(place ? 1 : 0, ti);
+    // A name is at least two words when split on spaces, one cell when tabbed.
+    const gi = body.findIndex((tok, j) => j >= (tabbed ? 1 : 2) && gradeOf(tok));
+    let name, school, grade = 0;
+    if (gi >= 0) {
+        name = body.slice(0, gi).join(' ');
+        school = body.slice(gi + 1).join(' ');
+        grade = gradeOf(body[gi]);
+    } else if (tabbed && body.length === 3) {      // First | Last | School
+        name = body[0] + ' ' + body[1]; school = body[2];
+    } else if (tabbed && body.length === 2) {      // Name | School
+        name = body[0]; school = body[1];
+    } else {
+        return null;
+    }
+    if (!name) return null;
+    return { place, name: personName(name), grade, school: school.trim(), time: cells[ti] };
+}
+
+function openPaste() {
+    $('paste-error').classList.add('hidden');
+    $('paste-text').value = '';
+    $('paste').classList.remove('hidden');
+    $('paste-race').focus();
+}
+function closePaste() { $('paste').classList.add('hidden'); }
+
+$('paste-btn').addEventListener('click', () => { appending = false; openPaste(); });
+$('paste-more').addEventListener('click', () => { appending = true; openPaste(); });
+$('paste-cancel').addEventListener('click', closePaste);
+
+$('paste-go').addEventListener('click', async () => {
+    const race = $('paste-race').value.trim() || 'Race';
+    const dist = parseInt($('paste-dist').value, 10) || 0;
+    const fail = msg => { $('paste-error').textContent = msg; $('paste-error').classList.remove('hidden'); };
+
+    const parsed = [], skipped = [];
+    $('paste-text').value.split(/\r?\n/).forEach(line => {
+        if (!line.trim()) return;
+        const r = parseLine(line);
+        if (r) parsed.push(r);
+        // Headers and blank-ish lines have no time; only report lines that
+        // look like a result the parser could not split.
+        else if (line.split(/\s+/).some(t => TIME_RE.test(t))) skipped.push(line.trim());
+    });
+    if (!parsed.length) return fail('No results found. Each line needs a name, a grade (FR/SO/JR/SR or 9–12), a school and a time.');
+
+    const only = $('schools').value.split(',').map(schoolNorm).filter(Boolean);
+    const kept = only.length ? parsed.filter(r => only.some(s => schoolNorm(r.school).includes(s))) : parsed;
+    if (!kept.length) return fail(`Read ${parsed.length} runners, but none are from the schools in "Only these schools".`);
+
+    $('paste-go').disabled = true;
+    try {
+        const r = await api('?action=xc_match', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rows: kept.map(k => Object.assign({ race, distance_m: dist }, k)) }),
+        });
+        const notes = [...(r.warnings || [])];
+        if (skipped.length) {
+            notes.push(`${skipped.length} line(s) with a time could not be split into name, grade and school, e.g. "${skipped[0].slice(0, 80)}". Add those runners by hand if they matter.`);
+        }
+        closePaste();
+        if (appending && review) {
+            review.rows.push(...r.rows.map(withUid));
+            review.notes.push(...notes);
+        } else {
+            review = { meet_id: null, name: '', date: '', location: '', rows: r.rows.map(withUid), notes };
+        }
+        renderReview();
+        toast(`Read ${r.rows.length} runner${r.rows.length === 1 ? '' : 's'} into ${race}`);
+    } catch (e) {
+        fail(e.message);
+    } finally {
+        $('paste-go').disabled = false;
+    }
+});
 
 // ── Overlay ──────────────────────────────────────────────────────────────
 function openOverlay(title, html) {

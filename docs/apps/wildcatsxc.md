@@ -52,6 +52,39 @@ upload).
 **Add a page** appends a second scan to the meet open for review — for a sheet
 that runs across pages photographed separately.
 
+## Pasting results
+
+The other way in: copy one race off a results site (MileSplit's formatted
+results, one event and division per page) and paste it. **Paste a race** adds
+another race to the meet open for review, so a meet's races go in one after
+another.
+
+Parsing happens in the browser (`parseLine()`), not through Claude — pasted
+text is regular enough that a model read would only add cost and minutes.
+`xc_match` then runs the rows through the same `xcMatchRows()` a scan uses, so
+pasted runners get the same known / new / "Same as …?" tags.
+
+A line splits on whitespace, or on tabs when the browser copied a table:
+
+```
+318 Jameson Rothwell SO Whitewater 21:53.20 318
+place  name ........ grade school  time    points (ignored)
+```
+
+**The grade is the anchor.** Names and schools are both often several words
+("Mary Kate O'Neil", "Sun Prairie East"), so neither can be found by position:
+the name is everything between the place and the first grade token (FR/SO/JR/SR
+or 9–12, at least two words in), the school everything between the grade and
+the time. The time is the last time-shaped token, so trailing points or a PR
+mark don't matter. "Last, First" is reordered. Tab-separated lines without a
+grade still work from the cell boundaries; space-separated ones without a grade
+are ambiguous and skipped — reported in the review with an example, never
+guessed.
+
+The race name and distance come from the paste box (default 5000m), and the
+"Only these schools" filter applies, matched on the normalised school name
+containing a filter term.
+
 ## Athlete identity
 
 The season record depends on the same runner on two sheets being one

@@ -11,7 +11,7 @@ by an `action` query parameter and always return JSON.
 GET|POST|DELETE  /api.php?action=<action>
 ```
 
-**78 endpoints · 27 tables**
+**79 endpoints · 27 tables**
 
 ## Endpoints at a glance
 
@@ -74,6 +74,7 @@ GET|POST|DELETE  /api.php?action=<action>
 | [`cp_week`](#delete-actioncp_week) | DELETE | Confidence Pool | None |
 | [`cp_week`](#get-actioncp_week) | GET | Confidence Pool | None |
 | [`cp_weeks`](#get-actioncp_weeks) | GET | Confidence Pool | None |
+| [`xc_match`](#post-actionxc_match) | POST | WildcatsXC | WildcatsXC team PIN — `X-XC-PIN` |
 | [`xc_meet`](#delete-actionxc_meet) | DELETE | WildcatsXC | WildcatsXC team PIN — `X-XC-PIN` |
 | [`xc_meet`](#get-actionxc_meet) | GET | WildcatsXC | WildcatsXC team PIN — `X-XC-PIN` |
 | [`xc_meets`](#get-actionxc_meets) | GET | WildcatsXC | WildcatsXC team PIN — `X-XC-PIN` |
@@ -564,6 +565,18 @@ misread team name and both happen.
 
 ## WildcatsXC
 
+### POST `?action=xc_match`
+
+Lines rows the app parsed itself — results pasted from a site such as
+MileSplit — up against the stored athletes, exactly as xc_scan does for a
+read sheet, so a paste gets the same known / new / "same as" tags. Saves
+nothing. The parsing stays in the browser: pasted text is regular enough
+that a model read would only add cost and minutes.
+
+- **Auth:** WildcatsXC team PIN — `X-XC-PIN`
+- **Takes:** {rows:[{race, distance_m, place, name, grade, school, time}]}
+- **Source:** [`api.php:3842`](../api.php#L3842)
+
 ### DELETE `?action=xc_meet`
 
 results anywhere go with it.
@@ -571,7 +584,7 @@ results anywhere go with it.
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** &id=X — the meet and its results; runners left with no
 - **Query parameters:** `id`
-- **Source:** [`api.php:3965`](../api.php#L3965)
+- **Source:** [`api.php:4005`](../api.php#L4005)
 
 ### GET `?action=xc_meet`
 
@@ -580,7 +593,7 @@ xc_scan returns, so the app edits a saved meet with the grid it checks a scan in
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** &id=X — one meet with every result, in the same row shape
 - **Query parameters:** `id`
-- **Source:** [`api.php:3935`](../api.php#L3935)
+- **Source:** [`api.php:3975`](../api.php#L3975)
 
 ### GET `?action=xc_meets`
 
@@ -588,7 +601,7 @@ holds. Also what the app calls to check a PIN when it is first entered.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** every meet, newest first, with how many runners each
-- **Source:** [`api.php:3916`](../api.php#L3916)
+- **Source:** [`api.php:3956`](../api.php#L3956)
 
 ### POST `?action=xc_save_meet`
 
@@ -599,7 +612,7 @@ second page can be scanned later; a runner already in it is updated.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** {meet_id?, name, date, location, rows:[{race, distance_m, place, name, grade, school, time}]}
-- **Source:** [`api.php:3830`](../api.php#L3830)
+- **Source:** [`api.php:3870`](../api.php#L3870)
 
 ### POST `?action=xc_scan`
 
@@ -612,7 +625,7 @@ to disk.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** (multipart: files[] — page photos or PDFs; optional schools)
-- **Source:** [`api.php:3704`](../api.php#L3704)
+- **Source:** [`api.php:3754`](../api.php#L3754)
 
 ## Daily Tasks
 
