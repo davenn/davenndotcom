@@ -11,7 +11,7 @@ by an `action` query parameter and always return JSON.
 GET|POST|DELETE  /api.php?action=<action>
 ```
 
-**81 endpoints · 27 tables**
+**79 endpoints · 27 tables**
 
 ## Endpoints at a glance
 
@@ -78,10 +78,8 @@ GET|POST|DELETE  /api.php?action=<action>
 | [`xc_meet`](#delete-actionxc_meet) | DELETE | WildcatsXC | WildcatsXC team PIN — `X-XC-PIN` |
 | [`xc_meet`](#get-actionxc_meet) | GET | WildcatsXC | WildcatsXC team PIN — `X-XC-PIN` |
 | [`xc_meets`](#get-actionxc_meets) | GET | WildcatsXC | WildcatsXC team PIN — `X-XC-PIN` |
-| [`xc_results`](#get-actionxc_results) | GET | WildcatsXC | WildcatsXC team PIN — `X-XC-PIN` |
 | [`xc_save_meet`](#post-actionxc_save_meet) | POST | WildcatsXC | WildcatsXC team PIN — `X-XC-PIN` |
 | [`xc_scan`](#post-actionxc_scan) | POST | WildcatsXC | WildcatsXC team PIN — `X-XC-PIN` |
-| [`xc_schools`](#get-actionxc_schools) | GET | WildcatsXC | WildcatsXC team PIN — `X-XC-PIN` |
 | [`dt_get_tasks`](#get-actiondt_get_tasks) | GET | Daily Tasks | Toolshare account — `X-Auth-Token` |
 | [`dt_save`](#post-actiondt_save) | POST | Daily Tasks | None |
 | [`dt_save_tasks`](#post-actiondt_save_tasks) | POST | Daily Tasks | Toolshare account — `X-Auth-Token` |
@@ -586,7 +584,7 @@ results anywhere go with it.
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** &id=X — the meet and its results; runners left with no
 - **Query parameters:** `id`
-- **Source:** [`api.php:4053`](../api.php#L4053)
+- **Source:** [`api.php:4005`](../api.php#L4005)
 
 ### GET `?action=xc_meet`
 
@@ -595,7 +593,7 @@ xc_scan returns, so the app edits a saved meet with the grid it checks a scan in
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** &id=X — one meet with every result, in the same row shape
 - **Query parameters:** `id`
-- **Source:** [`api.php:4023`](../api.php#L4023)
+- **Source:** [`api.php:3975`](../api.php#L3975)
 
 ### GET `?action=xc_meets`
 
@@ -604,18 +602,6 @@ holds. Also what the app calls to check a PIN when it is first entered.
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** every meet, newest first, with how many runners each
 - **Source:** [`api.php:3956`](../api.php#L3956)
-
-### GET `?action=xc_results`
-
-oldest first, for the metrics view to slice by season, squad and distance.
-Flat rather than pre-aggregated: a season is a few hundred rows, and the
-grouping (which races count as boys, which distance compares) is a view
-choice that belongs in the browser.
-
-- **Auth:** WildcatsXC team PIN — `X-XC-PIN`
-- **Takes:** &school=X — every result for one school, flat and
-- **Query parameters:** `school`
-- **Source:** [`api.php:3993`](../api.php#L3993)
 
 ### POST `?action=xc_save_meet`
 
@@ -640,14 +626,6 @@ to disk.
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** (multipart: files[] — page photos or PDFs; optional schools)
 - **Source:** [`api.php:3754`](../api.php#L3754)
-
-### GET `?action=xc_schools`
-
-counts, most results first. Feeds the team picker on the metrics view.
-
-- **Auth:** WildcatsXC team PIN — `X-XC-PIN`
-- **Takes:** every school on record with its runner and result
-- **Source:** [`api.php:3975`](../api.php#L3975)
 
 ## Daily Tasks
 
