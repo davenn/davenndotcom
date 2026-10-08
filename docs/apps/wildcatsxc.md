@@ -252,6 +252,19 @@ squad — so every time is visible before anything is summarised.
   still identical after the whole last name show in full. The full name is in
   the cell's title (hover) and aria-label. Only this grid shortens names; the
   edit screen always shows them in full, since that is where they are fixed.
+- **Progression chart.** Each open section starts with one runner's season
+  as a line — their time at each meet, faster plotted higher, season best
+  labelled — above the grid. It starts on the squad's fastest runner; tapping
+  a row (or Enter on it) charts that runner without re-rendering, so a grid
+  scrolled sideways stays put. The axis is fitted to that runner's times
+  alone. The squad's median at each meet was first drawn as a gray context
+  line, but it sat minutes away from a varsity runner (it counts the whole JV
+  squad) and squashed the runner's line flat, and it also shifts with who was
+  entered — so it is a figure in the tooltip ("Team median that day"), next to
+  the race and place, not a line. Hand-drawn SVG (`lineChart()`), no library;
+  the accent was checked against `--surface` in both themes with the dataviz
+  palette validator. Raw times still carry course differences, and the chart
+  does not adjust for them.
 - **Squads fold.** Each section's title row is its toggle (chevron, label,
   runner count stay visible when folded). Folded squads are remembered on the
   device in `localStorage['wildcatsxc_team_folded']`, keyed by squad name — a
