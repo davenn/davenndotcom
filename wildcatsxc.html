@@ -1528,7 +1528,15 @@ const axisDate = ms => new Date(ms).toLocaleDateString([], { month: 'short', day
 const ordinal = n => n + ([, 'st', 'nd', 'rd'][(n % 100 >> 3 ^ 1) && n % 10] || 'th');
 const inSection = (squad, sel) => [...$('team-body').querySelectorAll(sel)].find(el => el.dataset.chart === squad || el.dataset.caption === squad);
 
-const tenths = ms => fmtTime(Math.round(ms / 100) * 100);
+/**
+ * A computed time — an average — to the tenth, always showing the tenth
+ * ("16:49.0", not "16:49") so a column of averages lines up. Times as printed
+ * on a sheet go through fmtTime() instead, which keeps their own precision.
+ */
+const tenths = ms => {
+    const t = Math.round(ms / 100), m = Math.floor(t / 600), s = (t % 600) / 10;
+    return m + ':' + s.toFixed(1).padStart(4, '0');
+};
 
 /** Caption above a section's chart: a heading, a line of detail, and optionally a way back to the team view. */
 function setCaption(squad, title, detail, back) {
@@ -1991,9 +1999,10 @@ function groupCard(g, squad, rows) {
     const display = new Map(g.schools.map(n => [schoolKey(n), n]));   // stored spelling → the list's
     const by = new Map();
     rows.forEach(r => {
-        if (!by.has(r.athlete_id)) by.set(r.athlete_id, { name: r.name, school: display.get(schoolKey(r.school)) || r.school, grade: 0, best: Infinity, races: 0 });
+        if (!by.has(r.athlete_id)) by.set(r.athlete_id, { name: r.name, school: display.get(schoolKey(r.school)) || r.school, grade: 0, best: Infinity, races: 0, total: 0 });
         const a = by.get(r.athlete_id);
         a.races++;
+        a.total += r.time_ms;               // for the average: every race this season at this distance
         a.best = Math.min(a.best, r.time_ms);
         if (r.grade) a.grade = r.grade;
     });
@@ -2010,6 +2019,7 @@ function groupCard(g, squad, rows) {
     const body = ranked.map((a, i) => `<tr${schoolKey(a.school) === ours ? ' class="ours"' : ''}>
         <td class="who lead" title="${esc(a.name)}"><span class="rk">${i + 1}</span><span aria-label="${esc(a.name)}">${esc(short.get(a.name))}</span><small>${a.grade ? 'Grade ' + a.grade : '&nbsp;'}</small></td>
         <td class="sb">${fmtTime(a.best)}</td>
+        <td>${tenths(a.total / a.races)}</td>
         <td class="school">${esc(a.school)}</td>
         <td>${a.races}</td></tr>`).join('');
 
@@ -2024,8 +2034,8 @@ function groupCard(g, squad, rows) {
                 <span>${ranked.length} runners · ${perSchool.size} school${perSchool.size === 1 ? '' : 's'}</span>
             </div>
         </button>
-        ${open ? `<p class="card-sub">Each school's ${g.perSchool} fastest by season best, ranked together; times are at ${esc(distLabel(groupState.dist))}.${oursName ? ' ' + esc(oursName) + ' is highlighted.' : ''}${missing.length ? ' No results yet for ' + esc(missing.join(', ')) + '.' : ''}</p>
-        <div class="gridwrap"><table class="season group"><thead><tr><th class="who lead"><span class="rk">#</span>Runner</th><th>Best</th><th class="school">School</th><th>Races</th></tr></thead>
+        ${open ? `<p class="card-sub">Each school's ${g.perSchool} fastest by season best, ranked together. Average is across all of a runner's races; times are at ${esc(distLabel(groupState.dist))}.${oursName ? ' ' + esc(oursName) + ' is highlighted.' : ''}${missing.length ? ' No results yet for ' + esc(missing.join(', ')) + '.' : ''}</p>
+        <div class="gridwrap"><table class="season group"><thead><tr><th class="who lead"><span class="rk">#</span>Runner</th><th>Best</th><th>Average</th><th class="school">School</th><th>Races</th></tr></thead>
         <tbody>${body}</tbody></table></div>` : ''}
     </section>`;
 }

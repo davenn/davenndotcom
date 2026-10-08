@@ -307,7 +307,12 @@ squad — so every time is visible before anything is summarised.
 
 Two tabs, one view: each combines a fixed list of schools into one ranked list
 per squad — **each school's 10 fastest runners by season best, ranked
-together**. Columns: rank and runner (pinned), season best, school, races.
+together**. Columns: rank and runner (pinned), season best, **average** (the
+mean of every race that runner ran in the chosen season at the chosen
+distance), school, races. Ranking stays by season best; a runner with one race
+shows the same time in both. Averages always show the tenth (`tenths()`:
+"16:49.0", not "16:49") so the column lines up; times as printed go through
+`fmtTime()`, which keeps their own precision.
 
 - **The school lists live in `GROUPS`** in `wildcatsxc.html` — the Big Eight
   for Conference, the WIAA sectional for Section. Edit them there when the
@@ -328,7 +333,7 @@ together**. Columns: rank and runner (pinned), season best, school, races.
   simply contributes fewer (Beloit Memorial had 5 at first), and a school with
   no results this season and distance is named under the heading — a ranking
   should never look complete when it isn't.
-- Best sits right after the runner so it stays on screen on a phone; school and
+- Best and average sit right after the runner so they stay on screen on a phone; school and
   races scroll sideways. Season and distance filters behave as on Team, and
   squad folding is shared with the Team tab.
 
