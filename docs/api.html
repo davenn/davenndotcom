@@ -179,7 +179,7 @@
     <h1>API Reference</h1>
     <p class="lede">Every app on davenn.com is served by a single <code class="inline">api.php</code>. Endpoints are selected by an <code class="inline">action</code> query parameter and always return JSON.</p>
     <div class="base">https://davenn.com/api.php?action=&lt;action&gt;</div>
-    <p class="counts">70 endpoints · 27 tables</p>
+    <p class="counts">71 endpoints · 27 tables</p>
 
     <div class="filter-row">
         <input type="search" id="filter" placeholder="Filter endpoints…" aria-label="Filter endpoints">
@@ -1114,6 +1114,21 @@
                 <p class="op-desc">WildcatsXC team PIN — <code class="inline">X-XC-PIN</code></p>
                 <h4>Takes</h4>
                 <p class="op-desc">every meet, newest first, with how many runners each</p>
+            </div>
+        </div>
+        <div class="op post" id="post-xc_milesplit" data-search="xc_milesplit post wildcatsxc imports one milesplit meet's results from a link a coach pasted. only ever">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=xc_milesplit</span>
+                <span class="op-sum">Imports one MileSplit meet's results from a link a coach pasted. Only ever</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">Imports one MileSplit meet's results from a link a coach pasted. Only ever runs because a person pasted a link and pressed Import — never on a schedule, never following links to other meets. Two requests: the results page (meet name, date, which results files exist) and the performances data that page itself loads. Files MileSplit marks as PRO-only are skipped, not fetched. The link's own event / gender / division filters choose the race; a link without them imports every race. Saves nothing — the rows come back in xc_scan's shape for checking.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">WildcatsXC team PIN — <code class="inline">X-XC-PIN</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">{url}</p>
             </div>
         </div>
         <div class="op post" id="post-xc_save_meet" data-search="xc_save_meet post wildcatsxc with meet_id, the rows replace that meet's results — the edit path, where a">

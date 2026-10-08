@@ -150,7 +150,7 @@
             border: 1px solid var(--border); border-radius: 10px; width: 100%;
         }
         .field small { font-size: 12px; color: var(--text-muted); line-height: 1.45; }
-        .scanbar { display: flex; gap: 8px; margin-top: 14px; align-items: center; }
+        .scanbar { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 14px; align-items: center; }
 
         /* ── MEET LIST ── */
         .meet {
@@ -214,6 +214,11 @@
             border: 1px solid var(--border); border-radius: 7px;
         }
         .runner input.num, .runner input.time { font-family: var(--font-mono); font-size: 13px; text-align: center; }
+        /* Place and grade sit in a narrow column; the spin buttons would eat
+           it and clip a three-digit place to its first digit. */
+        .runner input.num { padding-left: 2px; padding-right: 2px; -moz-appearance: textfield; appearance: textfield; }
+        .runner input.num::-webkit-inner-spin-button,
+        .runner input.num::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         .runner input.school { font-size: 13px; color: var(--text-secondary); }
         .runner input.bad { border-color: var(--crit); color: var(--crit); }
         .runner .remove {
@@ -353,6 +358,7 @@
                     <circle cx="12" cy="13.2" r="3.6"/>
                 </svg>
             </button>
+            <button class="ghost" id="link-btn" type="button">MileSplit link</button>
             <button class="ghost" id="paste-btn" type="button">Paste results</button>
             <button class="primary" id="upload-btn" type="button">Upload photos or PDF</button>
         </div>
@@ -383,6 +389,7 @@
     <button class="danger hidden" id="delete-meet" type="button">Delete meet</button>
     <button class="ghost" id="add-page" type="button">Add a page</button>
     <button class="ghost" id="paste-more" type="button">Paste a race</button>
+    <button class="ghost" id="link-more" type="button">Add from MileSplit</button>
     <span class="spacer"></span>
     <button class="primary" id="save" type="button">Save meet</button>
 </div>
@@ -418,6 +425,23 @@
             <button class="primary" id="paste-go" type="button">Read rows</button>
         </div>
     </div>
+</div>
+
+<!-- MileSplit link: one import per link a coach pastes. Nothing here runs on
+     its own — no saved links, no refresh, no schedule. -->
+<div class="modal hidden" id="link" role="dialog" aria-modal="true" aria-labelledby="link-title">
+    <form class="modal-box wide" id="link-form">
+        <div class="modal-title" id="link-title">Import from MileSplit</div>
+        <p class="msg">Open the race on MileSplit, copy the link from the address bar and paste it here. A link that picks one event, gender and division imports just that race; a link to the whole meet imports every race. The "Only these schools" filter applies.</p>
+        <div class="field"><label for="link-url">Results link</label>
+            <input id="link-url" type="url" inputmode="url" autocomplete="off" spellcheck="false"
+                   placeholder="https://wi.milesplit.com/meets/…/results?…"></div>
+        <div class="banner bad hidden" id="link-error"></div>
+        <div class="modal-actions">
+            <button class="ghost" id="link-cancel" type="button">Cancel</button>
+            <button class="primary" id="link-go" type="submit">Import</button>
+        </div>
+    </form>
 </div>
 
 <div class="toast hidden" id="toast" role="status"></div>
@@ -633,17 +657,7 @@ async function scanFiles(ev) {
                 <p class="msg">Try again with the whole page in frame, flat, in even light — or upload the PDF if the meet posted one.</p>`);
             return;
         }
-        const notes = [r.note, ...(r.warnings || [])].filter(Boolean);
-        if (append) {
-            review.rows.push(...r.rows.map(withUid));
-            review.name = review.name || r.meet.name;
-            review.date = review.date || r.meet.date;
-            review.location = review.location || r.meet.location;
-            review.notes.push(...notes);
-        } else {
-            review = { meet_id: null, ...r.meet, rows: r.rows.map(withUid), notes };
-        }
-        renderReview();
+        takeRows(r, append);
     } catch (e) {
         if (append) { scanStatus('bad', e.message); return; }
         openOverlay('Could not read that', `<div class="banner bad">${esc(e.message)}</div>`);
@@ -658,6 +672,31 @@ function scanStatus(kind, msg) {
 }
 
 function withUid(r) { return Object.assign({ uid: nextUid++ }, r); }
+
+/**
+ * A read result (scan or MileSplit link) into the review: a new meet, or added
+ * to the one open when appending. The meet fields only fill blanks, so a later
+ * page never overwrites what the coach already typed.
+ */
+function takeRows(r, append) {
+    const notes = [r.note, ...(r.warnings || [])].filter(Boolean);
+    if (append && review) {
+        review.rows.push(...r.rows.map(withUid));
+        review.name = review.name || r.meet.name;
+        review.date = review.date || r.meet.date;
+        review.location = review.location || r.meet.location;
+        review.notes.push(...notes);
+    } else {
+        review = { meet_id: null, ...r.meet, rows: r.rows.map(withUid), notes };
+    }
+    renderReview();
+}
+
+/** The "Only these schools" filter, matched on normalised school names. */
+function onlySchools(rows) {
+    const only = $('schools').value.split(',').map(schoolNorm).filter(Boolean);
+    return only.length ? rows.filter(r => only.some(s => schoolNorm(r.school).includes(s))) : rows;
+}
 
 // ── Pasting ──────────────────────────────────────────────────────────────
 // Results copied off a site come as one runner per line, either space- or
@@ -715,6 +754,46 @@ $('paste-btn').addEventListener('click', () => { appending = false; openPaste();
 $('paste-more').addEventListener('click', () => { appending = true; openPaste(); });
 $('paste-cancel').addEventListener('click', closePaste);
 
+// ── MileSplit link ───────────────────────────────────────────────────────
+// The server fetches the one meet the link names and returns rows in the
+// scan's shape, so they land in the same review with the same matching.
+function openLink() {
+    $('link-error').classList.add('hidden');
+    $('link-url').value = '';
+    $('link').classList.remove('hidden');
+    $('link-url').focus();
+}
+$('link-btn').addEventListener('click', () => { appending = false; openLink(); });
+$('link-more').addEventListener('click', () => { appending = true; openLink(); });
+$('link-cancel').addEventListener('click', () => $('link').classList.add('hidden'));
+
+$('link-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const url = $('link-url').value.trim();
+    const fail = msg => { $('link-error').textContent = msg; $('link-error').classList.remove('hidden'); };
+    if (!/^https?:\/\/([a-z]{2}\.|www\.)?milesplit\.com\/meets\/\d+/i.test(url)) {
+        return fail('That is not a MileSplit meet link. It should start with https://wi.milesplit.com/meets/');
+    }
+    const btn = $('link-go');
+    btn.disabled = true; btn.textContent = 'Importing…';
+    try {
+        const r = await api('?action=xc_milesplit', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }),
+        });
+        const kept = onlySchools(r.rows);
+        if (!kept.length) return fail(`Found ${r.rows.length} runners, but none are from the schools in "Only these schools".`);
+        if (kept.length < r.rows.length) r.note += ` Kept ${kept.length} from your schools.`;
+        r.rows = kept;
+        $('link').classList.add('hidden');
+        takeRows(r, appending);
+        toast(`Imported ${kept.length} runner${kept.length === 1 ? '' : 's'}`);
+    } catch (err) {
+        fail(err.message);
+    } finally {
+        btn.disabled = false; btn.textContent = 'Import';
+    }
+});
+
 $('paste-go').addEventListener('click', async () => {
     const race = $('paste-race').value.trim() || 'Race';
     const dist = parseInt($('paste-dist').value, 10) || 0;
@@ -731,8 +810,7 @@ $('paste-go').addEventListener('click', async () => {
     });
     if (!parsed.length) return fail('No results found. Each line needs a name, a grade (FR/SO/JR/SR or 9–12), a school and a time.');
 
-    const only = $('schools').value.split(',').map(schoolNorm).filter(Boolean);
-    const kept = only.length ? parsed.filter(r => only.some(s => schoolNorm(r.school).includes(s))) : parsed;
+    const kept = onlySchools(parsed);
     if (!kept.length) return fail(`Read ${parsed.length} runners, but none are from the schools in "Only these schools".`);
 
     $('paste-go').disabled = true;

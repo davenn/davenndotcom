@@ -52,6 +52,45 @@ upload).
 **Add a page** appends a second scan to the meet open for review — for a sheet
 that runs across pages photographed separately.
 
+## Importing a MileSplit link
+
+**MileSplit link** (and **Add from MileSplit** in the review) takes a results
+link copied from the browser's address bar. `xc_milesplit` makes two requests
+to the one meet the link names:
+
+1. the results page, for the meet date (`startDate`), the course from the meta
+   description, and `meetResultFiles` — which results files exist and which
+   are PRO-only;
+2. `/api/v1/meets/{id}/performances` for each non-PRO file — the same JSON
+   MileSplit's own page loads, unauthenticated.
+
+The link's `event`, `gender` and `division` parameters pick the race, so a link
+to "Boys 5000m Varsity" imports just those finishers; a link without them
+imports every race (each named division + gender, e.g. "JV Flight 1 Girls").
+Grade comes from `gradYear`: a fall meet belongs to the school year ending the
+next June, so a 2029 graduate racing in September 2026 is grade 10. Runners
+with a status code (DNF, DNS, DQ) or no usable time are left out and counted
+in the note. The rows go through `xcMatchRows()` and come back in `xc_scan`'s
+shape, so the app reuses the scan path (`takeRows()`), and the "Only these
+schools" filter applies in the browser.
+
+**Rules this feature keeps — do not loosen them:**
+
+- **User-initiated only.** One pasted link, one import. No saved links, no
+  refresh, no schedule, no following links to other meets. MileSplit's terms
+  discourage scraping; the owner accepted the risk on exactly these terms.
+- **No workarounds.** Requests identify as this site (`xcMilesplitGet()`), not
+  as a browser, and send no MileSplit app or user token. If MileSplit blocks
+  that, adds a captcha, or moves results behind PRO, the import fails with a
+  message — it never works around it. PRO-only files are skipped, not fetched.
+- **No open fetcher.** The pasted URL is only parsed for host and meet id; the
+  addresses actually fetched are rebuilt from those, the host must be
+  `milesplit.com` or a subdomain, and redirects may not leave it.
+
+This rides on an unofficial API, so expect it to break without notice, the way
+ESPN does for the Confidence Pool. Pasting and the official results file are
+the fallbacks.
+
 ## Pasting results
 
 The other way in: copy one race off a results site (MileSplit's formatted

@@ -3862,6 +3862,137 @@ if ($method === 'POST' && $action === 'xc_match') {
     exit;
 }
 
+/**
+ * One GET to MileSplit. Returns [body, httpCode], or [null, 0] if the request
+ * failed or a redirect tried to leave milesplit.com. Identifies itself as this
+ * site rather than as a browser: if MileSplit chooses to refuse that, the
+ * import fails and says so — nothing here works around it.
+ */
+function xcMilesplitGet(string $url): array {
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER  => true,
+        CURLOPT_FOLLOWLOCATION  => true,
+        CURLOPT_MAXREDIRS       => 3,
+        CURLOPT_PROTOCOLS       => CURLPROTO_HTTPS,
+        CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS,
+        CURLOPT_CONNECTTIMEOUT  => 10,
+        CURLOPT_TIMEOUT         => 30,
+        CURLOPT_USERAGENT       => 'davenn.com WildcatsXC results import (+https://davenn.com)',
+        CURLOPT_HTTPHEADER      => ['Accept: application/json, text/html'],
+    ]);
+    $body  = curl_exec($ch);
+    $code  = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $final = (string)curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
+    curl_close($ch);
+    if ($body === false || !preg_match('#^https://([a-z0-9-]+\.)?milesplit\.com/#', $final)) return [null, 0];
+    return [$body, $code];
+}
+
+// POST ?action=xc_milesplit  {url}
+// Imports one MileSplit meet's results from a link a coach pasted. Only ever
+// runs because a person pasted a link and pressed Import — never on a
+// schedule, never following links to other meets. Two requests: the results
+// page (meet name, date, which results files exist) and the performances data
+// that page itself loads. Files MileSplit marks as PRO-only are skipped, not
+// fetched. The link's own event / gender / division filters choose the race;
+// a link without them imports every race. Saves nothing — the rows come back
+// in xc_scan's shape for checking.
+if ($method === 'POST' && $action === 'xc_milesplit') {
+    xcRequirePin($pdo);
+    $body = json_decode(file_get_contents('php://input'), true) ?: [];
+    $u    = parse_url(trim((string)($body['url'] ?? '')));
+    $host = strtolower($u['host'] ?? '');
+    // The fetch URLs are rebuilt from the meet id, so a pasted link can only
+    // ever choose which MileSplit meet is read — never an arbitrary address.
+    if (!preg_match('/^([a-z]{2}\.|www\.)?milesplit\.com$/', $host)
+        || !preg_match('#^/meets/(\d+)(-[a-z0-9-]*)?(/|$)#i', $u['path'] ?? '', $pm)) {
+        http_response_code(400); echo json_encode(['error' => 'Paste a MileSplit meet results link, like https://wi.milesplit.com/meets/…/results']); exit;
+    }
+    $meet_id = $pm[1];
+    $base    = 'https://' . $host;
+    parse_str($u['query'] ?? '', $q);
+    $want_event    = strtolower(trim((string)($q['event'] ?? '')));
+    $want_division = strtolower(trim((string)($q['division'] ?? '')));
+    $want_gender   = ['boys' => 'M', 'm' => 'M', 'men' => 'M', 'girls' => 'F', 'f' => 'F', 'women' => 'F'][strtolower(trim((string)($q['gender'] ?? '')))] ?? '';
+
+    [$page, $code] = xcMilesplitGet($base . '/meets/' . $meet_id . ($pm[2] ?? '') . '/results');
+    if ($page === null || $code !== 200) {
+        http_response_code(502); echo json_encode(['error' => 'MileSplit did not return that meet' . ($code ? ' (HTTP ' . $code . ').' : '.')]); exit;
+    }
+    $date = preg_match("/startDate:\s*'(\d{4}-\d{2}-\d{2})'/", $page, $m) ? $m[1] : '';
+    $files = preg_match('/meetResultFiles\s*=\s*(\[.*?\]);/', $page, $m) ? (json_decode($m[1], true) ?: []) : [];
+    $location = preg_match('/<meta name="description" content="[^"]* in ([^".]+)\.\s*"/', $page, $m) ? html_entity_decode(trim($m[1])) : '';
+    $title = preg_match('/<meta property="og:title"[^>]*content="([^"]+)"/', $page, $m) ? html_entity_decode(preg_replace('/\s*-\s*Results\s*$/', '', $m[1])) : '';
+    if (!$files) { http_response_code(404); echo json_encode(['error' => 'That meet has no results posted on MileSplit yet.']); exit; }
+    $free = array_values(array_filter($files, fn($f) => empty($f['isMeetPro'])));
+    if (!$free) { http_response_code(403); echo json_encode(['error' => 'Those results are MileSplit PRO only, so they cannot be imported. Upload the official results file instead.']); exit; }
+
+    $fields = 'meetName,firstName,lastName,teamName,gender,divisionName,eventCode,eventDistance,mark,place,gradYear,statusCode';
+    $raw = [];
+    foreach (array_slice($free, 0, 4) as $f) {
+        [$json, $code] = xcMilesplitGet($base . '/api/v1/meets/' . $meet_id . '/performances?'
+            . http_build_query(['isMeetPro' => 0, 'resultsId' => (int)$f['id'], 'fields' => $fields, 'teamScores' => 'team']));
+        $data = $json !== null && $code === 200 ? json_decode($json, true) : null;
+        if (!is_array($data['data'] ?? null)) {
+            http_response_code(502); echo json_encode(['error' => 'MileSplit did not return the results data' . ($code ? ' (HTTP ' . $code . ').' : '.')]); exit;
+        }
+        array_push($raw, ...$data['data']);
+    }
+
+    // Grade from graduation year: a fall meet is in the school year that ends
+    // the following June, so a 2029 graduate racing in September 2026 is a
+    // sophomore.
+    $year_end = $date ? (int)substr($date, 0, 4) + ((int)substr($date, 5, 2) >= 7 ? 1 : 0) : 0;
+    $picked = []; $dropped = 0; $events = [];
+    foreach ($raw as $r) {
+        if ($want_event    !== '' && strtolower((string)($r['eventCode'] ?? '')) !== $want_event) continue;
+        if ($want_division !== '' && strtolower(trim((string)($r['divisionName'] ?? ''))) !== $want_division) continue;
+        if ($want_gender   !== '' && ($r['gender'] ?? '') !== $want_gender) continue;
+        if (!empty($r['statusCode']) || xcParseTime((string)($r['mark'] ?? '')) === null) { $dropped++; continue; }
+        $events[(string)($r['eventCode'] ?? '')] = true;
+        $picked[] = $r;
+    }
+    if (!$picked) {
+        http_response_code(404); echo json_encode(['error' => 'No finishers matched that link. Open the race on MileSplit and copy the link again.']); exit;
+    }
+    if (count($picked) > 3000) { http_response_code(400); echo json_encode(['error' => 'That is more than 3000 runners. Copy the link for one race instead of the whole meet.']); exit; }
+
+    $rows = [];
+    foreach ($picked as $r) {
+        $sex   = ($r['gender'] ?? '') === 'F' ? 'Girls' : (($r['gender'] ?? '') === 'M' ? 'Boys' : '');
+        $race  = trim(trim((string)($r['divisionName'] ?? '')) . ' ' . $sex);
+        if (count($events) > 1) $race .= ' ' . $r['eventCode'];
+        $grade = ($year_end && (int)($r['gradYear'] ?? 0)) ? 12 - ((int)$r['gradYear'] - $year_end) : 0;
+        $rows[] = [
+            'race'       => mb_substr($race ?: 'Race', 0, 80),
+            'distance_m' => min(20000, max(0, (int)($r['eventDistance'] ?? 0))),
+            'place'      => max(0, (int)($r['place'] ?? 0)),
+            'name'       => mb_substr(trim(trim((string)($r['firstName'] ?? '')) . ' ' . trim((string)($r['lastName'] ?? ''))), 0, 80),
+            'grade'      => ($grade >= 6 && $grade <= 12) ? $grade : 0,
+            'school'     => mb_substr(trim((string)($r['teamName'] ?? '')), 0, 120),
+            'time'       => trim((string)$r['mark']),
+        ];
+    }
+    $matched = xcMatchRows($pdo, $rows);
+    $note = 'Imported ' . count($rows) . ' finishers from MileSplit.';
+    if ($dropped) $note .= ' ' . $dropped . ' with no finishing time (DNF, DNS, DQ) were left out.';
+
+    echo json_encode([
+        'success'  => true,
+        'readable' => true,
+        'meet'     => [
+            'name'     => trim((string)($picked[0]['meetName'] ?? '')) ?: $title,
+            'date'     => $date,
+            'location' => $location,
+        ],
+        'note'     => $note,
+        'rows'     => $matched['rows'],
+        'warnings' => $matched['warnings'],
+    ]);
+    exit;
+}
+
 // POST ?action=xc_save_meet  {meet_id?, name, date, location, rows:[{race, distance_m, place, name, grade, school, time}]}
 // With meet_id, the rows replace that meet's results — the edit path, where a
 // renamed runner must not leave their old row behind. Without one, a meet with

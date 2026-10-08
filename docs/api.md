@@ -11,7 +11,7 @@ by an `action` query parameter and always return JSON.
 GET|POST|DELETE  /api.php?action=<action>
 ```
 
-**79 endpoints · 27 tables**
+**80 endpoints · 27 tables**
 
 ## Endpoints at a glance
 
@@ -78,6 +78,7 @@ GET|POST|DELETE  /api.php?action=<action>
 | [`xc_meet`](#delete-actionxc_meet) | DELETE | WildcatsXC | WildcatsXC team PIN — `X-XC-PIN` |
 | [`xc_meet`](#get-actionxc_meet) | GET | WildcatsXC | WildcatsXC team PIN — `X-XC-PIN` |
 | [`xc_meets`](#get-actionxc_meets) | GET | WildcatsXC | WildcatsXC team PIN — `X-XC-PIN` |
+| [`xc_milesplit`](#post-actionxc_milesplit) | POST | WildcatsXC | WildcatsXC team PIN — `X-XC-PIN` |
 | [`xc_save_meet`](#post-actionxc_save_meet) | POST | WildcatsXC | WildcatsXC team PIN — `X-XC-PIN` |
 | [`xc_scan`](#post-actionxc_scan) | POST | WildcatsXC | WildcatsXC team PIN — `X-XC-PIN` |
 | [`dt_get_tasks`](#get-actiondt_get_tasks) | GET | Daily Tasks | Toolshare account — `X-Auth-Token` |
@@ -584,7 +585,7 @@ results anywhere go with it.
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** &id=X — the meet and its results; runners left with no
 - **Query parameters:** `id`
-- **Source:** [`api.php:4005`](../api.php#L4005)
+- **Source:** [`api.php:4136`](../api.php#L4136)
 
 ### GET `?action=xc_meet`
 
@@ -593,7 +594,7 @@ xc_scan returns, so the app edits a saved meet with the grid it checks a scan in
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** &id=X — one meet with every result, in the same row shape
 - **Query parameters:** `id`
-- **Source:** [`api.php:3975`](../api.php#L3975)
+- **Source:** [`api.php:4106`](../api.php#L4106)
 
 ### GET `?action=xc_meets`
 
@@ -601,7 +602,22 @@ holds. Also what the app calls to check a PIN when it is first entered.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** every meet, newest first, with how many runners each
-- **Source:** [`api.php:3956`](../api.php#L3956)
+- **Source:** [`api.php:4087`](../api.php#L4087)
+
+### POST `?action=xc_milesplit`
+
+Imports one MileSplit meet's results from a link a coach pasted. Only ever
+runs because a person pasted a link and pressed Import — never on a
+schedule, never following links to other meets. Two requests: the results
+page (meet name, date, which results files exist) and the performances data
+that page itself loads. Files MileSplit marks as PRO-only are skipped, not
+fetched. The link's own event / gender / division filters choose the race;
+a link without them imports every race. Saves nothing — the rows come back
+in xc_scan's shape for checking.
+
+- **Auth:** WildcatsXC team PIN — `X-XC-PIN`
+- **Takes:** {url}
+- **Source:** [`api.php:3901`](../api.php#L3901)
 
 ### POST `?action=xc_save_meet`
 
@@ -612,7 +628,7 @@ second page can be scanned later; a runner already in it is updated.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** {meet_id?, name, date, location, rows:[{race, distance_m, place, name, grade, school, time}]}
-- **Source:** [`api.php:3870`](../api.php#L3870)
+- **Source:** [`api.php:4001`](../api.php#L4001)
 
 ### POST `?action=xc_scan`
 

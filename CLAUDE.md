@@ -270,6 +270,14 @@ against a local env file.
 - **ESPN** (`site.api.espn.com`, `cdn.espn.com`) — unofficial, unauthenticated
   scores and schedule feed for Confidence Pool. It breaks without notice;
   `?action=cp_diag` probes the outbound path from the web host itself.
+- **MileSplit** (`*.milesplit.com`) — WildcatsXC's `xc_milesplit` imports one
+  meet from a link a coach pastes, through the same unofficial, unauthenticated
+  performances API MileSplit's own results page loads. **Strictly
+  user-initiated**: one link, one import, never scheduled, crawled or retried,
+  and PRO-only files are skipped. MileSplit's terms discourage scraping and the
+  owner accepted that on these terms, so keep it that way — and never add
+  anything that works around a block, captcha or paywall. Like ESPN, it can
+  break without notice.
 
 ## Rules of thumb
 
