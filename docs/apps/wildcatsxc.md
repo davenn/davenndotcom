@@ -244,6 +244,19 @@ squad — so every time is visible before anything is summarised.
   (`position: sticky`). That needs `min-width: 0` on the layout's grid items —
   without it a grid item grows to fit the table and pushes the card off the
   page.
+- **Names are shortened to "First L."** (`shortNames()`) — the pinned name
+  column is what squeezes the times on a phone. The initial comes from the
+  last word, skipping Jr./III, so "Mary Kate O'Neil" is "Mary O.". Within a
+  section no two runners may look alike: colliding names take more letters
+  ("Ryan Ho."), compared ignoring case and the trailing period, and names
+  still identical after the whole last name show in full. The full name is in
+  the cell's title (hover) and aria-label. Only this grid shortens names; the
+  edit screen always shows them in full, since that is where they are fixed.
+- **Squads fold.** Each section's title row is its toggle (chevron, label,
+  runner count stay visible when folded). Folded squads are remembered on the
+  device in `localStorage['wildcatsxc_team_folded']`, keyed by squad name — a
+  coach of one squad folds the other once, and it stays folded across visits,
+  schools and seasons. A convenience only: nothing about it reaches the server.
 
 ## Front-end notes
 

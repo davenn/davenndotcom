@@ -340,6 +340,21 @@
             border: 1px solid var(--border); border-radius: 9px;
         }
         .card-sub { font-size: 12px; color: var(--text-muted); margin: -6px 0 12px; line-height: 1.45; }
+        /* A squad's title row is its fold toggle: the whole row is the target. */
+        .squadtoggle {
+            width: 100%; background: none; border: none; padding: 0; cursor: pointer; color: inherit; font: inherit;
+            text-align: left;
+        }
+        .squadtoggle .card-title { margin-bottom: 12px; align-items: center; }
+        .squadtoggle[aria-expanded="false"] .card-title { margin-bottom: 0; }
+        .squadtoggle .card-title > span:first-child { display: inline-flex; align-items: center; gap: 6px; }
+        .squadtoggle:hover .card-title, .squadtoggle:focus-visible .card-title { color: var(--text-primary); }
+        .squadtoggle svg {
+            width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2;
+            stroke-linecap: round; stroke-linejoin: round; transition: transform 0.15s;
+        }
+        .squadtoggle[aria-expanded="true"] svg { transform: rotate(90deg); }
+        @media (prefers-reduced-motion: reduce) { .squadtoggle svg { transition: none; } }
         /* The season grid: a runner per row, a meet per column. It scrolls
            sideways on a phone with the runner column pinned, so a name never
            leaves the screen while their times do. */
@@ -1290,7 +1305,7 @@ $('delete-meet').addEventListener('click', async () => {
 // One school's season: every runner, their grade, and the time they ran at
 // each meet — a runner per row, a meet per column, a section per squad.
 const TEAM_KEY = 'wildcatsxc_team';
-let team = { schools: null, school: null, results: null, season: null, dist: null };
+let team = { schools: null, school: null, results: null, season: null, dist: null, folded: new Set() };
 
 // What a race name says about who ran it: Girls, Boys, or nothing ('Other')
 // for names like "Varsity" or "JV1". Girls is tested first because "women"
@@ -1404,6 +1419,44 @@ function renderTeam() {
         .join('');
 }
 
+/**
+ * "Jameson Rothwell" → "Jameson R." for the Team grid, where the pinned name
+ * column is what squeezes the times on a phone. The initial comes from the
+ * last word (skipping Jr./III), so "Mary Kate O'Neil" is "Mary O.". Within
+ * one section two runners must never look alike: colliding names take more
+ * letters of the last name ("Sam Le." / "Sam Lo."), and any still identical
+ * after the whole last name show in full. Returns full name → shown name.
+ */
+function shortNames(names) {
+    const parts = [...new Set(names)].map(full => {
+        const words = full.trim().split(/\s+/);
+        while (words.length > 2 && /^(jr|sr|ii|iii|iv)\.?$/i.test(words[words.length - 1])) words.pop();
+        return { full, first: words[0], last: words.length > 1 ? words[words.length - 1] : '' };
+    });
+    const label = (p, n) => p.last ? p.first + ' ' + p.last.slice(0, n) + (n < p.last.length ? '.' : '') : p.first;
+    // Compared without case or the trailing period: "Ava Smit." and "Ava Smit"
+    // differ only by a dot, and nobody reads a dot as a different runner.
+    const key = (p, n) => label(p, n).toLowerCase().replace(/\.$/, '');
+    const out = new Map();
+    const groups = new Map();
+    parts.forEach(p => {
+        const k = key(p, 1);
+        if (!groups.has(k)) groups.set(k, []);
+        groups.get(k).push(p);
+    });
+    groups.forEach(group => {
+        if (group.length === 1) { out.set(group[0].full, label(group[0], 1)); return; }
+        // Lengthen everyone in the group together until the labels part ways.
+        const longest = Math.max(...group.map(p => p.last.length));
+        for (let n = 2; n <= longest; n++) {
+            const seen = new Set(group.map(p => key(p, n)));
+            if (seen.size === group.length) { group.forEach(p => out.set(p.full, label(p, n))); return; }
+        }
+        group.forEach(p => out.set(p.full, p.full));
+    });
+    return out;
+}
+
 function squadCard(squad, rows) {
     if (!rows.length) return '';
     const meets = [];                 // in date order, as the API sends them
@@ -1421,8 +1474,9 @@ function squadCard(squad, rows) {
 
     const head = `<tr><th class="who lead">Runner</th><th>Races</th><th class="lead">Best</th>` +
         meets.map(m => `<th title="${esc(m.name)}">${esc(shortDate(m.date))}<small>${esc(m.name)}</small></th>`).join('') + '</tr>';
+    const shown = shortNames(runners.map(a => a.name));
     const body = runners.map(a => `<tr>
-        <td class="who lead">${esc(a.name)}<small>${a.grade ? 'Grade ' + a.grade : '&nbsp;'}</small></td>
+        <td class="who lead" title="${esc(a.name)}"><span aria-label="${esc(a.name)}">${esc(shown.get(a.name))}</span><small>${a.grade ? 'Grade ' + a.grade : '&nbsp;'}</small></td>
         <td>${a.times.size}</td>
         <td class="lead sb">${fmtTime(a.best)}</td>` +
         meets.map(m => {
@@ -1431,12 +1485,36 @@ function squadCard(squad, rows) {
         }).join('') + '</tr>').join('');
 
     const label = squad === 'Other' ? 'Other races' : squad;
+    const open = !team.folded.has(squad);
     return `<section class="card">
-        <div class="card-title"><span>${esc(label)}</span><span>${runners.length} runner${runners.length === 1 ? '' : 's'}</span></div>
-        <p class="card-sub">Fastest season best first. Bold marks each runner's season best; times are at ${esc(distLabel(team.dist))}.</p>
-        <div class="gridwrap"><table class="season"><thead>${head}</thead><tbody>${body}</tbody></table></div>
+        <button class="squadtoggle" type="button" data-squad="${esc(squad)}" aria-expanded="${open}"
+                aria-label="${open ? 'Hide' : 'Show'} ${esc(label)}">
+            <div class="card-title">
+                <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>${esc(label)}</span>
+                <span>${runners.length} runner${runners.length === 1 ? '' : 's'}</span>
+            </div>
+        </button>
+        ${open ? `<p class="card-sub">Fastest season best first. Bold marks each runner's season best; times are at ${esc(distLabel(team.dist))}.</p>
+        <div class="gridwrap"><table class="season"><thead>${head}</thead><tbody>${body}</tbody></table></div>` : ''}
     </section>`;
 }
+
+// Folded squads are remembered on this device — a coach of one squad folds
+// the other once, not on every visit. Keyed by squad, so it holds across
+// schools and seasons.
+const FOLD_KEY = 'wildcatsxc_team_folded';
+try { JSON.parse(load(FOLD_KEY) || '[]').forEach(s => team.folded.add(s)); } catch (e) {}
+
+$('team-body').addEventListener('click', e => {
+    const btn = e.target.closest('[data-squad]');
+    if (!btn) return;
+    const squad = btn.dataset.squad;
+    if (!team.folded.delete(squad)) team.folded.add(squad);
+    store(FOLD_KEY, JSON.stringify([...team.folded]));
+    renderTeam();
+    const again = [...$('team-body').querySelectorAll('[data-squad]')].find(b => b.dataset.squad === squad);
+    if (again) again.focus();
+});
 
 $('tab-meets').addEventListener('click', () => setView('meets'));
 $('tab-team').addEventListener('click', () => setView('team'));
