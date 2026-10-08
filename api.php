@@ -237,27 +237,24 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS bg_events (
 
 // WildcatsXC. A runner is identified by match_key — name and school,
 // normalised — so the same athlete on two sheets is one row. Results hang off
-// a meet and an athlete; one result per athlete per meet.
+// a meet and an athlete; one result per athlete per meet. One shared team
+// record behind a PIN, so no owner column.
 $pdo->exec("CREATE TABLE IF NOT EXISTS xc_meets (
     id         INT AUTO_INCREMENT PRIMARY KEY,
-    user_id    INT          NOT NULL,
     name       VARCHAR(160) NOT NULL,
     meet_date  DATE         NOT NULL,
     location   VARCHAR(160) DEFAULT NULL,
     created_at DATETIME     DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_user_date (user_id, meet_date),
-    FOREIGN KEY (user_id) REFERENCES tb_users(id) ON DELETE CASCADE
+    INDEX idx_date (meet_date)
 )");
 
 $pdo->exec("CREATE TABLE IF NOT EXISTS xc_athletes (
     id         INT AUTO_INCREMENT PRIMARY KEY,
-    user_id    INT          NOT NULL,
     name       VARCHAR(80)  NOT NULL,
     school     VARCHAR(120) NOT NULL,
     match_key  VARCHAR(210) NOT NULL,
     created_at DATETIME     DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY uniq_athlete (user_id, match_key),
-    FOREIGN KEY (user_id) REFERENCES tb_users(id) ON DELETE CASCADE
+    UNIQUE KEY uniq_athlete (match_key)
 )");
 
 $pdo->exec("CREATE TABLE IF NOT EXISTS xc_results (
@@ -273,6 +270,43 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS xc_results (
     INDEX idx_athlete (athlete_id),
     FOREIGN KEY (meet_id)    REFERENCES xc_meets(id)    ON DELETE CASCADE,
     FOREIGN KEY (athlete_id) REFERENCES xc_athletes(id) ON DELETE CASCADE
+)");
+
+// WildcatsXC first shipped with Toolshare accounts and a user_id owner column
+// on meets and athletes. It is now one shared record behind a PIN, so tables
+// created by that first deploy lose the column — keeping their rows, which
+// simply join the shared record. A no-op once the column is gone.
+//
+// Caught, because this block runs for every app: if it cannot apply (two
+// accounts saved the same runner, so match_key is no longer unique), WildcatsXC
+// saves fail until that is fixed by hand, but the rest of the site stays up.
+try {
+    $xc_cols = $pdo->query(
+        "SELECT TABLE_NAME FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('xc_meets','xc_athletes') AND COLUMN_NAME = 'user_id'"
+    )->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($xc_cols as $xc_table) {
+        $fks = $pdo->prepare(
+            "SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = 'user_id' AND REFERENCED_TABLE_NAME IS NOT NULL"
+        );
+        $fks->execute([$xc_table]);
+        foreach ($fks->fetchAll(PDO::FETCH_COLUMN) as $fk) $pdo->exec("ALTER TABLE `$xc_table` DROP FOREIGN KEY `$fk`");
+        if ($xc_table === 'xc_meets') {
+            $pdo->exec("ALTER TABLE xc_meets DROP INDEX idx_user_date, DROP COLUMN user_id, ADD INDEX idx_date (meet_date)");
+        } else {
+            $pdo->exec("ALTER TABLE xc_athletes DROP INDEX uniq_athlete, DROP COLUMN user_id, ADD UNIQUE KEY uniq_athlete (match_key)");
+        }
+    }
+} catch (PDOException $e) {}
+
+// One row per wrong WildcatsXC PIN, kept for a day. A four-digit PIN is only
+// 10,000 guesses, so this is the thing actually protecting it.
+$pdo->exec("CREATE TABLE IF NOT EXISTS xc_pin_attempts (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    ip         VARCHAR(45) NOT NULL,
+    created_at DATETIME    DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_ip (ip, created_at)
 )");
 
 // ── HELPERS ────────────────────────────────────────────────────────────────
@@ -3431,8 +3465,10 @@ if ($method === 'DELETE' && $action === 'cp_week') {
 // ("Jon" against "John") is offered to the coach as a suggestion rather than
 // merged, because two real teammates can be one letter apart.
 //
-// Every endpoint here needs a Toolshare account and only ever touches that
-// account's rows. Results name minors; none of it is public.
+// One shared team record behind a PIN (xcRequirePin), not accounts: every
+// coach who has the number sees and edits the same meets. Results name minors,
+// so none of it is public, and the PIN lives in the server .env, never in this
+// public repo.
 // =============================================================
 
 /** Lowercase, punctuation folded to single spaces. "O'Brien, Jr." → "o brien jr" */
@@ -3473,9 +3509,34 @@ function xcFormatTime(int $ms): string {
 }
 
 /** Drop athletes no result points at any more, after a meet is rewritten or deleted. */
-function xcPruneAthletes(PDO $pdo, int $user_id): void {
-    $pdo->prepare("DELETE a FROM xc_athletes a LEFT JOIN xc_results r ON r.athlete_id = a.id
-                   WHERE a.user_id = ? AND r.id IS NULL")->execute([$user_id]);
+function xcPruneAthletes(PDO $pdo): void {
+    $pdo->exec("DELETE a FROM xc_athletes a LEFT JOIN xc_results r ON r.athlete_id = a.id WHERE r.id IS NULL");
+}
+
+/**
+ * Gate for every WildcatsXC endpoint: the X-XC-PIN header must match XC_PIN
+ * from .env. Unset, the app stays locked rather than open.
+ *
+ * Ten wrong guesses from one address in an hour locks that address out for
+ * the rest of the hour, checked before the PIN is compared, so a locked-out
+ * client learns nothing from further tries. At that rate, walking all 10,000
+ * PINs from one address takes about six weeks.
+ */
+function xcRequirePin(PDO $pdo): void {
+    $pin = $_ENV['XC_PIN'] ?? '';
+    if ($pin === '') { http_response_code(503); echo json_encode(['error' => 'WildcatsXC is not set up on the server yet.']); exit; }
+
+    $ip = substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45);
+    $pdo->exec("DELETE FROM xc_pin_attempts WHERE created_at < NOW() - INTERVAL 1 DAY");
+    $st = $pdo->prepare("SELECT COUNT(*) FROM xc_pin_attempts WHERE ip = ? AND created_at > NOW() - INTERVAL 1 HOUR");
+    $st->execute([$ip]);
+    if ((int)$st->fetchColumn() >= 10) {
+        http_response_code(429); echo json_encode(['error' => 'Too many wrong PINs. Try again in an hour.']); exit;
+    }
+    if (!hash_equals($pin, (string)($_SERVER['HTTP_X_XC_PIN'] ?? ''))) {
+        $pdo->prepare("INSERT INTO xc_pin_attempts (ip) VALUES (?)")->execute([$ip]);
+        http_response_code(401); echo json_encode(['error' => 'Wrong PIN.']); exit;
+    }
 }
 
 /**
@@ -3636,12 +3697,12 @@ These times are used to track each runner across a season, so a misread digit do
 // POST ?action=xc_scan  (multipart: files[] — page photos or PDFs; optional schools)
 // Reads a results sheet. Saves nothing — the app shows every row for checking
 // first. Rows come back flat, each carrying its race, and already lined up
-// against this coach's athletes: an exact name + school match takes the stored
+// against the stored athletes: an exact name + school match takes the stored
 // spelling, and a new name close to an existing teammate's carries that name
 // as `similar` for the coach to accept or ignore. The files are never written
 // to disk.
 if ($method === 'POST' && $action === 'xc_scan') {
-    $user    = requireAuth($pdo);
+    xcRequirePin($pdo);
     $api_key = $_ENV['ANTHROPIC_API_KEY'] ?? '';
     if (!$api_key) { http_response_code(500); echo json_encode(['error' => 'Results reading is not configured on the server.']); exit; }
 
@@ -3705,9 +3766,8 @@ if ($method === 'POST' && $action === 'xc_scan') {
         ]); exit;
     }
 
-    // Line the rows up against the athletes this coach already has.
-    $st = $pdo->prepare("SELECT name, school, match_key FROM xc_athletes WHERE user_id = ?");
-    $st->execute([$user['id']]);
+    // Line the rows up against the athletes already on record.
+    $st = $pdo->query("SELECT name, school, match_key FROM xc_athletes");
     $by_key = []; $by_school = []; $school_spelling = [];
     foreach ($st->fetchAll() as $a) {
         $by_key[$a['match_key']] = $a;
@@ -3768,7 +3828,7 @@ if ($method === 'POST' && $action === 'xc_scan') {
 // the same name and date is added to rather than duplicated, so a sheet's
 // second page can be scanned later; a runner already in it is updated.
 if ($method === 'POST' && $action === 'xc_save_meet') {
-    $user = requireAuth($pdo);
+    xcRequirePin($pdo);
     $body = json_decode(file_get_contents('php://input'), true) ?: [];
     $name     = trim((string)($body['name'] ?? ''));
     $date     = (string)($body['date'] ?? '');
@@ -3810,19 +3870,19 @@ if ($method === 'POST' && $action === 'xc_save_meet') {
     try {
         $meet_id = intval($body['meet_id'] ?? 0);
         if ($meet_id) {
-            $st = $pdo->prepare("UPDATE xc_meets SET name = ?, meet_date = ?, location = ? WHERE id = ? AND user_id = ?");
-            $st->execute([$name, $date, $location, $meet_id, $user['id']]);
-            $own = $pdo->prepare("SELECT id FROM xc_meets WHERE id = ? AND user_id = ?");
-            $own->execute([$meet_id, $user['id']]);
-            if (!$own->fetch()) { $pdo->rollBack(); http_response_code(404); echo json_encode(['error' => 'No such meet.']); exit; }
+            $found = $pdo->prepare("SELECT id FROM xc_meets WHERE id = ?");
+            $found->execute([$meet_id]);
+            if (!$found->fetch()) { $pdo->rollBack(); http_response_code(404); echo json_encode(['error' => 'No such meet.']); exit; }
+            $pdo->prepare("UPDATE xc_meets SET name = ?, meet_date = ?, location = ? WHERE id = ?")
+                ->execute([$name, $date, $location, $meet_id]);
             $pdo->prepare("DELETE FROM xc_results WHERE meet_id = ?")->execute([$meet_id]);
         } else {
-            $st = $pdo->prepare("SELECT id FROM xc_meets WHERE user_id = ? AND name = ? AND meet_date = ?");
-            $st->execute([$user['id'], $name, $date]);
+            $st = $pdo->prepare("SELECT id FROM xc_meets WHERE name = ? AND meet_date = ?");
+            $st->execute([$name, $date]);
             $meet_id = (int)($st->fetchColumn() ?: 0);
             if (!$meet_id) {
-                $pdo->prepare("INSERT INTO xc_meets (user_id, name, meet_date, location) VALUES (?,?,?,?)")
-                    ->execute([$user['id'], $name, $date, $location]);
+                $pdo->prepare("INSERT INTO xc_meets (name, meet_date, location) VALUES (?,?,?)")
+                    ->execute([$name, $date, $location]);
                 $meet_id = (int)$pdo->lastInsertId();
             } elseif ($location !== null) {
                 $pdo->prepare("UPDATE xc_meets SET location = ? WHERE id = ?")->execute([$location, $meet_id]);
@@ -3831,17 +3891,17 @@ if ($method === 'POST' && $action === 'xc_save_meet') {
 
         // The latest spelling saved wins, so correcting a name once fixes it
         // on every meet that runner appears in.
-        $ath = $pdo->prepare("INSERT INTO xc_athletes (user_id, name, school, match_key) VALUES (?,?,?,?)
+        $ath = $pdo->prepare("INSERT INTO xc_athletes (name, school, match_key) VALUES (?,?,?)
                               ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id), name = VALUES(name), school = VALUES(school)");
         $res = $pdo->prepare("INSERT INTO xc_results (meet_id, athlete_id, race, distance_m, place, grade, time_ms) VALUES (?,?,?,?,?,?,?)
                               ON DUPLICATE KEY UPDATE race = VALUES(race), distance_m = VALUES(distance_m), place = VALUES(place),
                                                       grade = VALUES(grade), time_ms = VALUES(time_ms)");
         foreach ($clean as $c) {
-            $ath->execute([$user['id'], $c['name'], $c['school'], $c['key']]);
+            $ath->execute([$c['name'], $c['school'], $c['key']]);
             $athlete_id = (int)$pdo->lastInsertId();
             $res->execute([$meet_id, $athlete_id, $c['race'], $c['distance_m'], $c['place'], $c['grade'], $c['time_ms']]);
         }
-        xcPruneAthletes($pdo, (int)$user['id']);
+        xcPruneAthletes($pdo);
         $pdo->commit();
     } catch (Throwable $e) {
         $pdo->rollBack();
@@ -3851,15 +3911,14 @@ if ($method === 'POST' && $action === 'xc_save_meet') {
     exit;
 }
 
-// GET ?action=xc_meets — this coach's meets, newest first, with how many runners each holds.
+// GET ?action=xc_meets — every meet, newest first, with how many runners each
+// holds. Also what the app calls to check a PIN when it is first entered.
 if ($method === 'GET' && $action === 'xc_meets') {
-    $user = requireAuth($pdo);
-    $st = $pdo->prepare("SELECT m.id, m.name, m.meet_date, m.location,
-                                COUNT(r.id) AS runners, COUNT(DISTINCT r.race) AS races
-                         FROM xc_meets m LEFT JOIN xc_results r ON r.meet_id = m.id
-                         WHERE m.user_id = ?
-                         GROUP BY m.id ORDER BY m.meet_date DESC, m.id DESC");
-    $st->execute([$user['id']]);
+    xcRequirePin($pdo);
+    $st = $pdo->query("SELECT m.id, m.name, m.meet_date, m.location,
+                              COUNT(r.id) AS runners, COUNT(DISTINCT r.race) AS races
+                       FROM xc_meets m LEFT JOIN xc_results r ON r.meet_id = m.id
+                       GROUP BY m.id ORDER BY m.meet_date DESC, m.id DESC");
     echo json_encode(['success' => true, 'meets' => array_map(fn($m) => [
         'id'       => (int)$m['id'],
         'name'     => $m['name'],
@@ -3874,9 +3933,9 @@ if ($method === 'GET' && $action === 'xc_meets') {
 // GET ?action=xc_meet&id=X — one meet with every result, in the same row shape
 // xc_scan returns, so the app edits a saved meet with the grid it checks a scan in.
 if ($method === 'GET' && $action === 'xc_meet') {
-    $user = requireAuth($pdo);
-    $st = $pdo->prepare("SELECT * FROM xc_meets WHERE id = ? AND user_id = ?");
-    $st->execute([intval($_GET['id'] ?? 0), $user['id']]);
+    xcRequirePin($pdo);
+    $st = $pdo->prepare("SELECT * FROM xc_meets WHERE id = ?");
+    $st->execute([intval($_GET['id'] ?? 0)]);
     $meet = $st->fetch();
     if (!$meet) { http_response_code(404); echo json_encode(['error' => 'No such meet.']); exit; }
 
@@ -3904,11 +3963,11 @@ if ($method === 'GET' && $action === 'xc_meet') {
 // DELETE ?action=xc_meet&id=X — the meet and its results; runners left with no
 // results anywhere go with it.
 if ($method === 'DELETE' && $action === 'xc_meet') {
-    $user = requireAuth($pdo);
-    $st = $pdo->prepare("DELETE FROM xc_meets WHERE id = ? AND user_id = ?");
-    $st->execute([intval($_GET['id'] ?? 0), $user['id']]);
+    xcRequirePin($pdo);
+    $st = $pdo->prepare("DELETE FROM xc_meets WHERE id = ?");
+    $st->execute([intval($_GET['id'] ?? 0)]);
     if ($st->rowCount() === 0) { http_response_code(404); echo json_encode(['error' => 'No such meet.']); exit; }
-    xcPruneAthletes($pdo, (int)$user['id']);
+    xcPruneAthletes($pdo);
     echo json_encode(['success' => true]);
     exit;
 }

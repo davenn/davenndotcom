@@ -109,11 +109,12 @@ function tableGroupFor(table) {
   return EXPLICIT_TABLES[table] ?? 'Other';
 }
 
-// Auth is four unrelated schemes. Detect which one a branch body enforces.
+// Auth is five unrelated schemes. Detect which one a branch body enforces.
 function authFor(body) {
   if (/\bftRequireAuth\(/.test(body)) return 'Flight Tracker account — `X-Auth-Token`';
   if (/\brequireAuth\(/.test(body)) return 'Toolshare account — `X-Auth-Token`';
   if (/\bbgRequireRead\(/.test(body)) return 'Glucose read token — `X-BG-Token` or `?token=`';
+  if (/\bxcRequirePin\(/.test(body)) return 'WildcatsXC team PIN — `X-XC-PIN`';
   if (/HTTP_X_ADMIN_SECRET/.test(body)) return 'Admin — `X-Admin-Secret`';
   if (/\$_GET\['token'\]/.test(body)) return 'Single-use link token — `?token=`';
   if (/\bauthUser\(/.test(body)) return 'Optional Toolshare account — `X-Auth-Token`';

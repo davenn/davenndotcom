@@ -52,7 +52,7 @@ Browser ──► /appname.html  (self-contained: HTML + CSS + JS)
 | Flight Tracker | `flighttracker.html` | `ft_users` `ft_flights` | `X-Auth-Token` |
 | Glucose | `glucose.html`, `bgcast.html` | `bg_readings` `bg_events` | `X-BG-Token` (read), `X-Admin-Secret` (ingest) |
 | Confidence Pool | `nflpool.html` | `cp_weeks` `cp_games` `cp_entries` `cp_picks` `cp_players` `cp_pending` | `X-Admin-Secret` (admin only) |
-| WildcatsXC | `wildcatsxc.html` | `xc_meets` `xc_athletes` `xc_results` | `X-Auth-Token` (Toolshare accounts) on every endpoint |
+| WildcatsXC | `wildcatsxc.html` | `xc_meets` `xc_athletes` `xc_results` `xc_pin_attempts` | `X-XC-PIN` (shared team PIN) on every endpoint |
 | Daily Tasks | `dailytasks.html` | `dt_scores` `dt_tasks` | none for the leaderboard; `X-Auth-Token` (Toolshare accounts) for cross-device sync |
 | Face Breaker | `facebreaker.html` | `fb_scores` | — |
 | Reaction Test | `reactiontest.html` | `reaction_scores` | — |
@@ -80,17 +80,18 @@ before deploying for exactly this reason. Never push PHP you have not linted.
   EXISTS` block at the top of the file. To add a table, add it there. There are
   no migration files, so column *changes* to an existing table need a manual
   `ALTER` against the live DB — `CREATE TABLE IF NOT EXISTS` will not apply them.
-- **Auth** is four unrelated schemes, by design:
+- **Auth** is five unrelated schemes, by design:
   - `X-Auth-Token` → two separate implementations that share the header name:
     `authUser()` / `requireAuth()` resolves it against `tb_sessions` (Toolshare
     supports multiple sessions per user), while `ftAuthUser()` /
     `ftRequireAuth()` matches a single `token` column on `ft_users`. A Toolshare
     token is meaningless to Flight Tracker and vice versa. Daily Tasks'
     cross-device sync (`dt_get_tasks`, `dt_save_tasks`) reuses Toolshare
-    accounts via `requireAuth()` — its leaderboard endpoints stay open.
-    WildcatsXC does the same for all of its endpoints, scoped per user, because
-    its rows name minors
+    accounts via `requireAuth()` — its leaderboard endpoints stay open
   - `X-BG-Token` → `bgRequireRead()`, a single shared read token for glucose
+  - `X-XC-PIN` → `xcRequirePin()`, one shared team PIN for every WildcatsXC
+    endpoint, checked against `XC_PIN` in `.env` and rate-limited per IP in
+    `xc_pin_attempts`. It guards minors' names, so it is never hardcoded
   - `X-Admin-Secret` → operator-only endpoints (ingest, notify, roster, purge)
   - none → the leaderboard and timer apps write unauthenticated
 - **Endpoint comments already exist** above the non-obvious branches and explain
@@ -244,11 +245,14 @@ must be made on the host** — pushing will not update it.
 `DB_HOST` `DB_NAME` `DB_USER` `DB_PASS` · `UPLOAD_DIR` `UPLOAD_URL` ·
 `MAIL_FROM` `MAIL_FROM_NAME` `MAIL_REPLY_TO` `APP_URL` ·
 `TWILIO_ACCOUNT_SID` `TWILIO_AUTH_TOKEN` `TWILIO_FROM_NUMBER` ·
-`ADMIN_SECRET` `BG_READ_TOKEN` `BG_TIMEZONE` · `TEST_PHONE`
+`ADMIN_SECRET` `BG_READ_TOKEN` `BG_TIMEZONE` · `TEST_PHONE` · `XC_PIN`
 
 `TEST_PHONE` is the one number `?action=resetTestPhone` may delete from
 `subscribers`, in stored form (`+1` and ten digits). The repo is public, so it
 lives only in the server `.env`. Unset, the endpoint does nothing.
+
+`XC_PIN` is the WildcatsXC team PIN, for the same reason only in the server
+`.env`. Unset, every WildcatsXC endpoint answers 503 — locked, not open.
 
 `ANTHROPIC_API_KEY` is read by `api.php` but is **not** in the local `.env` —
 it exists only in the server copy. Vision features will fail when testing

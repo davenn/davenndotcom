@@ -7,16 +7,29 @@ top of the same tables.
 
 **File:** [`wildcatsxc.html`](../../wildcatsxc.html)
 **Tables:** `xc_meets` `xc_athletes` `xc_results`
-**Auth:** Toolshare accounts (`requireAuth()`) on every endpoint
+**Auth:** shared team PIN (`xcRequirePin()`, header `X-XC-PIN`) on every endpoint
 
-## Private by account
+## One team record behind a PIN
 
-Results name minors, so nothing here is open. Every endpoint calls
-`requireAuth()` and every query is scoped to that user: one coach never sees
-another's meets or athletes. Like Daily Tasks, there is no separate
-registration — the app calls `tb_login` / `tb_register` and stores the
-session under Toolshare's `tb_token` key, so signing in on either app signs in
-on this one too.
+There are no accounts. Every coach with the PIN sees and edits the same meets
+and athletes, so the tables carry no owner column.
+
+Results name minors, so nothing here is open:
+
+- **The PIN is `XC_PIN` in the server `.env`**, never in the repo — the repo is
+  public, and a PIN in the source is a PIN anyone can read. Unset, every
+  endpoint answers 503, so a missing config fails locked rather than open.
+- **Guessing is rate-limited.** Four digits is 10,000 guesses, so each wrong
+  PIN is logged in `xc_pin_attempts` by IP; ten in an hour locks that address
+  out until the hour passes. The lockout is checked before the PIN is
+  compared, so further tries from a locked-out address reveal nothing.
+- **The app remembers a PIN that worked** under
+  `localStorage['wildcatsxc_pin']`, and drops it on any 401 — which is how
+  changing `XC_PIN` signs every device out. The Lock button forgets it on
+  purpose, for a shared or borrowed phone.
+
+There is no separate PIN-check endpoint: the app calls `xc_meets`, which
+loads the list on the right PIN and returns 401 on a wrong one.
 
 ## From sheet to saved meet
 

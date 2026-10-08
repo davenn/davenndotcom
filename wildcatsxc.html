@@ -84,7 +84,6 @@
         .nav-logo { font-family: var(--font-mono); font-size: 13px; color: rgba(255,255,255,0.4); text-decoration: none; }
         .nav-logo strong { color: #fff; }
         .nav-right { display: flex; align-items: center; gap: 1.2rem; }
-        .nav-user { font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.85); }
         .nav-back {
             font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.45);
             letter-spacing: 0.05em; text-transform: uppercase;
@@ -261,13 +260,14 @@
         }
         .modal-title { font-size: 17px; font-weight: 600; }
         .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
-        .tabs { display: flex; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
-        .tabs button {
-            flex: 1; padding: 8px; background: none; border: none; cursor: pointer;
-            font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em;
-            text-transform: uppercase; color: var(--text-secondary);
+        .pinrow { display: flex; gap: 8px; margin-top: 14px; }
+        .pinrow input {
+            font-family: var(--font-mono); font-size: 22px; letter-spacing: 0.3em; text-align: center;
+            padding: 9px 12px; width: 150px;
+            background: var(--page); color: var(--text-primary);
+            border: 1px solid var(--border); border-radius: 10px;
         }
-        .tabs button[aria-selected="true"] { background: var(--text-primary); color: var(--page); }
+        .pinrow .banner { margin-top: 0; }
 
         .spinner {
             width: 22px; height: 22px; border: 2px solid var(--border);
@@ -294,7 +294,6 @@
             .meet { grid-template-columns: 1fr auto; }
             .meet .mdate { grid-column: 1 / -1; }
             .runners-head, .runner { grid-template-columns: 40px 1fr 84px 26px; }
-            .nav-user { display: none; }
         }
     </style>
 </head>
@@ -303,8 +302,7 @@
 <nav>
     <a class="nav-logo" href="index.html"><strong>davenn</strong>dotcom</a>
     <div class="nav-right">
-        <span class="nav-user hidden" id="nav-user"></span>
-        <button class="nav-back" id="auth-btn" type="button">Sign in</button>
+        <button class="nav-back hidden" id="lock-btn" type="button">Lock</button>
         <button class="theme-toggle" id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
             <div class="theme-toggle-track"><div class="theme-toggle-thumb" id="toggle-icon">🌙</div></div>
         </button>
@@ -313,11 +311,16 @@
 
 <div class="wrap">
 
-    <section class="card hidden" id="signed-out">
+    <section class="card hidden" id="locked">
         <div class="card-title">WildcatsXC</div>
         <p class="msg">Photograph a cross country results sheet, or upload the PDF, and every runner, school and time is read off it. Check the rows, save the meet, and each athlete builds up a season record.</p>
-        <p class="msg">Results name students, so they are kept under your account and nobody else can see them. Sign in with your davenn.com account (the same one Toolshare and Daily Tasks use).</p>
-        <div class="scanbar"><button class="primary" id="signin-cta" type="button">Sign in</button></div>
+        <p class="msg">Results name students, so the team record is behind a PIN.</p>
+        <form class="pinrow" id="pin-form">
+            <input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="12"
+                   aria-label="PIN" placeholder="PIN">
+            <button class="primary" id="unlock" type="submit">Unlock</button>
+        </form>
+        <div class="banner bad hidden" id="pin-error" style="margin-top:12px"></div>
     </section>
 
     <div class="banner bad hidden" id="page-error"></div>
@@ -351,7 +354,7 @@
 </div>
 
 <footer>
-    Read by Claude · checked by you · visible only to your account
+    Read by Claude · checked by you · behind the team PIN
 </footer>
 
 <!-- Review overlay: a scan or a saved meet, editable, before anything is saved. -->
@@ -382,31 +385,6 @@
     </div>
 </div>
 
-<div class="modal hidden" id="auth" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-    <div class="modal-box">
-        <div class="modal-title" id="auth-title">Sign in</div>
-        <div class="tabs" role="tablist">
-            <button type="button" role="tab" id="tab-login" aria-selected="true">Sign in</button>
-            <button type="button" role="tab" id="tab-register" aria-selected="false">Create account</button>
-        </div>
-        <div id="form-login">
-            <div class="field"><label for="login-user">Username</label><input id="login-user" type="text" autocomplete="username"></div>
-            <div class="field"><label for="login-pass">Password</label><input id="login-pass" type="password" autocomplete="current-password"></div>
-        </div>
-        <div id="form-register" class="hidden">
-            <div class="field"><label for="reg-user">Username</label><input id="reg-user" type="text" autocomplete="username"></div>
-            <div class="field"><label for="reg-name">Display name</label><input id="reg-name" type="text" autocomplete="name"></div>
-            <div class="field"><label for="reg-email">Email</label><input id="reg-email" type="email" autocomplete="email"></div>
-            <div class="field"><label for="reg-pass">Password</label><input id="reg-pass" type="password" autocomplete="new-password"></div>
-        </div>
-        <div class="banner bad hidden" id="auth-error"></div>
-        <div class="modal-actions">
-            <button class="ghost" id="auth-cancel" type="button">Cancel</button>
-            <button class="primary" id="auth-submit" type="button">Sign in</button>
-        </div>
-    </div>
-</div>
-
 <div class="toast hidden" id="toast" role="status"></div>
 
 <!-- Two inputs on purpose. 'capture' does not add the camera as an option, it
@@ -421,10 +399,9 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-// Accounts are Toolshare's, and so is the stored session: signing in on any of
-// the apps that share them signs you in here too.
-const TOKEN_KEY = 'tb_token';
-const USER_KEY  = 'tb_user';
+// The team PIN, remembered on this device once it has worked. The server
+// checks it on every request; holding it here only saves retyping it.
+const PIN_KEY     = 'wildcatsxc_pin';
 const SCHOOLS_KEY = 'wildcatsxc_schools';
 
 function store(key, val) {
@@ -434,9 +411,7 @@ function load(key) {
     try { return localStorage.getItem(key); } catch (e) { return null; }
 }
 
-let auth = { token: load(TOKEN_KEY), user: null };
-try { auth.user = JSON.parse(load(USER_KEY)); } catch (e) {}
-if (!auth.token || !auth.user) auth = { token: null, user: null };
+let pin = load(PIN_KEY);
 
 // ── State ────────────────────────────────────────────────────────────────
 // review is the meet open in the overlay: a fresh scan (meet_id null) or a
@@ -449,11 +424,11 @@ let nextUid   = 1;
 // ── API ──────────────────────────────────────────────────────────────────
 async function api(path, opts = {}) {
     const headers = Object.assign({}, opts.headers);
-    if (auth.token) headers['X-Auth-Token'] = auth.token;
+    if (pin) headers['X-XC-PIN'] = pin;
     const res = await fetch(API + path, Object.assign({}, opts, { headers }));
     let body = null;
     try { body = await res.json(); } catch (e) {}
-    if (res.status === 401 && auth.token) { signedOut(); throw new Error('Your session ended. Sign in again.'); }
+    if (res.status === 401 && pin) { lock(); throw new Error((body && body.error) || 'Wrong PIN.'); }
     if (!res.ok) throw new Error((body && body.error) || ('Request failed (' + res.status + ')'));
     return body;
 }
@@ -491,72 +466,51 @@ function fmtDate(ymd) {
     return new Date(y, m - 1, d).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-// ── Signing in ───────────────────────────────────────────────────────────
-let authMode = 'login';
-
-function setAuthMode(mode) {
-    authMode = mode;
-    $('tab-login').setAttribute('aria-selected', String(mode === 'login'));
-    $('tab-register').setAttribute('aria-selected', String(mode === 'register'));
-    $('form-login').classList.toggle('hidden', mode !== 'login');
-    $('form-register').classList.toggle('hidden', mode !== 'register');
-    $('auth-title').textContent = mode === 'login' ? 'Sign in' : 'Create account';
-    $('auth-submit').textContent = mode === 'login' ? 'Sign in' : 'Create account';
-    $('auth-error').classList.add('hidden');
-}
-function openAuth() { setAuthMode('login'); $('auth').classList.remove('hidden'); $('login-user').focus(); }
-function closeAuth() { $('auth').classList.add('hidden'); }
-
-async function submitAuth() {
-    const v = id => $(id).value.trim();
-    const btn = $('auth-submit');
-    btn.disabled = true;
+// ── PIN ──────────────────────────────────────────────────────────────────
+// xc_meets doubles as the check: a right PIN loads the list, a wrong one is a
+// 401 that lock() handles.
+$('pin-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const tried = $('pin').value.trim();
+    if (!tried) return;
+    pin = tried;
+    $('unlock').disabled = true;
+    $('pin-error').classList.add('hidden');
     try {
-        const res = authMode === 'login'
-            ? await api('?action=tb_login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ username: v('login-user'), password: $('login-pass').value }) })
-            : await api('?action=tb_register', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ username: v('reg-user'), display_name: v('reg-name'), email: v('reg-email'), password: $('reg-pass').value }) });
-        auth = { token: res.token, user: res.user };
-        store(TOKEN_KEY, auth.token);
-        store(USER_KEY, JSON.stringify(auth.user));
-        closeAuth();
+        const d = await api('?action=xc_meets');
+        store(PIN_KEY, pin);
+        $('pin').value = '';
         render();
-        loadMeets();
-    } catch (e) {
-        $('auth-error').textContent = e.message;
-        $('auth-error').classList.remove('hidden');
+        renderMeets(d.meets);
+    } catch (err) {
+        pin = null;
+        $('pin-error').textContent = err.message;
+        $('pin-error').classList.remove('hidden');
+        $('pin').select();
     } finally {
-        btn.disabled = false;
+        $('unlock').disabled = false;
     }
-}
+});
 
-async function signOut() {
-    try { await api('?action=tb_logout', { method: 'POST' }); } catch (e) {}
-    signedOut();
-}
-function signedOut() {
-    auth = { token: null, user: null };
-    store(TOKEN_KEY, null);
-    store(USER_KEY, null);
+function lock() {
+    pin = null;
+    store(PIN_KEY, null);
     closeOverlay();
     render();
 }
 
 // ── Page ─────────────────────────────────────────────────────────────────
 function render() {
-    const inn = !!auth.token;
-    $('signed-out').classList.toggle('hidden', inn);
+    const inn = !!pin;
+    $('locked').classList.toggle('hidden', inn);
     $('scan-card').classList.toggle('hidden', !inn);
     $('meets-card').classList.toggle('hidden', !inn);
-    $('nav-user').classList.toggle('hidden', !inn);
-    $('nav-user').textContent = inn ? auth.user.display_name : '';
-    $('auth-btn').textContent = inn ? 'Sign out' : 'Sign in';
-    if (!inn) showError('');
+    $('lock-btn').classList.toggle('hidden', !inn);
+    if (!inn) { showError(''); setTimeout(() => $('pin').focus(), 0); }
 }
 
 async function loadMeets() {
-    if (!auth.token) return;
+    if (!pin) return;
     try {
         const d = await api('?action=xc_meets');
         showError('');
@@ -875,13 +829,7 @@ $('confirm-yes').addEventListener('click', async () => {
 });
 
 // ── Wiring ───────────────────────────────────────────────────────────────
-$('auth-btn').addEventListener('click', () => auth.token ? signOut() : openAuth());
-$('signin-cta').addEventListener('click', openAuth);
-$('auth-cancel').addEventListener('click', closeAuth);
-$('auth-submit').addEventListener('click', submitAuth);
-$('tab-login').addEventListener('click', () => setAuthMode('login'));
-$('tab-register').addEventListener('click', () => setAuthMode('register'));
-$('auth').addEventListener('keydown', e => { if (e.key === 'Enter') submitAuth(); });
+$('lock-btn').addEventListener('click', lock);
 
 $('theme-toggle').addEventListener('click', () => {
     const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
