@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>WildcatsXC</title>
+    <meta name="theme-color" content="#111110">
+    <link rel="manifest" href="/manifest-wildcatsxc.json">
+    <link rel="apple-touch-icon" href="/icons/wildcatsxc.svg">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="WildcatsXC">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        // Stamp the theme before first paint so there is no flash of the wrong
+        // one. Stored choice wins; first visit follows the OS.
+        (function () {
+            var t;
+            try { t = localStorage.getItem('wildcatsxc_theme'); } catch (e) {}
+            if (t !== 'light' && t !== 'dark') {
+                t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* Same token set as the other davenn apps. Status hues are fixed and
+           never themed, and each one is paired with a word. */
+        :root, [data-theme="light"] {
+            color-scheme: light;
+            --page:           #ffffff;
+            --surface:        #f7f6f3;
+            --surface-2:      #efeeea;
+            --border:         #e8e6e0;
+            --text-primary:   #111110;
+            --text-secondary: #52514e;
+            --text-muted:     #898781;
+        }
+        [data-theme="dark"] {
+            color-scheme: dark;
+            --page:           #0a0a0a;
+            --surface:        #121212;
+            --surface-2:      #1a1a1a;
+            --border:         #2a2a2a;
+            --text-primary:   #f0f0f0;
+            --text-secondary: #c3c2b7;
+            --text-muted:     #898781;
+        }
+        :root {
+            --nav-bg:     #111110;
+            --nav-border: rgba(255,255,255,0.08);
+            --good:       #0ca30c;
+            --warn:       #fab219;
+            --crit:       #d03b3b;
+            --font-ui:    system-ui, -apple-system, 'Segoe UI', sans-serif;
+            --font-mono:  'DM Mono', ui-monospace, monospace;
+            --nav-h:      52px;
+        }
+
+        html, body { min-height: 100%; }
+        body {
+            font-family: var(--font-ui);
+            background: var(--page);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+            padding-top: calc(var(--nav-h) + env(safe-area-inset-top));
+            padding-bottom: env(safe-area-inset-bottom);
+            transition: background 0.2s, color 0.2s;
+        }
+
+        /* ── NAV ── */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0;
+            height: calc(var(--nav-h) + env(safe-area-inset-top));
+            padding-top: env(safe-area-inset-top);
+            background: var(--nav-bg);
+            border-bottom: 1px solid var(--nav-border);
+            display: flex; align-items: center; justify-content: space-between;
+            padding-left: 1.5rem; padding-right: 1.5rem; z-index: 200;
+        }
+        .nav-logo { font-family: var(--font-mono); font-size: 13px; color: rgba(255,255,255,0.4); text-decoration: none; }
+        .nav-logo strong { color: #fff; }
+        .nav-right { display: flex; align-items: center; gap: 1.2rem; }
+        .nav-user { font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.85); }
+        .nav-back {
+            font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.45);
+            letter-spacing: 0.05em; text-transform: uppercase;
+            background: none; border: none; cursor: pointer; padding: 0; transition: color 0.15s;
+        }
+        .nav-back:hover { color: #fff; }
+
+        .theme-toggle { width: 44px; height: 24px; cursor: pointer; background: none; border: none; padding: 0; flex: none; }
+        .theme-toggle-track {
+            width: 44px; height: 24px; border-radius: 12px; background: #333; border: 1px solid #555;
+            display: flex; align-items: center; padding: 0 3px; transition: background 0.2s;
+        }
+        [data-theme="light"] .theme-toggle-track { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); }
+        .theme-toggle-thumb {
+            width: 18px; height: 18px; border-radius: 50%; display: flex;
+            align-items: center; justify-content: center; font-size: 10px;
+            transition: transform 0.2s, background 0.2s;
+        }
+        [data-theme="light"] .theme-toggle-thumb { transform: translateX(20px); background: #fff; }
+        [data-theme="dark"]  .theme-toggle-thumb { transform: translateX(0);    background: #666; }
+
+        /* ── LAYOUT ── */
+        .wrap { max-width: 720px; margin: 0 auto; padding: 16px; display: grid; gap: 14px; }
+        .card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 14px; padding: 16px;
+        }
+        .card-title {
+            font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em;
+            text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px;
+            display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+        }
+        .hidden { display: none !important; }
+        .msg { color: var(--text-secondary); font-size: 14px; line-height: 1.55; }
+        .msg + .msg { margin-top: 8px; }
+        .spacer { flex: 1 1 auto; }
+
+        button.primary, button.ghost, button.danger {
+            font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em;
+            padding: 10px 14px; border-radius: 9px; cursor: pointer; border: 1px solid transparent;
+            transition: opacity 0.15s, background 0.15s;
+        }
+        button.primary { background: var(--text-primary); color: var(--page); }
+        button.ghost   { background: transparent; color: var(--text-primary); border-color: var(--border); }
+        button.danger  { background: var(--crit); color: #fff; border-color: var(--crit); }
+        button.primary:hover, button.ghost:hover, button.danger:hover { opacity: 0.85; }
+        button:disabled { opacity: 0.4; cursor: default; }
+        button.icon { padding: 9px 11px; display: inline-flex; align-items: center; justify-content: center; }
+        button.icon svg {
+            width: 18px; height: 18px; display: block;
+            fill: none; stroke: currentColor; stroke-width: 1.8;
+            stroke-linecap: round; stroke-linejoin: round;
+        }
+
+        .field { display: grid; gap: 6px; }
+        .field + .field { margin-top: 12px; }
+        .field label {
+            font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em;
+            text-transform: uppercase; color: var(--text-muted);
+        }
+        .field input {
+            font-family: var(--font-ui); font-size: 16px; padding: 10px 12px;
+            background: var(--page); color: var(--text-primary);
+            border: 1px solid var(--border); border-radius: 10px; width: 100%;
+        }
+        .field small { font-size: 12px; color: var(--text-muted); line-height: 1.45; }
+        .scanbar { display: flex; gap: 8px; margin-top: 14px; align-items: center; }
+
+        /* ── MEET LIST ── */
+        .meet {
+            display: grid; grid-template-columns: 76px 1fr auto; gap: 12px; align-items: center;
+            border-top: 1px solid var(--border); padding: 12px 0; cursor: pointer;
+            background: none; border-left: none; border-right: none; border-bottom: none;
+            width: 100%; text-align: left; color: inherit; font: inherit;
+        }
+        .meet:first-of-type { border-top: none; }
+        .meet:hover .mname { text-decoration: underline; }
+        .mdate { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
+        .mname { display: block; font-size: 15px; font-weight: 600; }
+        .msub  { display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+        .mcount { font-family: var(--font-mono); font-size: 18px; text-align: right; line-height: 1; }
+        .mcount small { display: block; font-size: 10px; color: var(--text-muted); margin-top: 3px; }
+
+        /* ── REVIEW OVERLAY ── */
+        .overlay {
+            position: fixed; inset: 0; z-index: 300; background: var(--page);
+            overflow-y: auto; padding: 16px calc(16px + env(safe-area-inset-right)) 110px calc(16px + env(safe-area-inset-left));
+            padding-top: calc(16px + env(safe-area-inset-top));
+        }
+        .overlay-inner { max-width: 720px; margin: 0 auto; display: grid; gap: 14px; }
+        .overlay h2 { font-size: 18px; font-weight: 600; }
+        .overlay-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+        .banner {
+            border-radius: 10px; padding: 11px 13px; font-size: 13px; line-height: 1.5;
+            border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary);
+        }
+        .banner.warn { border-color: var(--warn); }
+        .banner.bad  { border-color: var(--crit); color: var(--text-primary); }
+        .banner ul { margin: 6px 0 0 18px; }
+
+        .meetfields { display: grid; grid-template-columns: 1fr 160px; gap: 12px; }
+        .meetfields .field + .field { margin-top: 0; }
+        .meetfields .wide { grid-column: 1 / -1; }
+
+        /* A race: its name and distance, then its runners. */
+        .racehead { display: grid; grid-template-columns: 1fr 96px; gap: 8px; margin-bottom: 10px; }
+        .racehead input {
+            font-family: var(--font-ui); font-size: 15px; font-weight: 600; padding: 8px 10px;
+            background: var(--page); color: var(--text-primary);
+            border: 1px solid var(--border); border-radius: 9px; width: 100%;
+        }
+        .racehead .dist { font-family: var(--font-mono); font-weight: 400; font-size: 13px; }
+
+        /* Each runner is two lines on one grid, so the columns line up down
+           the race: place · name · time · remove, then grade · school · tag. */
+        .runners-head, .runner {
+            display: grid; grid-template-columns: 46px 1fr 92px 30px; gap: 6px; align-items: center;
+        }
+        .runners-head {
+            font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em;
+            text-transform: uppercase; color: var(--text-muted); padding-bottom: 6px;
+        }
+        .runner { border-top: 1px solid var(--border); padding: 9px 0; row-gap: 5px; }
+        .runner input {
+            font-family: var(--font-ui); font-size: 14px; padding: 7px 8px; width: 100%; min-width: 0;
+            background: var(--page); color: var(--text-primary);
+            border: 1px solid var(--border); border-radius: 7px;
+        }
+        .runner input.num, .runner input.time { font-family: var(--font-mono); font-size: 13px; text-align: center; }
+        .runner input.school { font-size: 13px; color: var(--text-secondary); }
+        .runner input.bad { border-color: var(--crit); color: var(--crit); }
+        .runner .remove {
+            background: none; border: none; color: var(--text-muted); cursor: pointer;
+            font-size: 18px; line-height: 1; padding: 4px;
+        }
+        .runner .remove:hover { color: var(--crit); }
+        .runner .tagcell { grid-column: 3 / 5; display: flex; justify-content: flex-start; }
+        .tag {
+            font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.05em;
+            text-transform: uppercase; padding: 2px 7px; border-radius: 20px;
+            border: 1px solid var(--border); color: var(--text-muted); white-space: nowrap;
+            background: none;
+        }
+        .tag.known { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, transparent); }
+        button.tag.similar {
+            color: var(--warn); border-color: var(--warn); cursor: pointer; text-transform: none;
+            letter-spacing: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+        }
+        .addrow {
+            margin-top: 8px; background: none; border: none; cursor: pointer; padding: 6px 0;
+            font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em;
+            text-transform: uppercase; color: var(--text-muted);
+        }
+        .addrow:hover { color: var(--text-primary); }
+
+        .actions {
+            position: fixed; left: 0; right: 0; bottom: 0; z-index: 310;
+            background: var(--page); border-top: 1px solid var(--border);
+            padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+            display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;
+        }
+
+        /* ── DIALOGS ── */
+        .modal {
+            position: fixed; inset: 0; z-index: 400;
+            background: rgba(0, 0, 0, 0.55);
+            display: flex; align-items: center; justify-content: center; padding: 20px;
+        }
+        .modal-box {
+            background: var(--page); border: 1px solid var(--border);
+            border-radius: 14px; padding: 20px; width: 100%; max-width: 380px;
+            display: grid; gap: 14px;
+        }
+        .modal-title { font-size: 17px; font-weight: 600; }
+        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+        .tabs { display: flex; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+        .tabs button {
+            flex: 1; padding: 8px; background: none; border: none; cursor: pointer;
+            font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em;
+            text-transform: uppercase; color: var(--text-secondary);
+        }
+        .tabs button[aria-selected="true"] { background: var(--text-primary); color: var(--page); }
+
+        .spinner {
+            width: 22px; height: 22px; border: 2px solid var(--border);
+            border-top-color: var(--text-primary); border-radius: 50%;
+            animation: spin 0.8s linear infinite; flex: none;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
+        .loading { display: flex; align-items: center; gap: 12px; }
+
+        .toast {
+            position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+            z-index: 500; background: var(--text-primary); color: var(--page);
+            font-family: var(--font-mono); font-size: 12px; padding: 10px 16px; border-radius: 9px;
+            max-width: calc(100% - 32px);
+        }
+
+        footer { text-align: center; padding: 28px 16px 40px; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+        footer a { color: var(--text-muted); }
+
+        @media (max-width: 480px) {
+            .wrap { padding: 12px; }
+            .meetfields { grid-template-columns: 1fr; }
+            .meet { grid-template-columns: 1fr auto; }
+            .meet .mdate { grid-column: 1 / -1; }
+            .runners-head, .runner { grid-template-columns: 40px 1fr 84px 26px; }
+            .nav-user { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <a class="nav-logo" href="index.html"><strong>davenn</strong>dotcom</a>
+    <div class="nav-right">
+        <span class="nav-user hidden" id="nav-user"></span>
+        <button class="nav-back" id="auth-btn" type="button">Sign in</button>
+        <button class="theme-toggle" id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
+            <div class="theme-toggle-track"><div class="theme-toggle-thumb" id="toggle-icon">🌙</div></div>
+        </button>
+    </div>
+</nav>
+
+<div class="wrap">
+
+    <section class="card hidden" id="signed-out">
+        <div class="card-title">WildcatsXC</div>
+        <p class="msg">Photograph a cross country results sheet, or upload the PDF, and every runner, school and time is read off it. Check the rows, save the meet, and each athlete builds up a season record.</p>
+        <p class="msg">Results name students, so they are kept under your account and nobody else can see them. Sign in with your davenn.com account (the same one Toolshare and Daily Tasks use).</p>
+        <div class="scanbar"><button class="primary" id="signin-cta" type="button">Sign in</button></div>
+    </section>
+
+    <div class="banner bad hidden" id="page-error"></div>
+
+    <section class="card hidden" id="scan-card">
+        <div class="card-title">Scan a meet</div>
+        <div class="field">
+            <label for="schools">Only these schools</label>
+            <input id="schools" type="text" maxlength="300" autocomplete="off"
+                   placeholder="e.g. Verona, Madison West">
+            <small>Leave blank to keep every runner. Naming your school, or your conference, makes a big invitational much faster to read.</small>
+        </div>
+        <div class="scanbar">
+            <span class="spacer"></span>
+            <button class="primary icon hidden" id="camera-btn" type="button"
+                    title="Take a photo of the results" aria-label="Take a photo of the results">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 7h3l2-2.5h6L17 7h3a1.5 1.5 0 0 1 1.5 1.5v10a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5v-10A1.5 1.5 0 0 1 4 7z"/>
+                    <circle cx="12" cy="13.2" r="3.6"/>
+                </svg>
+            </button>
+            <button class="primary" id="upload-btn" type="button">Upload photos or PDF</button>
+        </div>
+    </section>
+
+    <section class="card hidden" id="meets-card">
+        <div class="card-title"><span>Meets</span><span id="meets-note"></span></div>
+        <div id="meets"></div>
+    </section>
+
+</div>
+
+<footer>
+    Read by Claude · checked by you · visible only to your account
+</footer>
+
+<!-- Review overlay: a scan or a saved meet, editable, before anything is saved. -->
+<div class="overlay hidden" id="review">
+    <div class="overlay-inner">
+        <div class="overlay-head">
+            <h2 id="review-title">Check the results</h2>
+            <button class="ghost" id="review-close" type="button">Cancel</button>
+        </div>
+        <div id="review-body"></div>
+    </div>
+</div>
+<div class="actions hidden" id="review-actions">
+    <button class="danger hidden" id="delete-meet" type="button">Delete meet</button>
+    <button class="ghost" id="add-page" type="button">Add a page</button>
+    <span class="spacer"></span>
+    <button class="primary" id="save" type="button">Save meet</button>
+</div>
+
+<div class="modal hidden" id="confirm" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div class="modal-box">
+        <div class="modal-title" id="confirm-title">Delete this meet?</div>
+        <p class="msg" id="confirm-body"></p>
+        <div class="modal-actions">
+            <button class="ghost" id="confirm-no" type="button">Cancel</button>
+            <button class="danger" id="confirm-yes" type="button">Delete</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal hidden" id="auth" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+    <div class="modal-box">
+        <div class="modal-title" id="auth-title">Sign in</div>
+        <div class="tabs" role="tablist">
+            <button type="button" role="tab" id="tab-login" aria-selected="true">Sign in</button>
+            <button type="button" role="tab" id="tab-register" aria-selected="false">Create account</button>
+        </div>
+        <div id="form-login">
+            <div class="field"><label for="login-user">Username</label><input id="login-user" type="text" autocomplete="username"></div>
+            <div class="field"><label for="login-pass">Password</label><input id="login-pass" type="password" autocomplete="current-password"></div>
+        </div>
+        <div id="form-register" class="hidden">
+            <div class="field"><label for="reg-user">Username</label><input id="reg-user" type="text" autocomplete="username"></div>
+            <div class="field"><label for="reg-name">Display name</label><input id="reg-name" type="text" autocomplete="name"></div>
+            <div class="field"><label for="reg-email">Email</label><input id="reg-email" type="email" autocomplete="email"></div>
+            <div class="field"><label for="reg-pass">Password</label><input id="reg-pass" type="password" autocomplete="new-password"></div>
+        </div>
+        <div class="banner bad hidden" id="auth-error"></div>
+        <div class="modal-actions">
+            <button class="ghost" id="auth-cancel" type="button">Cancel</button>
+            <button class="primary" id="auth-submit" type="button">Sign in</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast hidden" id="toast" role="status"></div>
+
+<!-- Two inputs on purpose. 'capture' does not add the camera as an option, it
+     forces it and takes the photo library away, so one input cannot serve both
+     shooting the sheet in front of you and picking a PDF or earlier photo. -->
+<input type="file" id="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple class="hidden">
+<input type="file" id="file-cam" accept="image/*" capture="environment" class="hidden">
+
+<script>
+const API = '/api.php';
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+// Accounts are Toolshare's, and so is the stored session: signing in on any of
+// the apps that share them signs you in here too.
+const TOKEN_KEY = 'tb_token';
+const USER_KEY  = 'tb_user';
+const SCHOOLS_KEY = 'wildcatsxc_schools';
+
+function store(key, val) {
+    try { val === null ? localStorage.removeItem(key) : localStorage.setItem(key, val); } catch (e) {}
+}
+function load(key) {
+    try { return localStorage.getItem(key); } catch (e) { return null; }
+}
+
+let auth = { token: load(TOKEN_KEY), user: null };
+try { auth.user = JSON.parse(load(USER_KEY)); } catch (e) {}
+if (!auth.token || !auth.user) auth = { token: null, user: null };
+
+// ── State ────────────────────────────────────────────────────────────────
+// review is the meet open in the overlay: a fresh scan (meet_id null) or a
+// saved meet being edited. Rows are flat and carry their race; the overlay
+// groups them for display.
+let review    = null;
+let appending = false;
+let nextUid   = 1;
+
+// ── API ──────────────────────────────────────────────────────────────────
+async function api(path, opts = {}) {
+    const headers = Object.assign({}, opts.headers);
+    if (auth.token) headers['X-Auth-Token'] = auth.token;
+    const res = await fetch(API + path, Object.assign({}, opts, { headers }));
+    let body = null;
+    try { body = await res.json(); } catch (e) {}
+    if (res.status === 401 && auth.token) { signedOut(); throw new Error('Your session ended. Sign in again.'); }
+    if (!res.ok) throw new Error((body && body.error) || ('Request failed (' + res.status + ')'));
+    return body;
+}
+
+function showError(msg) {
+    const el = $('page-error');
+    el.textContent = msg || '';
+    el.classList.toggle('hidden', !msg);
+}
+
+let toastTimer = null;
+function toast(msg) {
+    const el = $('toast');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.add('hidden'), 3200);
+}
+
+// ── Times and names — the same rules api.php applies ─────────────────────
+function parseTime(t) {
+    const m = /^(?:(\d{1,2}):)?(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?$/.exec(String(t).trim());
+    if (!m) return null;
+    const h = +(m[1] || 0), min = +m[2], sec = +m[3];
+    if (sec > 59 || (m[1] !== undefined && min > 59)) return null;
+    const ms = ((h * 60 + min) * 60 + sec) * 1000 + +((m[4] || '').padEnd(3, '0'));
+    return ms >= 60000 && ms <= 7200000 ? ms : null;
+}
+const norm = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const schoolNorm = s => norm(s).replace(/\s+(high school|high|hs|h s|sr high|senior high)$/, '').trim();
+const runnerKey = r => norm(r.name) + '|' + schoolNorm(r.school);
+
+function fmtDate(ymd) {
+    const [y, m, d] = ymd.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// ── Signing in ───────────────────────────────────────────────────────────
+let authMode = 'login';
+
+function setAuthMode(mode) {
+    authMode = mode;
+    $('tab-login').setAttribute('aria-selected', String(mode === 'login'));
+    $('tab-register').setAttribute('aria-selected', String(mode === 'register'));
+    $('form-login').classList.toggle('hidden', mode !== 'login');
+    $('form-register').classList.toggle('hidden', mode !== 'register');
+    $('auth-title').textContent = mode === 'login' ? 'Sign in' : 'Create account';
+    $('auth-submit').textContent = mode === 'login' ? 'Sign in' : 'Create account';
+    $('auth-error').classList.add('hidden');
+}
+function openAuth() { setAuthMode('login'); $('auth').classList.remove('hidden'); $('login-user').focus(); }
+function closeAuth() { $('auth').classList.add('hidden'); }
+
+async function submitAuth() {
+    const v = id => $(id).value.trim();
+    const btn = $('auth-submit');
+    btn.disabled = true;
+    try {
+        const res = authMode === 'login'
+            ? await api('?action=tb_login', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ username: v('login-user'), password: $('login-pass').value }) })
+            : await api('?action=tb_register', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ username: v('reg-user'), display_name: v('reg-name'), email: v('reg-email'), password: $('reg-pass').value }) });
+        auth = { token: res.token, user: res.user };
+        store(TOKEN_KEY, auth.token);
+        store(USER_KEY, JSON.stringify(auth.user));
+        closeAuth();
+        render();
+        loadMeets();
+    } catch (e) {
+        $('auth-error').textContent = e.message;
+        $('auth-error').classList.remove('hidden');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function signOut() {
+    try { await api('?action=tb_logout', { method: 'POST' }); } catch (e) {}
+    signedOut();
+}
+function signedOut() {
+    auth = { token: null, user: null };
+    store(TOKEN_KEY, null);
+    store(USER_KEY, null);
+    closeOverlay();
+    render();
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────
+function render() {
+    const inn = !!auth.token;
+    $('signed-out').classList.toggle('hidden', inn);
+    $('scan-card').classList.toggle('hidden', !inn);
+    $('meets-card').classList.toggle('hidden', !inn);
+    $('nav-user').classList.toggle('hidden', !inn);
+    $('nav-user').textContent = inn ? auth.user.display_name : '';
+    $('auth-btn').textContent = inn ? 'Sign out' : 'Sign in';
+    if (!inn) showError('');
+}
+
+async function loadMeets() {
+    if (!auth.token) return;
+    try {
+        const d = await api('?action=xc_meets');
+        showError('');
+        renderMeets(d.meets);
+    } catch (e) {
+        showError(e.message);
+    }
+}
+
+function renderMeets(meets) {
+    $('meets-note').textContent = meets.length ? meets.length + (meets.length === 1 ? ' meet' : ' meets') : '';
+    if (!meets.length) {
+        $('meets').innerHTML = '<p class="msg">No meets yet. Scan a results sheet above and it will show up here.</p>';
+        return;
+    }
+    $('meets').innerHTML = meets.map(m => `
+        <button class="meet" type="button" data-id="${m.id}">
+            <span class="mdate">${esc(fmtDate(m.date))}</span>
+            <span>
+                <span class="mname">${esc(m.name)}</span>
+                <span class="msub">${esc([m.location, m.races + (m.races === 1 ? ' race' : ' races')].filter(Boolean).join(' · '))}</span>
+            </span>
+            <span class="mcount">${m.runners}<small>runners</small></span>
+        </button>`).join('');
+}
+
+$('meets').addEventListener('click', async e => {
+    const b = e.target.closest('.meet');
+    if (!b) return;
+    openOverlay('Loading the meet', '<div class="card"><div class="loading"><div class="spinner"></div></div></div>');
+    try {
+        const d = await api('?action=xc_meet&id=' + b.dataset.id);
+        review = {
+            meet_id: d.meet.id, name: d.meet.name, date: d.meet.date, location: d.meet.location,
+            rows: d.rows.map(withUid), notes: [],
+        };
+        renderReview();
+    } catch (e) {
+        openOverlay('Could not open that', `<div class="banner bad">${esc(e.message)}</div>`);
+    }
+});
+
+// ── Scanning ─────────────────────────────────────────────────────────────
+const isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+if (isTouch) {
+    $('camera-btn').classList.remove('hidden');
+    $('upload-btn').className = 'ghost';   // on a phone, shooting the sheet leads
+    $('upload-btn').textContent = 'Upload';
+}
+$('camera-btn').addEventListener('click', () => { appending = false; $('file-cam').click(); });
+$('upload-btn').addEventListener('click', () => { appending = false; $('file').click(); });
+$('add-page').addEventListener('click', () => { appending = true; (isTouch ? $('file-cam') : $('file')).click(); });
+
+$('schools').value = load(SCHOOLS_KEY) || '';
+$('schools').addEventListener('change', e => store(SCHOOLS_KEY, e.target.value.trim()));
+
+['file', 'file-cam'].forEach(id => $(id).addEventListener('change', scanFiles));
+
+async function scanFiles(ev) {
+    const files = Array.from(ev.target.files || []);
+    ev.target.value = '';
+    if (!files.length) return;
+    const append = appending && review;
+
+    const waiting = `<div class="loading"><div class="spinner"></div><div>
+        <p class="msg">Reading every runner, school and time.</p>
+        <p class="msg" style="color:var(--text-muted)">A full meet can take a minute or two.</p></div></div>`;
+    if (append) {
+        $('scan-status').className = 'card';
+        $('scan-status').innerHTML = waiting;
+        $('add-page').disabled = $('save').disabled = true;
+    } else {
+        openOverlay('Reading the results', `<div class="card">${waiting}</div>`);
+    }
+
+    const fd = new FormData();
+    files.forEach(f => fd.append('files[]', f));
+    fd.append('schools', $('schools').value.trim());
+
+    try {
+        const r = await api('?action=xc_scan', { method: 'POST', body: fd });
+        if (!r.readable) {
+            if (append) { scanStatus('bad', r.note); return; }
+            openOverlay('Could not read that', `<div class="banner bad">${esc(r.note)}</div>
+                <p class="msg">Try again with the whole page in frame, flat, in even light — or upload the PDF if the meet posted one.</p>`);
+            return;
+        }
+        const notes = [r.note, ...(r.warnings || [])].filter(Boolean);
+        if (append) {
+            review.rows.push(...r.rows.map(withUid));
+            review.name = review.name || r.meet.name;
+            review.date = review.date || r.meet.date;
+            review.location = review.location || r.meet.location;
+            review.notes.push(...notes);
+        } else {
+            review = { meet_id: null, ...r.meet, rows: r.rows.map(withUid), notes };
+        }
+        renderReview();
+    } catch (e) {
+        if (append) { scanStatus('bad', e.message); return; }
+        openOverlay('Could not read that', `<div class="banner bad">${esc(e.message)}</div>`);
+    } finally {
+        $('add-page').disabled = $('save').disabled = false;
+    }
+}
+
+function scanStatus(kind, msg) {
+    $('scan-status').className = 'banner ' + kind;
+    $('scan-status').textContent = msg;
+}
+
+function withUid(r) { return Object.assign({ uid: nextUid++ }, r); }
+
+// ── Overlay ──────────────────────────────────────────────────────────────
+function openOverlay(title, html) {
+    $('review-title').textContent = title;
+    $('review-body').innerHTML = html;
+    $('review').classList.remove('hidden');
+    $('review-actions').classList.add('hidden');
+    document.body.style.overflow = 'hidden';
+}
+function closeOverlay() {
+    $('review').classList.add('hidden');
+    $('review-actions').classList.add('hidden');
+    document.body.style.overflow = '';
+    review = null;
+}
+$('review-close').addEventListener('click', closeOverlay);
+
+/** Races in the order they first appear, each with its rows. */
+function races() {
+    const out = [];
+    const at = {};
+    review.rows.forEach(r => {
+        if (!(r.race in at)) { at[r.race] = out.length; out.push({ name: r.race, distance_m: r.distance_m, rows: [] }); }
+        out[at[r.race]].rows.push(r);
+    });
+    return out;
+}
+
+function renderReview() {
+    const editing = !!review.meet_id;
+    $('review-title').textContent = editing ? 'Edit meet' : 'Check the results';
+
+    const notes = [...new Set(review.notes)];
+    $('review-body').innerHTML = `
+        ${notes.length ? `<div class="banner warn"><strong>Worth a look</strong><ul>${notes.map(n => '<li>' + esc(n) + '</li>').join('')}</ul></div>` : ''}
+        <div class="hidden" id="scan-status"></div>
+        <div class="card">
+            ${editing ? '' : '<p class="msg" style="margin-bottom:14px">Check each time against the sheet before saving — they are what every athlete\'s trend is drawn from.</p>'}
+            <div class="meetfields">
+                <div class="field"><label for="m-name">Meet</label>
+                    <input id="m-name" type="text" maxlength="160" value="${esc(review.name)}"></div>
+                <div class="field"><label for="m-date">Date</label>
+                    <input id="m-date" type="date" value="${esc(review.date)}"></div>
+                <div class="field wide"><label for="m-loc">Course / host</label>
+                    <input id="m-loc" type="text" maxlength="160" value="${esc(review.location)}"></div>
+            </div>
+        </div>
+        ${races().map((race, i) => `
+        <div class="card">
+            <div class="racehead">
+                <input type="text" maxlength="80" aria-label="Race name" data-race="${i}" data-rfield="race" value="${esc(race.name)}">
+                <input class="dist" type="number" min="0" max="20000" step="1" aria-label="Distance in meters"
+                       placeholder="meters" data-race="${i}" data-rfield="distance_m" value="${race.distance_m || ''}">
+            </div>
+            <div class="runners-head"><span>Pl</span><span>Name · school</span><span style="text-align:center">Time</span><span></span></div>
+            ${race.rows.map(runnerHtml).join('')}
+            <button class="addrow" type="button" data-addrow="${i}">+ Add runner</button>
+        </div>`).join('')}
+        <div class="banner bad hidden" id="review-error"></div>`;
+
+    $('review').classList.remove('hidden');
+    $('review-actions').classList.remove('hidden');
+    $('delete-meet').classList.toggle('hidden', !editing);
+    document.body.style.overflow = 'hidden';
+}
+
+function runnerHtml(r) {
+    let tag = '<span class="tag">new</span>';
+    if (r.status === 'existing') tag = '<span class="tag known">known</span>';
+    else if (r.status === 'edited') tag = '';
+    else if (r.similar) tag = `<button class="tag similar" type="button" data-similar="${r.uid}" title="Use the existing athlete's name">Same as ${esc(r.similar)}?</button>`;
+    const badTime = r.time === '' || parseTime(r.time) === null;
+    return `<div class="runner" data-uid="${r.uid}">
+        <input class="num" type="number" min="0" aria-label="Place" data-field="place" value="${r.place || ''}">
+        <input type="text" maxlength="80" aria-label="Name" data-field="name" value="${esc(r.name)}">
+        <input class="time${badTime ? ' bad' : ''}" type="text" inputmode="decimal" aria-label="Time" placeholder="mm:ss.t" data-field="time" value="${esc(r.time)}">
+        <button class="remove" type="button" data-remove="${r.uid}" aria-label="Remove ${esc(r.name)}" title="Remove">×</button>
+        <input class="num" type="number" min="0" max="12" aria-label="Grade" placeholder="gr" data-field="grade" value="${r.grade || ''}">
+        <input class="school" type="text" maxlength="120" aria-label="School" placeholder="School" data-field="school" value="${esc(r.school)}">
+        <span class="tagcell">${tag}</span>
+    </div>`;
+}
+
+const rowByUid = uid => review.rows.find(r => r.uid === +uid);
+
+// Field edits update state in place without a re-render, so focus and the
+// caret stay where they are while typing.
+$('review-body').addEventListener('input', e => {
+    if (!review) return;
+    const t = e.target;
+    if (t.id === 'm-name') review.name = t.value;
+    else if (t.id === 'm-date') review.date = t.value;
+    else if (t.id === 'm-loc') review.location = t.value;
+    const row = t.dataset.field && rowByUid(t.closest('.runner').dataset.uid);
+    if (!row) return;
+    const f = t.dataset.field;
+    row[f] = (f === 'place' || f === 'grade') ? (parseInt(t.value, 10) || 0) : t.value;
+    if (f === 'time') t.classList.toggle('bad', parseTime(t.value) === null);
+    // A changed name or school is a different lookup; the old tag no longer applies.
+    if ((f === 'name' || f === 'school') && row.status !== 'edited') {
+        row.status = 'edited'; row.similar = null;
+        t.closest('.runner').querySelector('.tagcell').innerHTML = '';
+    }
+});
+
+// Race name and distance apply to every runner in the race, and renaming one
+// to match another merges them, so those re-render once editing is done.
+$('review-body').addEventListener('change', e => {
+    const t = e.target;
+    if (!review || t.dataset.race === undefined) return;
+    const race = races()[+t.dataset.race];
+    if (!race) return;
+    const val = t.dataset.rfield === 'race' ? (t.value.trim() || 'Race') : (parseInt(t.value, 10) || 0);
+    race.rows.forEach(r => { r[t.dataset.rfield] = val; });
+    renderReview();
+});
+
+$('review-body').addEventListener('click', e => {
+    if (!review) return;
+    const t = e.target;
+    if (t.dataset.remove) {
+        review.rows = review.rows.filter(r => r.uid !== +t.dataset.remove);
+        renderReview();
+    } else if (t.dataset.similar) {
+        const row = rowByUid(t.dataset.similar);
+        row.name = row.similar; row.similar = null; row.status = 'existing';
+        renderReview();
+    } else if (t.dataset.addrow !== undefined) {
+        const race = races()[+t.dataset.addrow];
+        const last = race.rows[race.rows.length - 1] || {};
+        const row = withUid({ race: race.name, distance_m: race.distance_m, place: 0, name: '', grade: 0,
+                              school: last.school || '', time: '', status: 'edited', similar: null });
+        review.rows.splice(review.rows.indexOf(last) + 1, 0, row);
+        renderReview();
+        document.querySelector(`.runner[data-uid="${row.uid}"] [data-field="name"]`).focus();
+    }
+});
+
+// ── Saving ───────────────────────────────────────────────────────────────
+function validate() {
+    if (!review.name.trim()) return 'Give the meet a name.';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(review.date)) return 'Give the meet a date.';
+    if (!review.rows.length) return 'There are no runners to save.';
+    const seen = {};
+    for (const r of review.rows) {
+        const who = r.name.trim() || 'A runner in ' + r.race;
+        if (!r.name.trim()) return who + ' needs a name.';
+        if (!r.school.trim()) return who + ' needs a school.';
+        if (parseTime(r.time) === null) return who + ' needs a time like 17:23.4.';
+        const k = runnerKey(r);
+        if (seen[k]) return who + ' (' + r.school + ') is listed twice.';
+        seen[k] = true;
+    }
+    return '';
+}
+
+$('save').addEventListener('click', async () => {
+    const err = validate();
+    const box = $('review-error');
+    if (err) {
+        box.textContent = err; box.classList.remove('hidden');
+        box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
+    box.classList.add('hidden');
+    $('save').disabled = true;
+    try {
+        const r = await api('?action=xc_save_meet', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                meet_id: review.meet_id, name: review.name.trim(), date: review.date, location: review.location.trim(),
+                rows: review.rows.map(({ race, distance_m, place, name, grade, school, time }) =>
+                    ({ race, distance_m, place, name: name.trim(), grade, school: school.trim(), time: time.trim() })),
+            }),
+        });
+        closeOverlay();
+        toast('Saved ' + r.saved + (r.saved === 1 ? ' result' : ' results'));
+        loadMeets();
+    } catch (e) {
+        box.textContent = e.message; box.classList.remove('hidden');
+    } finally {
+        $('save').disabled = false;
+    }
+});
+
+// ── Deleting ─────────────────────────────────────────────────────────────
+$('delete-meet').addEventListener('click', () => {
+    $('confirm-body').textContent = `${review.name} and its ${review.rows.length} results will be removed. This cannot be undone.`;
+    $('confirm').classList.remove('hidden');
+});
+$('confirm-no').addEventListener('click', () => $('confirm').classList.add('hidden'));
+$('confirm-yes').addEventListener('click', async () => {
+    $('confirm').classList.add('hidden');
+    try {
+        await api('?action=xc_meet&id=' + review.meet_id, { method: 'DELETE' });
+        closeOverlay();
+        toast('Meet deleted');
+        loadMeets();
+    } catch (e) {
+        $('review-error').textContent = e.message;
+        $('review-error').classList.remove('hidden');
+    }
+});
+
+// ── Wiring ───────────────────────────────────────────────────────────────
+$('auth-btn').addEventListener('click', () => auth.token ? signOut() : openAuth());
+$('signin-cta').addEventListener('click', openAuth);
+$('auth-cancel').addEventListener('click', closeAuth);
+$('auth-submit').addEventListener('click', submitAuth);
+$('tab-login').addEventListener('click', () => setAuthMode('login'));
+$('tab-register').addEventListener('click', () => setAuthMode('register'));
+$('auth').addEventListener('keydown', e => { if (e.key === 'Enter') submitAuth(); });
+
+$('theme-toggle').addEventListener('click', () => {
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    $('toggle-icon').textContent = next === 'dark' ? '🌙' : '☀️';
+    store('wildcatsxc_theme', next);
+});
+$('toggle-icon').textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '🌙' : '☀️';
+
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(function () {});
+}
+
+render();
+loadMeets();
+</script>
+</body>
+</html>

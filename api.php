@@ -235,6 +235,46 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS bg_events (
     INDEX idx_start (start_at)
 )");
 
+// WildcatsXC. A runner is identified by match_key — name and school,
+// normalised — so the same athlete on two sheets is one row. Results hang off
+// a meet and an athlete; one result per athlete per meet.
+$pdo->exec("CREATE TABLE IF NOT EXISTS xc_meets (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    user_id    INT          NOT NULL,
+    name       VARCHAR(160) NOT NULL,
+    meet_date  DATE         NOT NULL,
+    location   VARCHAR(160) DEFAULT NULL,
+    created_at DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_user_date (user_id, meet_date),
+    FOREIGN KEY (user_id) REFERENCES tb_users(id) ON DELETE CASCADE
+)");
+
+$pdo->exec("CREATE TABLE IF NOT EXISTS xc_athletes (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    user_id    INT          NOT NULL,
+    name       VARCHAR(80)  NOT NULL,
+    school     VARCHAR(120) NOT NULL,
+    match_key  VARCHAR(210) NOT NULL,
+    created_at DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_athlete (user_id, match_key),
+    FOREIGN KEY (user_id) REFERENCES tb_users(id) ON DELETE CASCADE
+)");
+
+$pdo->exec("CREATE TABLE IF NOT EXISTS xc_results (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    meet_id    INT          NOT NULL,
+    athlete_id INT          NOT NULL,
+    race       VARCHAR(80)  NOT NULL,
+    distance_m SMALLINT     DEFAULT NULL,
+    place      SMALLINT     DEFAULT NULL,
+    grade      TINYINT      DEFAULT NULL,
+    time_ms    INT          NOT NULL,
+    UNIQUE KEY uniq_run (meet_id, athlete_id),
+    INDEX idx_athlete (athlete_id),
+    FOREIGN KEY (meet_id)    REFERENCES xc_meets(id)    ON DELETE CASCADE,
+    FOREIGN KEY (athlete_id) REFERENCES xc_athletes(id) ON DELETE CASCADE
+)");
+
 // ── HELPERS ────────────────────────────────────────────────────────────────
 function authUser(PDO $pdo): ?array {
     $token = $_SERVER['HTTP_X_AUTH_TOKEN'] ?? '';
@@ -2509,18 +2549,19 @@ function cpWeekPayload(PDO $pdo, array $week): array {
 // of quirks to reason about.
 
 /**
- * Downscale to the 1568px long edge the model actually uses. A phone photo is
- * far larger, and the extra pixels are resized away server-side anyway.
+ * Downscale to the long edge the model actually uses — 1568px for the pick
+ * sheet's model, 2576px for the high-resolution ones. A phone photo is far
+ * larger, and the extra pixels are resized away server-side anyway.
  * Returns [bytes, mediaType].
  */
-function cpPrepareImage(string $bytes, string $media_type): array {
+function cpPrepareImage(string $bytes, string $media_type, int $max_edge = 1568): array {
     if (!function_exists('imagecreatefromstring')) return [$bytes, $media_type];
     $img = @imagecreatefromstring($bytes);
     if ($img === false) return [$bytes, $media_type];
 
     $w = imagesx($img); $h = imagesy($img);
-    if (max($w, $h) > 1568) {
-        $scale  = 1568 / max($w, $h);
+    if (max($w, $h) > $max_edge) {
+        $scale  = $max_edge / max($w, $h);
         $scaled = imagescale($img, (int)round($w * $scale), (int)round($h * $scale));
         if ($scaled !== false) {
             ob_start(); imagejpeg($scaled, null, 90); $bytes = ob_get_clean();
@@ -3376,6 +3417,498 @@ if ($method === 'DELETE' && $action === 'cp_week') {
     $stmt = $pdo->prepare("DELETE FROM cp_weeks WHERE season = ? AND week = ?");
     $stmt->execute([intval($_GET['season'] ?? 0), intval($_GET['week'] ?? 0)]);
     if ($stmt->rowCount() === 0) { http_response_code(404); echo json_encode(['error' => 'No such week.']); exit; }
+    echo json_encode(['success' => true]);
+    exit;
+}
+
+// =============================================================
+// WILDCATSXC (wildcatsxc.html) — actions prefixed xc_
+//
+// Cross country meet results, read off a results sheet (photo or PDF) by
+// Claude, checked by hand, then filed per meet. The point is the athlete over
+// a season, so each runner is an xc_athletes row that every later meet joins
+// back to — matched on name + school, normalised, never fuzzily. A near miss
+// ("Jon" against "John") is offered to the coach as a suggestion rather than
+// merged, because two real teammates can be one letter apart.
+//
+// Every endpoint here needs a Toolshare account and only ever touches that
+// account's rows. Results name minors; none of it is public.
+// =============================================================
+
+/** Lowercase, punctuation folded to single spaces. "O'Brien, Jr." → "o brien jr" */
+function xcNorm(string $s): string {
+    $s = strtolower(trim($s));
+    $s = preg_replace('/[^a-z0-9]+/', ' ', $s);
+    return trim($s);
+}
+
+/** A school with the suffixes sheets add or drop removed, so "Madison West HS" is "Madison West". */
+function xcSchoolNorm(string $s): string {
+    return trim(preg_replace('/\s+(high school|high|hs|h s|sr high|senior high)$/', '', xcNorm($s)));
+}
+
+function xcKey(string $name, string $school): string {
+    return xcNorm($name) . '|' . xcSchoolNorm($school);
+}
+
+/**
+ * "17:23.4", "17:23.45", "17:23" or "1:02:03.5" → milliseconds, or null.
+ * Bounded to a minute either side of anything a cross country race produces,
+ * which also catches a place number that landed in the time column.
+ */
+function xcParseTime(string $t): ?int {
+    if (!preg_match('/^(?:(\d{1,2}):)?(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?$/', trim($t), $m)) return null;
+    $h = (int)($m[1] ?? 0); $min = (int)$m[2]; $sec = (int)$m[3];
+    if ($sec > 59 || ($m[1] !== '' && $min > 59)) return null;
+    $ms = (($h * 60 + $min) * 60 + $sec) * 1000 + (int)str_pad($m[4] ?? '', 3, '0');
+    return ($ms >= 60000 && $ms <= 7200000) ? $ms : null;
+}
+
+/** Milliseconds back to the form sheets print: tenths or hundredths only when they were there. */
+function xcFormatTime(int $ms): string {
+    $s = intdiv($ms, 1000); $frac = $ms % 1000;
+    $out = intdiv($s, 60) . ':' . str_pad((string)($s % 60), 2, '0', STR_PAD_LEFT);
+    if ($frac === 0) return $out;
+    return $out . '.' . ($frac % 100 === 0 ? (string)intdiv($frac, 100) : str_pad((string)intdiv($frac, 10), 2, '0', STR_PAD_LEFT));
+}
+
+/** Drop athletes no result points at any more, after a meet is rewritten or deleted. */
+function xcPruneAthletes(PDO $pdo, int $user_id): void {
+    $pdo->prepare("DELETE a FROM xc_athletes a LEFT JOIN xc_results r ON r.athlete_id = a.id
+                   WHERE a.user_id = ? AND r.id IS NULL")->execute([$user_id]);
+}
+
+/**
+ * Ask Claude to read a results sheet. $docs is a list of [bytes, mediaType],
+ * one per page photo or PDF. Returns ['result' => array] or ['error' => string].
+ *
+ * Streamed, unlike the pick-sheet reader: a big invitational is hundreds of
+ * rows, which is minutes of output, and a non-streamed request that long sits
+ * silent on the wire where any proxy along the way can drop it.
+ */
+function xcReadResults(array $docs, string $schools, string $api_key): array {
+    $prompt = 'These are the results of a high school cross country meet: a printed results sheet, a timing company PDF, or a photo of one. There may be several pages and several races.
+
+Report:
+- meet_name, as printed.
+- meet_date as YYYY-MM-DD, or "" if no date is printed. If the date has no year, it is ' . date('Y') . '.
+- location: the course or host, or "" if not printed.
+- races: one entry per race (for example "Varsity Girls" or "JV Boys"), each with its name as printed, distance_m (5000 for 5K, 3219 for 2 miles, 0 if not shown), and its individual finishers in finishing order.
+
+For each finisher:
+- place: the overall place in that race, or 0 if not printed.
+- name: in First Last order. If the sheet prints "Last, First", reorder it.
+- grade: 9 to 12, converting FR/SO/JR/SR to 9/10/11/12, or 0 if not printed.
+- school: the full school name. When the sheet abbreviates schools and has a key or team score table naming them, use the full name from it; otherwise write it as printed.
+- time: exactly as printed, for example "17:23.4".
+
+Only individual results: skip team score tables. Leave out runners with no finishing time (DNF, DNS, DQ) and say in note how many were left out.
+
+These times are used to track each runner across a season, so a misread digit does real harm. If a time is not clearly legible, give "" for it rather than a guess and say so in note. Set readable to false only if this is not a cross country results sheet or is too unclear to read at all.';
+
+    if ($schools !== '') {
+        $prompt .= "\n\nOnly include runners from these schools: " . $schools . '. Sheets often abbreviate school names, so include a runner when the abbreviation plainly means one of these schools. Leave everyone else out, but keep their place numbers as printed.';
+    }
+
+    $schema = [
+        'type'       => 'object',
+        'properties' => [
+            'readable'  => ['type' => 'boolean'],
+            'meet_name' => ['type' => 'string'],
+            'meet_date' => ['type' => 'string'],
+            'location'  => ['type' => 'string'],
+            'note'      => ['type' => 'string', 'description' => 'Anything unclear or left out, or "" if the read was clean.'],
+            'races'     => [
+                'type'  => 'array',
+                'items' => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'name'       => ['type' => 'string'],
+                        'distance_m' => ['type' => 'integer'],
+                        'results'    => [
+                            'type'  => 'array',
+                            'items' => [
+                                'type'       => 'object',
+                                'properties' => [
+                                    'place'  => ['type' => 'integer'],
+                                    'name'   => ['type' => 'string'],
+                                    'grade'  => ['type' => 'integer'],
+                                    'school' => ['type' => 'string'],
+                                    'time'   => ['type' => 'string'],
+                                ],
+                                'required'             => ['place', 'name', 'grade', 'school', 'time'],
+                                'additionalProperties' => false,
+                            ],
+                        ],
+                    ],
+                    'required'             => ['name', 'distance_m', 'results'],
+                    'additionalProperties' => false,
+                ],
+            ],
+        ],
+        'required'             => ['readable', 'meet_name', 'meet_date', 'location', 'note', 'races'],
+        'additionalProperties' => false,
+    ];
+
+    $content = [];
+    foreach ($docs as [$bytes, $media_type]) {
+        $content[] = [
+            'type'   => $media_type === 'application/pdf' ? 'document' : 'image',
+            'source' => ['type' => 'base64', 'media_type' => $media_type, 'data' => base64_encode($bytes)],
+        ];
+    }
+    $content[] = ['type' => 'text', 'text' => $prompt];
+
+    $payload = json_encode([
+        'model'         => 'claude-opus-5-5',
+        'max_tokens'    => 64000,
+        'stream'        => true,
+        // A declined request is retried server-side on the model Anthropic
+        // recommends for that refusal category, instead of failing outright.
+        'fallbacks'     => 'default',
+        'output_config' => [
+            'effort' => 'medium',
+            'format' => ['type' => 'json_schema', 'schema' => $schema],
+        ],
+        'messages'      => [['role' => 'user', 'content' => $content]],
+    ]);
+
+    // Server-sent events, parsed as they arrive. Text is kept per content
+    // block and only the last text block is used: if a fallback takes over
+    // mid-stream, the declined model's partial text stays in the stream ahead
+    // of the fallback's complete answer.
+    $buf = ''; $raw = ''; $blocks = []; $last_text = null; $stop = null; $stream_err = null;
+    $on_chunk = function ($ch, string $chunk) use (&$buf, &$raw, &$blocks, &$last_text, &$stop, &$stream_err): int {
+        if (strlen($raw) < 4096) $raw .= $chunk;
+        $buf .= $chunk;
+        while (($nl = strpos($buf, "\n")) !== false) {
+            $line = rtrim(substr($buf, 0, $nl), "\r");
+            $buf  = substr($buf, $nl + 1);
+            if (strncmp($line, 'data:', 5) !== 0) continue;
+            $ev = json_decode(trim(substr($line, 5)), true);
+            if (!is_array($ev)) continue;
+            $type = $ev['type'] ?? '';
+            if ($type === 'content_block_start') {
+                $blocks[$ev['index']] = '';
+                if (($ev['content_block']['type'] ?? '') === 'text') $last_text = $ev['index'];
+            } elseif ($type === 'content_block_delta' && ($ev['delta']['type'] ?? '') === 'text_delta') {
+                $blocks[$ev['index']] = ($blocks[$ev['index']] ?? '') . $ev['delta']['text'];
+            } elseif ($type === 'message_delta') {
+                $stop = $ev['delta']['stop_reason'] ?? $stop;
+            } elseif ($type === 'error') {
+                $stream_err = $ev['error']['message'] ?? 'The reader stopped partway.';
+            }
+        }
+        return strlen($chunk);
+    };
+
+    $ch = curl_init('https://api.anthropic.com/v1/messages');
+    curl_setopt_array($ch, [
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => $payload,
+        CURLOPT_HTTPHEADER     => [
+            'x-api-key: ' . $api_key,
+            'anthropic-version: 2023-06-01',
+            'anthropic-beta: server-side-fallback-2026-07-01',
+            'content-type: application/json',
+        ],
+        CURLOPT_WRITEFUNCTION  => $on_chunk,
+        CURLOPT_CONNECTTIMEOUT => 15,
+        CURLOPT_TIMEOUT        => 600,
+    ]);
+    $ok        = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if (!$ok || $http_code !== 200) {
+        $body = json_decode($raw, true);
+        return ['error' => 'Could not read the results' . (isset($body['error']['message']) ? ': ' . $body['error']['message'] : '.')];
+    }
+    if ($stream_err)          return ['error' => 'Could not read the results: ' . $stream_err];
+    if ($stop === 'refusal')  return ['error' => 'The reader declined this file.'];
+    if ($stop === 'max_tokens') {
+        return ['error' => 'Too many results to read in one go. Fill in "Only these schools", or upload fewer pages at a time.'];
+    }
+    $result = json_decode($last_text === null ? '' : trim($blocks[$last_text]), true);
+    return is_array($result) ? ['result' => $result] : ['error' => 'Could not read the results.'];
+}
+
+// POST ?action=xc_scan  (multipart: files[] — page photos or PDFs; optional schools)
+// Reads a results sheet. Saves nothing — the app shows every row for checking
+// first. Rows come back flat, each carrying its race, and already lined up
+// against this coach's athletes: an exact name + school match takes the stored
+// spelling, and a new name close to an existing teammate's carries that name
+// as `similar` for the coach to accept or ignore. The files are never written
+// to disk.
+if ($method === 'POST' && $action === 'xc_scan') {
+    $user    = requireAuth($pdo);
+    $api_key = $_ENV['ANTHROPIC_API_KEY'] ?? '';
+    if (!$api_key) { http_response_code(500); echo json_encode(['error' => 'Results reading is not configured on the server.']); exit; }
+
+    // Over post_max_size PHP drops the whole body, which would otherwise look
+    // like nothing was sent at all.
+    if (empty($_FILES) && (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
+        http_response_code(413); echo json_encode(['error' => 'Those files are larger than the server accepts. Try fewer pages at a time.']); exit;
+    }
+    $f = $_FILES['files'] ?? null;
+    if (!$f || empty($f['tmp_name'])) { http_response_code(400); echo json_encode(['error' => 'No file provided.']); exit; }
+    $count = is_array($f['tmp_name']) ? count($f['tmp_name']) : 1;
+    if ($count > 10) { http_response_code(400); echo json_encode(['error' => 'Upload at most 10 pages at a time.']); exit; }
+
+    $mime_map = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp', 'pdf' => 'application/pdf'];
+    $docs = []; $total = 0;
+    for ($i = 0; $i < $count; $i++) {
+        $name = is_array($f['name'])     ? $f['name'][$i]     : $f['name'];
+        $tmp  = is_array($f['tmp_name']) ? $f['tmp_name'][$i] : $f['tmp_name'];
+        $err  = is_array($f['error'])    ? $f['error'][$i]    : $f['error'];
+        $size = is_array($f['size'])     ? $f['size'][$i]     : $f['size'];
+        if ($err !== UPLOAD_ERR_OK || !$tmp) {
+            http_response_code(400); echo json_encode(['error' => $name . ' did not upload. It may be too large.']); exit;
+        }
+        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+        if (!isset($mime_map[$ext])) { http_response_code(400); echo json_encode(['error' => 'Use photos (JPG, PNG, WebP) or a PDF.']); exit; }
+        $total += $size;
+        if ($total > 20 * 1024 * 1024) { http_response_code(400); echo json_encode(['error' => 'Keep each upload under 20 MB in total.']); exit; }
+        $bytes = file_get_contents($tmp);
+        // Dense results pages need the full 2576px the model reads at, not
+        // the pick sheet's 1568.
+        $docs[] = $mime_map[$ext] === 'application/pdf'
+            ? [$bytes, 'application/pdf']
+            : cpPrepareImage($bytes, $mime_map[$ext], 2576);
+    }
+
+    @set_time_limit(600);
+    $schools = mb_substr(trim((string)($_POST['schools'] ?? '')), 0, 300);
+    $read = xcReadResults($docs, $schools, $api_key);
+    if (isset($read['error'])) { http_response_code(502); echo json_encode(['error' => $read['error']]); exit; }
+    $result = $read['result'];
+
+    $rows = [];
+    foreach ($result['races'] ?? [] as $race) {
+        foreach ($race['results'] ?? [] as $r) {
+            $rows[] = [
+                'race'       => trim((string)($race['name'] ?? '')) ?: 'Race',
+                'distance_m' => max(0, (int)($race['distance_m'] ?? 0)),
+                'place'      => max(0, (int)($r['place'] ?? 0)),
+                'name'       => trim((string)($r['name'] ?? '')),
+                'grade'      => (int)($r['grade'] ?? 0),
+                'school'     => trim((string)($r['school'] ?? '')),
+                'time'       => trim((string)($r['time'] ?? '')),
+            ];
+        }
+    }
+    if (empty($result['readable']) || !$rows) {
+        echo json_encode([
+            'success'  => true,
+            'readable' => false,
+            'note'     => (string)($result['note'] ?? '') ?: 'No results could be read from that file.',
+        ]); exit;
+    }
+
+    // Line the rows up against the athletes this coach already has.
+    $st = $pdo->prepare("SELECT name, school, match_key FROM xc_athletes WHERE user_id = ?");
+    $st->execute([$user['id']]);
+    $by_key = []; $by_school = []; $school_spelling = [];
+    foreach ($st->fetchAll() as $a) {
+        $by_key[$a['match_key']] = $a;
+        $sn = xcSchoolNorm($a['school']);
+        $by_school[$sn][] = $a;
+        $school_spelling[$sn] = $a['school'];
+    }
+    $keys_in_scan = [];
+    foreach ($rows as $r) $keys_in_scan[xcKey($r['name'], $r['school'])] = true;
+
+    $warnings = []; $no_time = 0;
+    foreach ($rows as &$r) {
+        $sn = xcSchoolNorm($r['school']);
+        if (isset($school_spelling[$sn])) $r['school'] = $school_spelling[$sn];
+        $key = xcKey($r['name'], $r['school']);
+        $r['status']  = 'new';
+        $r['similar'] = null;
+        if (isset($by_key[$key])) {
+            $r['status'] = 'existing';
+            $r['name']   = $by_key[$key]['name'];
+        } else {
+            // Suggest, never merge: a near miss is offered only when the
+            // existing athlete is not also on this sheet under their own name.
+            $n = xcNorm($r['name']);
+            foreach ($by_school[$sn] ?? [] as $a) {
+                if (isset($keys_in_scan[$a['match_key']])) continue;
+                $an = xcNorm($a['name']);
+                if (strlen($n) >= 5 && $n[0] === ($an[0] ?? '') && levenshtein($n, $an) <= 2) { $r['similar'] = $a['name']; break; }
+            }
+        }
+        if ($r['time'] !== '' && xcParseTime($r['time']) === null) {
+            $warnings[] = $r['name'] . ': could not make sense of the time "' . $r['time'] . '".';
+            $r['time'] = '';
+        }
+        if ($r['time'] === '') $no_time++;
+    }
+    unset($r);
+    if ($no_time) $warnings[] = $no_time . ' runner(s) need a time entered.';
+
+    echo json_encode([
+        'success'  => true,
+        'readable' => true,
+        'meet'     => [
+            'name'     => trim((string)($result['meet_name'] ?? '')),
+            'date'     => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($result['meet_date'] ?? '')) ? $result['meet_date'] : '',
+            'location' => trim((string)($result['location'] ?? '')),
+        ],
+        'note'     => (string)($result['note'] ?? ''),
+        'rows'     => $rows,
+        'warnings' => $warnings,
+    ]);
+    exit;
+}
+
+// POST ?action=xc_save_meet  {meet_id?, name, date, location, rows:[{race, distance_m, place, name, grade, school, time}]}
+// With meet_id, the rows replace that meet's results — the edit path, where a
+// renamed runner must not leave their old row behind. Without one, a meet with
+// the same name and date is added to rather than duplicated, so a sheet's
+// second page can be scanned later; a runner already in it is updated.
+if ($method === 'POST' && $action === 'xc_save_meet') {
+    $user = requireAuth($pdo);
+    $body = json_decode(file_get_contents('php://input'), true) ?: [];
+    $name     = trim((string)($body['name'] ?? ''));
+    $date     = (string)($body['date'] ?? '');
+    $location = trim((string)($body['location'] ?? '')) ?: null;
+    $rows     = is_array($body['rows'] ?? null) ? $body['rows'] : [];
+
+    if ($name === '' || mb_strlen($name) > 160) { http_response_code(400); echo json_encode(['error' => 'The meet needs a name.']); exit; }
+    $d = DateTime::createFromFormat('!Y-m-d', $date);
+    if (!$d || $d->format('Y-m-d') !== $date) { http_response_code(400); echo json_encode(['error' => 'The meet needs a date.']); exit; }
+    if ($location !== null && mb_strlen($location) > 160) $location = mb_substr($location, 0, 160);
+    if (count($rows) < 1 || count($rows) > 3000) { http_response_code(400); echo json_encode(['error' => 'A meet needs between 1 and 3000 results.']); exit; }
+
+    $clean = []; $seen = [];
+    foreach ($rows as $i => $r) {
+        $rn = trim((string)($r['name'] ?? ''));
+        $rs = trim((string)($r['school'] ?? ''));
+        $label = $rn !== '' ? $rn : 'Row ' . ($i + 1);
+        if ($rn === '' || mb_strlen($rn) > 80)  { http_response_code(400); echo json_encode(['error' => $label . ' needs a name.']); exit; }
+        if ($rs === '' || mb_strlen($rs) > 120) { http_response_code(400); echo json_encode(['error' => $label . ' needs a school.']); exit; }
+        $ms = xcParseTime((string)($r['time'] ?? ''));
+        if ($ms === null) { http_response_code(400); echo json_encode(['error' => $label . ' needs a time like 17:23.4.']); exit; }
+        $key = xcKey($rn, $rs);
+        if (isset($seen[$key])) { http_response_code(400); echo json_encode(['error' => $rn . ' (' . $rs . ') is listed twice.']); exit; }
+        $seen[$key] = true;
+        $grade = (int)($r['grade'] ?? 0);
+        $clean[] = [
+            'name'       => $rn,
+            'school'     => $rs,
+            'key'        => $key,
+            'race'       => mb_substr(trim((string)($r['race'] ?? '')) ?: 'Race', 0, 80),
+            'distance_m' => min(20000, max(0, (int)($r['distance_m'] ?? 0))) ?: null,
+            'place'      => min(5000, max(0, (int)($r['place'] ?? 0))) ?: null,
+            'grade'      => ($grade >= 6 && $grade <= 12) ? $grade : null,
+            'time_ms'    => $ms,
+        ];
+    }
+
+    $pdo->beginTransaction();
+    try {
+        $meet_id = intval($body['meet_id'] ?? 0);
+        if ($meet_id) {
+            $st = $pdo->prepare("UPDATE xc_meets SET name = ?, meet_date = ?, location = ? WHERE id = ? AND user_id = ?");
+            $st->execute([$name, $date, $location, $meet_id, $user['id']]);
+            $own = $pdo->prepare("SELECT id FROM xc_meets WHERE id = ? AND user_id = ?");
+            $own->execute([$meet_id, $user['id']]);
+            if (!$own->fetch()) { $pdo->rollBack(); http_response_code(404); echo json_encode(['error' => 'No such meet.']); exit; }
+            $pdo->prepare("DELETE FROM xc_results WHERE meet_id = ?")->execute([$meet_id]);
+        } else {
+            $st = $pdo->prepare("SELECT id FROM xc_meets WHERE user_id = ? AND name = ? AND meet_date = ?");
+            $st->execute([$user['id'], $name, $date]);
+            $meet_id = (int)($st->fetchColumn() ?: 0);
+            if (!$meet_id) {
+                $pdo->prepare("INSERT INTO xc_meets (user_id, name, meet_date, location) VALUES (?,?,?,?)")
+                    ->execute([$user['id'], $name, $date, $location]);
+                $meet_id = (int)$pdo->lastInsertId();
+            } elseif ($location !== null) {
+                $pdo->prepare("UPDATE xc_meets SET location = ? WHERE id = ?")->execute([$location, $meet_id]);
+            }
+        }
+
+        // The latest spelling saved wins, so correcting a name once fixes it
+        // on every meet that runner appears in.
+        $ath = $pdo->prepare("INSERT INTO xc_athletes (user_id, name, school, match_key) VALUES (?,?,?,?)
+                              ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id), name = VALUES(name), school = VALUES(school)");
+        $res = $pdo->prepare("INSERT INTO xc_results (meet_id, athlete_id, race, distance_m, place, grade, time_ms) VALUES (?,?,?,?,?,?,?)
+                              ON DUPLICATE KEY UPDATE race = VALUES(race), distance_m = VALUES(distance_m), place = VALUES(place),
+                                                      grade = VALUES(grade), time_ms = VALUES(time_ms)");
+        foreach ($clean as $c) {
+            $ath->execute([$user['id'], $c['name'], $c['school'], $c['key']]);
+            $athlete_id = (int)$pdo->lastInsertId();
+            $res->execute([$meet_id, $athlete_id, $c['race'], $c['distance_m'], $c['place'], $c['grade'], $c['time_ms']]);
+        }
+        xcPruneAthletes($pdo, (int)$user['id']);
+        $pdo->commit();
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        http_response_code(500); echo json_encode(['error' => 'Could not save the meet.']); exit;
+    }
+    echo json_encode(['success' => true, 'meet_id' => $meet_id, 'saved' => count($clean)]);
+    exit;
+}
+
+// GET ?action=xc_meets — this coach's meets, newest first, with how many runners each holds.
+if ($method === 'GET' && $action === 'xc_meets') {
+    $user = requireAuth($pdo);
+    $st = $pdo->prepare("SELECT m.id, m.name, m.meet_date, m.location,
+                                COUNT(r.id) AS runners, COUNT(DISTINCT r.race) AS races
+                         FROM xc_meets m LEFT JOIN xc_results r ON r.meet_id = m.id
+                         WHERE m.user_id = ?
+                         GROUP BY m.id ORDER BY m.meet_date DESC, m.id DESC");
+    $st->execute([$user['id']]);
+    echo json_encode(['success' => true, 'meets' => array_map(fn($m) => [
+        'id'       => (int)$m['id'],
+        'name'     => $m['name'],
+        'date'     => $m['meet_date'],
+        'location' => $m['location'] ?? '',
+        'runners'  => (int)$m['runners'],
+        'races'    => (int)$m['races'],
+    ], $st->fetchAll())]);
+    exit;
+}
+
+// GET ?action=xc_meet&id=X — one meet with every result, in the same row shape
+// xc_scan returns, so the app edits a saved meet with the grid it checks a scan in.
+if ($method === 'GET' && $action === 'xc_meet') {
+    $user = requireAuth($pdo);
+    $st = $pdo->prepare("SELECT * FROM xc_meets WHERE id = ? AND user_id = ?");
+    $st->execute([intval($_GET['id'] ?? 0), $user['id']]);
+    $meet = $st->fetch();
+    if (!$meet) { http_response_code(404); echo json_encode(['error' => 'No such meet.']); exit; }
+
+    $st = $pdo->prepare("SELECT r.*, a.name, a.school FROM xc_results r JOIN xc_athletes a ON a.id = r.athlete_id
+                         WHERE r.meet_id = ? ORDER BY r.race, r.place IS NULL, r.place, r.time_ms");
+    $st->execute([$meet['id']]);
+    echo json_encode([
+        'success' => true,
+        'meet'    => ['id' => (int)$meet['id'], 'name' => $meet['name'], 'date' => $meet['meet_date'], 'location' => $meet['location'] ?? ''],
+        'rows'    => array_map(fn($r) => [
+            'race'       => $r['race'],
+            'distance_m' => (int)$r['distance_m'],
+            'place'      => (int)$r['place'],
+            'name'       => $r['name'],
+            'grade'      => (int)$r['grade'],
+            'school'     => $r['school'],
+            'time'       => xcFormatTime((int)$r['time_ms']),
+            'status'     => 'existing',
+            'similar'    => null,
+        ], $st->fetchAll()),
+    ]);
+    exit;
+}
+
+// DELETE ?action=xc_meet&id=X — the meet and its results; runners left with no
+// results anywhere go with it.
+if ($method === 'DELETE' && $action === 'xc_meet') {
+    $user = requireAuth($pdo);
+    $st = $pdo->prepare("DELETE FROM xc_meets WHERE id = ? AND user_id = ?");
+    $st->execute([intval($_GET['id'] ?? 0), $user['id']]);
+    if ($st->rowCount() === 0) { http_response_code(404); echo json_encode(['error' => 'No such meet.']); exit; }
+    xcPruneAthletes($pdo, (int)$user['id']);
     echo json_encode(['success' => true]);
     exit;
 }

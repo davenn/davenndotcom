@@ -1,0 +1,108 @@
+# WildcatsXC
+
+Cross country meet results, read off a results sheet by Claude, checked by
+hand, and filed per meet so each athlete builds up a season record. The
+scanner and the record come first; trend dashboards are meant to be built on
+top of the same tables.
+
+**File:** [`wildcatsxc.html`](../../wildcatsxc.html)
+**Tables:** `xc_meets` `xc_athletes` `xc_results`
+**Auth:** Toolshare accounts (`requireAuth()`) on every endpoint
+
+## Private by account
+
+Results name minors, so nothing here is open. Every endpoint calls
+`requireAuth()` and every query is scoped to that user: one coach never sees
+another's meets or athletes. Like Daily Tasks, there is no separate
+registration — the app calls `tb_login` / `tb_register` and stores the
+session under Toolshare's `tb_token` key, so signing in on either app signs in
+on this one too.
+
+## From sheet to saved meet
+
+1. **Scan** (`xc_scan`) — up to 10 page photos or a PDF in one request. Claude
+   (`claude-opus-5-5`) returns the meet name, date, course and every race's
+   finishers. Nothing is saved, and the files are never written to disk.
+2. **Check** — the app shows every row grouped by race, editable. A time that
+   was unreadable comes back blank and the row is marked red: the prompt asks
+   for a blank rather than a guess, because one misread digit becomes a fake
+   PR or a fake bad day on the trend line.
+3. **Save** (`xc_save_meet`) — validated again server-side, written in one
+   transaction.
+
+**The school filter** ("Only these schools", remembered per device) is passed
+into the prompt so the model skips everyone else. It exists for speed as much
+as relevance: a large invitational is hundreds of rows, minutes of output, and
+the request can hit `max_tokens` (the app then says to filter or split the
+upload).
+
+**Add a page** appends a second scan to the meet open for review — for a sheet
+that runs across pages photographed separately.
+
+## Athlete identity
+
+The season record depends on the same runner on two sheets being one
+`xc_athletes` row. The key is `match_key` = normalised name + `|` + normalised
+school (`xcKey()`): lowercased, punctuation folded, and school suffixes like
+"HS" / "High School" dropped, so "Madison West HS" and "Madison West" match.
+
+Matching is **exact on that key, never fuzzy**. A scan does two softer things,
+both visible and both only suggestions:
+
+- a school whose normalised form matches one already stored takes the stored
+  spelling;
+- a new name within two edits of a stored teammate at the same school (same
+  first letter, at least five characters) comes back with `similar` set, shown
+  as a "Same as …?" button. The coach decides. Auto-merging would silently
+  fuse teammates who are a letter apart, and with one result per athlete per
+  meet, one of their times would overwrite the other.
+
+On save the latest spelling of a name wins, so fixing a name once fixes it on
+every meet. Athletes left with no results after a save or delete are removed
+(`xcPruneAthletes()`).
+
+## Saving semantics
+
+| Call | Behaviour |
+|---|---|
+| `xc_save_meet` with `meet_id` | Edit: the rows **replace** that meet's results, so a renamed runner does not leave an old row behind |
+| without `meet_id`, same name + date exists | Added to that meet; a runner already in it is updated (`UNIQUE (meet_id, athlete_id)`) |
+| without `meet_id`, new | Creates the meet |
+
+The same runner twice in one save is rejected rather than collapsed.
+
+## Times
+
+Stored as `time_ms`. `xcParseTime()` accepts `17:23`, `17:23.4`, `17:23.45`
+and `1:02:03.5`, bounded to 1 minute – 2 hours, which also catches a place
+number that landed in the time column. `xcFormatTime()` writes them back the
+way sheets print them, tenths or hundredths only when they were there. The
+front end has a copy of the parser so a bad time is flagged while typing; keep
+the two in step.
+
+## The reader
+
+`xcReadResults()` differs from the pick-sheet reader on purpose:
+
+- **Streamed** — a long read on a silent non-streamed connection is what
+  proxies drop. Text is collected per content block and only the last text
+  block is parsed.
+- **`fallbacks: "default"`** (beta `server-side-fallback-2026-07-01`) — a
+  refused request is retried server-side on another model. When that happens
+  mid-stream the refused model's partial text stays in the stream ahead of the
+  fallback's answer, which is why only the last text block counts.
+- **Images at 2576px**, the high-resolution models' limit, through
+  `cpPrepareImage($bytes, $type, 2576)` — results pages are far denser than a
+  pick sheet.
+- **Effort `medium`** set explicitly. Raise it if reads of rough photos come
+  back with gaps; lower it if speed matters more.
+
+## Front-end notes
+
+- Rows are flat in state and each carries its race; the overlay groups them.
+  Renaming a race applies to every row in it, and renaming it to match another
+  race merges the two.
+- Field edits update state without re-rendering so typing keeps focus;
+  structural changes (remove, add, accept a suggestion) re-render.
+- Theme under `localStorage['wildcatsxc_theme']`, school filter under
+  `wildcatsxc_schools`.

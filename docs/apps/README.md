@@ -11,6 +11,7 @@ fits together see [`../../CLAUDE.md`](../../CLAUDE.md).
 |---|---|---|
 | Toolshare | [toolshare.md](toolshare.md) | accounts, tools, borrowing, friends |
 | Confidence Pool | [nflpool.md](nflpool.md) | weeks, games, entries, picks, SMS |
+| WildcatsXC | [wildcatsxc.md](wildcatsxc.md) | meets, athletes, results, sheet reading |
 | Glucose | [glucose.md](glucose.md) | CGM readings and annotations |
 | Flight Tracker | [flighttracker.md](flighttracker.md) | accounts, flights |
 | Daily Tasks | [dailytasks.md](dailytasks.md) | leaderboard, optional sync |

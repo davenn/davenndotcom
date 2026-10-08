@@ -52,6 +52,7 @@ Browser ──► /appname.html  (self-contained: HTML + CSS + JS)
 | Flight Tracker | `flighttracker.html` | `ft_users` `ft_flights` | `X-Auth-Token` |
 | Glucose | `glucose.html`, `bgcast.html` | `bg_readings` `bg_events` | `X-BG-Token` (read), `X-Admin-Secret` (ingest) |
 | Confidence Pool | `nflpool.html` | `cp_weeks` `cp_games` `cp_entries` `cp_picks` `cp_players` `cp_pending` | `X-Admin-Secret` (admin only) |
+| WildcatsXC | `wildcatsxc.html` | `xc_meets` `xc_athletes` `xc_results` | `X-Auth-Token` (Toolshare accounts) on every endpoint |
 | Daily Tasks | `dailytasks.html` | `dt_scores` `dt_tasks` | none for the leaderboard; `X-Auth-Token` (Toolshare accounts) for cross-device sync |
 | Face Breaker | `facebreaker.html` | `fb_scores` | — |
 | Reaction Test | `reactiontest.html` | `reaction_scores` | — |
@@ -72,7 +73,7 @@ before deploying for exactly this reason. Never push PHP you have not linted.
   `$action` comes from `?action=`. Each branch ends by echoing JSON and exiting.
   Add new endpoints in the same shape, grouped with their app's other branches.
 - **Table prefixes** namespace each app: `tb_` Toolshare, `ft_` Flight Tracker,
-  `bg_` glucose, `dt_` Daily Tasks, `cp_` Confidence Pool. Unprefixed tables
+  `bg_` glucose, `dt_` Daily Tasks, `cp_` Confidence Pool, `xc_` WildcatsXC. Unprefixed tables
   (`meetings`, `track_sessions`, `subscribers`, `fb_scores`, `reaction_scores`)
   predate the convention — leave their names alone.
 - **Schema is self-migrating.** Every request runs the `CREATE TABLE IF NOT
@@ -86,7 +87,9 @@ before deploying for exactly this reason. Never push PHP you have not linted.
     `ftRequireAuth()` matches a single `token` column on `ft_users`. A Toolshare
     token is meaningless to Flight Tracker and vice versa. Daily Tasks'
     cross-device sync (`dt_get_tasks`, `dt_save_tasks`) reuses Toolshare
-    accounts via `requireAuth()` — its leaderboard endpoints stay open
+    accounts via `requireAuth()` — its leaderboard endpoints stay open.
+    WildcatsXC does the same for all of its endpoints, scoped per user, because
+    its rows name minors
   - `X-BG-Token` → `bgRequireRead()`, a single shared read token for glucose
   - `X-Admin-Secret` → operator-only endpoints (ingest, notify, roster, purge)
   - none → the leaderboard and timer apps write unauthenticated
@@ -253,9 +256,11 @@ against a local env file.
 
 ## External services
 
-- **Anthropic API** — Toolshare's `tb_identify_tool` (photo → tool details) and
-  Confidence Pool's `cp_scan` (photo of a filled pick sheet → picks). Uses
-  `claude-opus-5` and `claude-haiku-4-5-20251001`.
+- **Anthropic API** — Toolshare's `tb_identify_tool` (photo → tool details),
+  Confidence Pool's `cp_scan` (photo of a filled pick sheet → picks) and
+  WildcatsXC's `xc_scan` (results photos or PDF → runners and times). Uses
+  `claude-opus-5`, `claude-opus-5-5` (WildcatsXC, streamed, with server-side refusal
+  fallbacks) and `claude-haiku-4-5-20251001`.
 - **Twilio** — outbound SMS for subscriber notifications; inbound webhook at
   `?action=cp_sms` for Confidence Pool pick submission by text.
 - **ESPN** (`site.api.espn.com`, `cdn.espn.com`) — unofficial, unauthenticated

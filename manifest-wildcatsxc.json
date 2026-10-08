@@ -1,0 +1,15 @@
+{
+  "name": "WildcatsXC",
+  "short_name": "WildcatsXC",
+  "description": "Scan cross country meet results and build a season record for every runner",
+  "id": "/wildcatsxc.html",
+  "scope": "/wildcatsxc.html",
+  "start_url": "/wildcatsxc.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#111110",
+  "background_color": "#ffffff",
+  "icons": [
+    { "src": "/icons/wildcatsxc.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

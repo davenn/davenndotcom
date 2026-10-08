@@ -52,6 +52,7 @@ const PREFIX_GROUPS = [
   ['dt_', 'Daily Tasks'],
   ['cp_', 'Confidence Pool'],
   ['fb_', 'Face Breaker'],
+  ['xc_', 'WildcatsXC'],
 ];
 
 const EXPLICIT_GROUPS = {
@@ -76,7 +77,7 @@ const EXPLICIT_GROUPS = {
 // Order groups appear in the output.
 const GROUP_ORDER = [
   'Meeting Cost Timer', 'Track Timer', 'Toolshare', 'Flight Tracker',
-  'Glucose', 'Confidence Pool', 'Daily Tasks', 'Face Breaker',
+  'Glucose', 'Confidence Pool', 'WildcatsXC', 'Daily Tasks', 'Face Breaker',
   'Reaction Test', 'Update Notifications',
 ];
 
@@ -84,6 +85,7 @@ const GROUP_ORDER = [
 const TABLE_GROUPS = [
   ['tb_', 'Toolshare'], ['ft_', 'Flight Tracker'], ['bg_', 'Glucose'],
   ['dt_', 'Daily Tasks'], ['cp_', 'Confidence Pool'], ['fb_', 'Face Breaker'],
+  ['xc_', 'WildcatsXC'],
 ];
 
 const EXPLICIT_TABLES = {
