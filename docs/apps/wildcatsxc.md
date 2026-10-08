@@ -224,6 +224,13 @@ the two in step.
   because saving an existing meet replaces its results, the race's stored
   results go when the meet is saved. Deleting the last race is Delete meet's
   job, so the button is not offered there. Both share `askConfirm()`.
+- **Races fold.** The chevron in a race's header hides its runners and shows
+  a one-line summary instead — runner count, plus "N to fix" in red for rows
+  that cannot be saved (`rowProblem()`: no name, no school, or no valid time),
+  so folding never hides a problem. Folded races live in `review.collapsed`,
+  keyed by race name, so the state survives re-renders and a rename carries
+  it across. Anything that needs a row on screen opens the race first: "+ Add
+  runner", and Save when validation fails on a row inside a folded race.
 - Field edits update state without re-rendering so typing keeps focus;
   structural changes (remove, add, accept a suggestion) re-render.
 - Theme under `localStorage['wildcatsxc_theme']`, school filter under

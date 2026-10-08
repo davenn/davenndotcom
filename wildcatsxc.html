@@ -190,7 +190,21 @@
         .meetfields .wide { grid-column: 1 / -1; }
 
         /* A race: its name and distance, then its runners. */
-        .racehead { display: grid; grid-template-columns: 1fr 96px; gap: 8px; margin-bottom: 10px; }
+        .racehead { display: grid; grid-template-columns: 36px 1fr 96px; gap: 8px; margin-bottom: 10px; }
+        .racetoggle {
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+            background: var(--page); color: var(--text-secondary);
+            border: 1px solid var(--border); border-radius: 9px;
+        }
+        .racetoggle:hover { color: var(--text-primary); }
+        .racetoggle svg {
+            width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2;
+            stroke-linecap: round; stroke-linejoin: round; transition: transform 0.15s;
+        }
+        .racetoggle[aria-expanded="true"] svg { transform: rotate(90deg); }
+        @media (prefers-reduced-motion: reduce) { .racetoggle svg { transition: none; } }
+        .racesum { font-size: 13px; color: var(--text-secondary); padding: 2px 0 4px; }
+        .racesum .tofix { color: var(--crit); }
         .racehead input {
             font-family: var(--font-ui); font-size: 15px; font-weight: 600; padding: 8px 10px;
             background: var(--page); color: var(--text-primary);
@@ -957,6 +971,19 @@ function races() {
     return out;
 }
 
+/**
+ * Names of the races folded shut in the review. Lives on the review itself,
+ * so it survives every re-render and goes away with the meet. Keyed by race
+ * name, because that is what groups the rows.
+ */
+function collapsed() {
+    if (!review.collapsed) review.collapsed = new Set();
+    return review.collapsed;
+}
+
+/** A row that cannot be saved as it stands — what "to fix" counts. */
+const rowProblem = r => !r.name.trim() || !r.school.trim() || parseTime(r.time) === null;
+
 function renderReview() {
     const editing = !!review.meet_id;
     $('review-title').textContent = editing ? 'Edit meet' : 'Check the results';
@@ -976,20 +1003,30 @@ function renderReview() {
                     <input id="m-loc" type="text" maxlength="160" value="${esc(review.location)}"></div>
             </div>
         </div>
-        ${races().map((race, i, all) => `
+        ${races().map((race, i, all) => {
+            const shut = collapsed().has(race.name);
+            const n = race.rows.length, fix = race.rows.filter(rowProblem).length;
+            return `
         <div class="card">
             <div class="racehead">
+                <button class="racetoggle" type="button" data-togglerace="${i}" aria-expanded="${!shut}"
+                        aria-label="${shut ? 'Show' : 'Hide'} runners in ${esc(race.name)}" title="${shut ? 'Show' : 'Hide'} runners">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+                </button>
                 <input type="text" maxlength="80" aria-label="Race name" data-race="${i}" data-rfield="race" value="${esc(race.name)}">
                 <input class="dist" type="number" min="0" max="20000" step="1" aria-label="Distance in meters"
                        placeholder="meters" data-race="${i}" data-rfield="distance_m" value="${race.distance_m || ''}">
             </div>
-            <div class="runners-head"><span>Pl</span><span>Name · school</span><span style="text-align:center">Time</span><span></span></div>
-            ${race.rows.map(runnerHtml).join('')}
+            ${shut
+                ? `<p class="racesum">${n} runner${n === 1 ? '' : 's'}${fix ? ` · <span class="tofix">${fix} to fix</span>` : ''}</p>`
+                : `<div class="runners-head"><span>Pl</span><span>Name · school</span><span style="text-align:center">Time</span><span></span></div>
+            ${race.rows.map(runnerHtml).join('')}`}
             <div class="racefoot">
                 <button class="addrow" type="button" data-addrow="${i}">+ Add runner</button>
                 ${all.length > 1 ? `<button class="addrow droprace" type="button" data-droprace="${i}">Delete race</button>` : ''}
             </div>
-        </div>`).join('')}
+        </div>`;
+        }).join('')}
         <div class="banner bad hidden" id="review-error"></div>`;
 
     $('review').classList.remove('hidden');
@@ -1046,12 +1083,22 @@ $('review-body').addEventListener('change', e => {
     if (!race) return;
     const val = t.dataset.rfield === 'race' ? (t.value.trim() || 'Race') : (parseInt(t.value, 10) || 0);
     race.rows.forEach(r => { r[t.dataset.rfield] = val; });
+    // A folded race stays folded under its new name.
+    if (t.dataset.rfield === 'race' && collapsed().delete(race.name)) collapsed().add(val);
     renderReview();
 });
 
 $('review-body').addEventListener('click', e => {
     if (!review) return;
     const t = e.target;
+    const toggle = t.closest('[data-togglerace]');
+    if (toggle) {
+        const name = races()[+toggle.dataset.togglerace].name;
+        if (!collapsed().delete(name)) collapsed().add(name);
+        renderReview();
+        $('review-body').querySelector(`[data-togglerace="${toggle.dataset.togglerace}"]`).focus();
+        return;
+    }
     if (t.dataset.remove) {
         review.rows = review.rows.filter(r => r.uid !== +t.dataset.remove);
         renderReview();
@@ -1061,6 +1108,7 @@ $('review-body').addEventListener('click', e => {
         renderReview();
     } else if (t.dataset.addrow !== undefined) {
         const race = races()[+t.dataset.addrow];
+        collapsed().delete(race.name);       // the new row has to be visible to type into
         const last = race.rows[race.rows.length - 1] || {};
         const row = withUid({ race: race.name, distance_m: race.distance_m, place: 0, name: '', grade: 0,
                               school: last.school || '', time: '', status: 'edited', similar: null });
@@ -1081,6 +1129,7 @@ async function dropRace(race) {
         `${race.name} and its ${n} runner${n === 1 ? '' : 's'} will be taken out of this meet. Nothing changes until you save the meet.`);
     if (!ok || !review) return;
     review.rows = review.rows.filter(r => r.race !== race.name);
+    collapsed().delete(race.name);
     renderReview();
     toast(`Removed ${race.name}`);
 }
@@ -1091,13 +1140,15 @@ function validate() {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(review.date)) return 'Give the meet a date.';
     if (!review.rows.length) return 'There are no runners to save.';
     const seen = {};
+    // The row at fault may be inside a folded race: open it so it can be found.
+    const fail = (r, msg) => { if (collapsed().delete(r.race)) renderReview(); return msg; };
     for (const r of review.rows) {
         const who = r.name.trim() || 'A runner in ' + r.race;
-        if (!r.name.trim()) return who + ' needs a name.';
-        if (!r.school.trim()) return who + ' needs a school.';
-        if (parseTime(r.time) === null) return who + ' needs a time like 17:23.4.';
+        if (!r.name.trim()) return fail(r, who + ' needs a name.');
+        if (!r.school.trim()) return fail(r, who + ' needs a school.');
+        if (parseTime(r.time) === null) return fail(r, who + ' needs a time like 17:23.4.');
         const k = runnerKey(r);
-        if (seen[k]) return who + ' (' + r.school + ') is listed twice.';
+        if (seen[k]) return fail(r, who + ' (' + r.school + ') is listed twice.');
         seen[k] = true;
     }
     return '';
