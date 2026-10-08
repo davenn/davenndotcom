@@ -49,21 +49,26 @@
             --text-secondary: #c3c2b7;
             --text-muted:     #898781;
         }
-        /* Chart roles: blue for a runner or the top five, orange for the whole
-           team, and the chrome. The pair was checked against --surface in both
-           themes with the dataviz palette validator; light orange sits just
-           under 3:1, so its line always carries a direct label. */
+        /* Chart roles: blue for a runner, the top five or the coach's school;
+           orange for the whole team or a school picked out for comparison;
+           gray for every other school — context, not identity, since a dozen
+           schools cannot each have a colour anyone can tell apart. The blue
+           and orange pair was checked against --surface in both themes with
+           the dataviz palette validator; light orange sits just under 3:1, so
+           its line always carries a direct label. */
         :root, [data-theme="light"] {
-            --series-1: #2a78d6;
-            --series-2: #eb6834;
-            --grid:     #e1e0d9;
-            --axis:     #c3c2b7;
+            --series-1:   #2a78d6;
+            --series-2:   #eb6834;
+            --muted-line: #b4b1a8;
+            --grid:       #e1e0d9;
+            --axis:       #c3c2b7;
         }
         [data-theme="dark"] {
-            --series-1: #3987e5;
-            --series-2: #d95926;
-            --grid:     #2c2c2a;
-            --axis:     #383835;
+            --series-1:   #3987e5;
+            --series-2:   #d95926;
+            --muted-line: #55534e;
+            --grid:       #2c2c2a;
+            --axis:       #383835;
         }
         :root {
             --nav-bg:     #111110;
@@ -383,6 +388,26 @@
         .chart .lab { fill: var(--text-secondary); font: 600 11px var(--font-ui); }
         .chart .ln  { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
         .chart .dot { stroke: var(--surface); stroke-width: 2; }
+        .chart .ln.muted { stroke-width: 1.25; }
+        .chart .dot.muted { stroke-width: 1; }
+        .chart .offscale { stroke: var(--surface); stroke-width: 1; }
+        .tip-row.muted strong { font-weight: 500; }
+
+        /* School chips above the school-by-school chart: one per school, the
+           coach's own marked in blue, a tapped one in orange. */
+        .chips-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; }
+        .schoolchip {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-family: var(--font-ui); font-size: 12px; color: var(--text-secondary);
+            background: var(--page); border: 1px solid var(--border); border-radius: 20px;
+            padding: 4px 10px; cursor: pointer;
+        }
+        .schoolchip:hover { color: var(--text-primary); }
+        .schoolchip[aria-pressed="true"] { color: var(--text-primary); border-color: var(--series-2); }
+        .schoolchip.own { cursor: default; color: var(--text-primary); border-color: var(--series-1); }
+        .schoolchip .key { width: 10px; background: var(--muted-line); }
+        .schoolchip[aria-pressed="true"] .key { background: var(--series-2); }
+        .schoolchip.own .key { background: var(--series-1); }
         .chart .xhair { stroke: var(--text-muted); stroke-width: 1; }
         .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
         .legend span { display: inline-flex; align-items: center; gap: 6px; }
@@ -1621,6 +1646,14 @@ function drawRunnerChart(squad, card, el, a) {
     });
 }
 
+/** Upper outlier fence: Q3 + 1.5 × IQR. Under eight values there is no telling, so no fence. */
+function upperFence(ys) {
+    if (ys.length < 8) return Infinity;
+    const v = [...ys].sort((a, b) => a - b);
+    const q = p => { const i = (v.length - 1) * p, f = Math.floor(i); return v[f] + (v[Math.ceil(i)] - v[f]) * (i - f); };
+    return q(0.75) + 1.5 * (q(0.75) - q(0.25));
+}
+
 /** The whole-second tick step that splits a span into at most five. */
 const tickStep = span => [1, 2, 5, 10, 15, 20, 30, 60, 120, 300, 600].map(s => s * 1000).find(s => span / s <= 5) || 600000;
 
@@ -1649,13 +1682,22 @@ function lineChart(el, opts) {
 }
 
 function drawLine(el) {
-    const { series, annotate = [], label } = el._opts;
+    // Optional: legend (false hides the built-in one), fmt (value format),
+    // tipHead (tooltip heading for an x), tipSort (list fastest first).
+    const { series, annotate = [], label, legend: showLegend = true, fmt = v => fmtTime(Math.round(v / 100) * 100),
+            tipHead = null, tipSort = false, fence = false } = el._opts;
     const W = el.clientWidth;
     if (!W) return;
     el._w = W;
-    // Lines labelled at their end need room to the right for the label.
+    // Lines labelled at their end need room to the right for the longest
+    // label — but never more than 30% of the width, or a long school name
+    // leaves no plot on a phone. A label that will not fit is shortened with
+    // an ellipsis; the full name is in the chips and the tooltip.
     const ends = annotate.filter(a => a.end);
-    const H = 210, m = { t: 22, r: ends.length ? 58 : 22, b: 26, l: 46 };
+    const endRoom = ends.length ? Math.min(Math.max(58, 16 + 6.6 * Math.max(...ends.map(a => a.text.length))), Math.max(58, W * 0.3)) : 22;
+    const endChars = Math.floor((endRoom - 16) / 6.6);
+    const fitEnd = t => t.length <= endChars ? t : t.slice(0, Math.max(1, endChars - 1)).trimEnd() + '…';
+    const H = 210, m = { t: 22, r: endRoom, b: 26, l: 46 };
 
     const pts = series.flatMap(s => s.points);
     const xs = [...new Set(pts.map(p => p.x))].sort((a, b) => a - b);
@@ -1664,7 +1706,14 @@ function drawLine(el) {
     // The axis runs from tick to tick, so every line has a labelled gridline
     // above and below it — padding alone left the top line with no time to
     // read it against.
-    let lo = Math.min(...pts.map(p => p.y)), hi = Math.max(...pts.map(p => p.y));
+    // With fence on, a point far slower than the rest (beyond the upper
+    // quartile by 1.5 interquartile ranges) does not set the scale: it is
+    // drawn as a marker on the bottom edge and keeps its value in the tooltip.
+    // One slow school must not squash a dozen others into a sliver.
+    const limit = fence ? upperFence(pts.map(p => p.y)) : Infinity;
+    const off = p => p.y > limit;
+    const inRange = pts.filter(p => !off(p));
+    let lo = Math.min(...inRange.map(p => p.y)), hi = Math.max(...inRange.map(p => p.y));
     if (hi - lo < 10000) { const mid = (hi + lo) / 2; lo = mid - 5000; hi = mid + 5000; }
     const step = tickStep(hi - lo);
     lo = Math.floor(lo / step) * step;
@@ -1688,11 +1737,26 @@ function drawLine(el) {
     }
     shown.forEach(x => { svg += `<text class="ax" x="${X(x)}" y="${H - 8}" text-anchor="middle">${axisDate(x)}</text>`; });
     svg += `<line class="xhair" x1="0" x2="0" y1="${m.t - 6}" y2="${H - m.b}" visibility="hidden"/>`;
-    // Context first, so the runner's line draws over it.
-    [...series].reverse().forEach(s => {
+    // Muted context lines first, then the rest with the first series on top.
+    // A muted line is thinner and has no dots — it is there to be compared
+    // against, not read point by point.
+    [...series.filter(s => s.muted), ...series.filter(s => !s.muted).reverse()].forEach(s => {
         const ps = [...s.points].sort((a, b) => a.x - b.x);
-        if (ps.length > 1) svg += `<path class="ln" style="stroke:${s.color}" d="${ps.map((p, i) => (i ? 'L' : 'M') + X(p.x).toFixed(1) + ',' + Y(p.y).toFixed(1)).join('')}"/>`;
-        ps.forEach(p => { svg += `<circle class="dot" style="fill:${s.color}" cx="${X(p.x)}" cy="${Y(p.y)}" r="4"/>`; });
+        // A line breaks at an off-scale point rather than diving to the edge,
+        // which would draw a slope that is not there.
+        const runs = [[]];
+        ps.forEach(p => { if (off(p)) runs.push([]); else runs[runs.length - 1].push(p); });
+        runs.filter(r => r.length > 1).forEach(r => {
+            svg += `<path class="ln${s.muted ? ' muted' : ''}" style="stroke:${s.color}" d="${r.map((p, i) => (i ? 'L' : 'M') + X(p.x).toFixed(1) + ',' + Y(p.y).toFixed(1)).join('')}"/>`;
+        });
+        ps.forEach(p => {
+            if (off(p)) {
+                const x = X(p.x), y = H - m.b - 3;
+                svg += `<path class="offscale" style="fill:${s.color}" d="M${x - 4},${y - 6}L${x + 4},${y - 6}L${x},${y}Z"/>`;
+            } else if (!s.muted || ps.length === 1) {
+                svg += `<circle class="dot${s.muted ? ' muted' : ''}" style="fill:${s.color}" cx="${X(p.x)}" cy="${Y(p.y)}" r="${s.muted ? 3 : 4}"/>`;
+            }
+        });
     });
     annotate.filter(a => !a.end).forEach(a => {
         const ax = Math.min(Math.max(X(a.x), m.l + 34), W - m.r - 34);
@@ -1700,14 +1764,14 @@ function drawLine(el) {
     });
     // End labels sit just past a line's last point, nudged apart if two land
     // within a line-height of each other.
-    const placed = ends.map(a => ({ a, y: Y(a.y) + 4 })).sort((p, q) => p.y - q.y);
+    const placed = ends.map(a => ({ a, y: (a.y > limit ? H - m.b - 6 : Y(a.y)) + 4 })).sort((p, q) => p.y - q.y);
     placed.forEach((p, i) => { if (i && p.y - placed[i - 1].y < 13) p.y = placed[i - 1].y + 13; });
     placed.forEach(p => {
-        svg += `<text class="lab" x="${X(p.a.x) + 9}" y="${p.y}" text-anchor="start">${esc(p.a.text)}</text>`;
+        svg += `<text class="lab" x="${X(p.a.x) + 9}" y="${p.y}" text-anchor="start">${esc(fitEnd(p.a.text))}</text>`;
     });
     svg += `<rect x="${m.l}" y="0" width="${W - m.l - m.r}" height="${H}" fill="transparent"/></svg>`;
 
-    const legend = series.length > 1
+    const legend = showLegend && series.length > 1
         ? `<div class="legend">${series.map(s => `<span><i class="key" style="background:${s.color}"></i>${esc(s.name)}</span>`).join('')}</div>`
         : '';
     el.innerHTML = legend + svg + '<div class="tip" hidden></div>';
@@ -1722,15 +1786,15 @@ function drawLine(el) {
         const head = document.createElement('div');
         head.className = 'tip-head';
         const any = pts.find(p => p.x === x);
-        head.textContent = axisDate(x) + (any && any.sub ? ' · ' + any.sub : '');
+        head.textContent = tipHead ? tipHead(x) : axisDate(x) + (any && any.sub ? ' · ' + any.sub : '');
         tip.appendChild(head);
-        series.forEach(s => {
-            const p = s.points.find(q => q.x === x);
-            if (!p) return;
-            const row = document.createElement('div'); row.className = 'tip-row';
+        const here = series.map(s => ({ s, p: s.points.find(q => q.x === x) })).filter(o => o.p);
+        if (tipSort) here.sort((a, b) => a.p.y - b.p.y);
+        here.forEach(({ s, p }) => {
+            const row = document.createElement('div'); row.className = 'tip-row' + (s.muted ? ' muted' : '');
             const key = document.createElement('i'); key.className = 'key'; key.style.background = s.color;
-            const val = document.createElement('strong'); val.textContent = fmtTime(Math.round(p.y / 100) * 100);
-            const name = document.createElement('span'); name.textContent = s.name;
+            const val = document.createElement('strong'); val.textContent = fmt(p.y);
+            const name = document.createElement('span'); name.textContent = s.name + (off(p) ? ' · off the chart' : '');
             row.append(key, val, name);
             tip.appendChild(row);
             (p.notes || []).forEach(text => {
@@ -1944,7 +2008,8 @@ const GROUPS = {
         'Monona Grove', 'Oregon', 'Sun Prairie East', 'Sun Prairie West', 'Verona Area', 'Waunakee'] },
 };
 const groupCache = new Map();                    // tab → that group's results
-const groupState = { season: null, dist: null };
+const groupState = { season: null, dist: null, pick: null };   // pick: a school singled out on the chart
+const groupCharts = new Map();                                   // squad → its weekly chart data
 const schoolKey = s => s.toLowerCase().replace(/high school|\bhs\b/g, '').replace(/[^a-z0-9]/g, '');
 
 async function loadGroup(v) {
@@ -1989,9 +2054,81 @@ function renderGroup(v) {
 
     const rows = inSeason.filter(r => r.distance_m === groupState.dist);
     const squad = squadsByRunner(all);
+    groupCharts.clear();
     $('group-body').innerHTML = ['Boys', 'Girls', 'Other']
         .map(sq => groupCard(g, sq, rows.filter(r => squad(r.athlete_id) === sq)))
         .join('');
+    groupCharts.forEach((_, sq) => drawGroupChart(sq));
+}
+
+/** Monday of the week a date falls in, as a UTC day — the chart's x. */
+function weekOf(ymd) {
+    const ms = dayMs(ymd);
+    return ms - ((new Date(ms).getUTCDay() + 6) % 7) * 864e5;
+}
+
+/**
+ * Each school's top-5 average by week. A runner counts once a week, at their
+ * best time that week across any race at this distance; the school's five
+ * fastest of those are averaged. Under five runners that week, no point.
+ * Returns [{ name, points: [{ x: week, y: average, n }] }], schools with no
+ * point at all left out.
+ */
+function weeklyTop5(rows, display) {
+    const bySchool = new Map();                    // school → week → runner → best
+    rows.forEach(r => {
+        const school = display.get(schoolKey(r.school)) || r.school;
+        const wk = weekOf(r.date);
+        if (!bySchool.has(school)) bySchool.set(school, new Map());
+        const weeks = bySchool.get(school);
+        if (!weeks.has(wk)) weeks.set(wk, new Map());
+        const best = weeks.get(wk);
+        best.set(r.athlete_id, Math.min(best.get(r.athlete_id) ?? Infinity, r.time_ms));
+    });
+    const out = [];
+    bySchool.forEach((weeks, name) => {
+        const points = [];
+        weeks.forEach((best, wk) => {
+            const t = [...best.values()].sort((a, b) => a - b);
+            if (t.length >= 5) points.push({ x: wk, y: t.slice(0, 5).reduce((s, v) => s + v, 0) / 5, n: t.length });
+        });
+        if (points.length) out.push({ name, points: points.sort((a, b) => a.x - b.x) });
+    });
+    return out;
+}
+
+/**
+ * Every school's weekly top-5 average on one chart. Too many schools for a
+ * colour each, so the coach's school is blue, a school tapped in the chips is
+ * orange, and the rest are thin gray lines to compare against; the tooltip
+ * names every school that week, fastest first. Redraws on its own when a chip
+ * is tapped, so the table below is left alone.
+ */
+function drawGroupChart(squad) {
+    const d = groupCharts.get(squad);
+    const el = [...$('group-body').querySelectorAll('[data-gchart]')].find(x => x.dataset.gchart === squad);
+    if (!d || !el) return;
+    const ours = schoolKey(team.school || load(TEAM_KEY) || '');
+    const role = sc => schoolKey(sc.name) === ours ? 'own' : sc.name === groupState.pick ? 'pick' : 'other';
+    const series = d.schools.map(sc => ({
+        name: sc.name,
+        color: role(sc) === 'own' ? 'var(--series-1)' : role(sc) === 'pick' ? 'var(--series-2)' : 'var(--muted-line)',
+        muted: role(sc) === 'other',
+        points: sc.points.map(p => ({ x: p.x, y: p.y })),
+    }));
+    // Emphasised lines go first so they draw on top; each gets an end label.
+    series.sort((a, b) => (a.muted ? 1 : 0) - (b.muted ? 1 : 0));
+    const annotate = series.filter(s => !s.muted).map(s => {
+        const last = s.points[s.points.length - 1];
+        return { x: last.x, y: last.y, text: s.name, end: true };
+    });
+    lineChart(el, {
+        label: `Top-5 average by week for ${d.schools.length} schools`,
+        series, annotate, legend: false, tipSort: true, fmt: tenths, fence: true,
+        tipHead: x => 'Week of ' + axisDate(x),
+    });
+    el.parentElement.querySelectorAll('.schoolchip[data-pick]').forEach(b =>
+        b.setAttribute('aria-pressed', String(b.dataset.pick === groupState.pick)));
 }
 
 function groupCard(g, squad, rows) {
@@ -2026,6 +2163,22 @@ function groupCard(g, squad, rows) {
     const label = squad === 'Other' ? 'Other races' : squad;
     const open = !team.folded.has(squad);
     const oursName = g.schools.find(n => schoolKey(n) === ours);
+
+    // The weekly chart sits at the top of the section. Chips in the school
+    // list's order: the coach's school marked, any other tappable to pick out.
+    const weekly = weeklyTop5(rows, display);
+    if (weekly.length) groupCharts.set(squad, { schools: weekly });
+    const charted = new Set(weekly.map(s => s.name));
+    const chips = g.schools.filter(n => charted.has(n)).map(n => schoolKey(n) === ours
+        ? `<span class="schoolchip own"><i class="key"></i>${esc(n)}</span>`
+        : `<button class="schoolchip" type="button" data-pick="${esc(n)}" aria-pressed="${n === groupState.pick}"><i class="key"></i>${esc(n)}</button>`).join('');
+    const chart = weekly.length
+        ? `<div class="progress-head"><div class="progress-title">Top-5 average by week</div>
+             <small>Each school's five fastest that week, averaged. Schools at different meets that week ran different courses, so read the trend more than any single week. Tap a school to pick it out.</small></div>
+           <div class="chips-row">${chips}</div>
+           <div class="chart" data-gchart="${esc(squad)}"></div>`
+        : `<p class="card-sub">No school had five runners in one week yet, so there is no weekly chart.</p>`;
+
     return `<section class="card">
         <button class="squadtoggle" type="button" data-squad="${esc(squad)}" aria-expanded="${open}"
                 aria-label="${open ? 'Hide' : 'Show'} ${esc(label)}">
@@ -2034,14 +2187,22 @@ function groupCard(g, squad, rows) {
                 <span>${ranked.length} runners · ${perSchool.size} school${perSchool.size === 1 ? '' : 's'}</span>
             </div>
         </button>
-        ${open ? `<p class="card-sub">Each school's ${g.perSchool} fastest by season best, ranked together. Average is across all of a runner's races; times are at ${esc(distLabel(groupState.dist))}.${oursName ? ' ' + esc(oursName) + ' is highlighted.' : ''}${missing.length ? ' No results yet for ' + esc(missing.join(', ')) + '.' : ''}</p>
+        ${open ? `${chart}
+        <p class="card-sub" style="margin-top:14px">Each school's ${g.perSchool} fastest by season best, ranked together. Average is across all of a runner's races; times are at ${esc(distLabel(groupState.dist))}.${oursName ? ' ' + esc(oursName) + ' is highlighted.' : ''}${missing.length ? ' No results yet for ' + esc(missing.join(', ')) + '.' : ''}</p>
         <div class="gridwrap"><table class="season group"><thead><tr><th class="who lead"><span class="rk">#</span>Runner</th><th>Best</th><th>Average</th><th class="school">School</th><th>Races</th></tr></thead>
         <tbody>${body}</tbody></table></div>` : ''}
     </section>`;
 }
 
+// A chip picks a school out on that section's chart, or puts it back.
 // Folding is shared with the Team tab: a squad folded there is folded here.
 $('group-body').addEventListener('click', e => {
+    const chip = e.target.closest('[data-pick]');
+    if (chip) {
+        groupState.pick = groupState.pick === chip.dataset.pick ? null : chip.dataset.pick;
+        groupCharts.forEach((_, sq) => drawGroupChart(sq));
+        return;
+    }
     const btn = e.target.closest('[data-squad]');
     if (!btn) return;
     const squad = btn.dataset.squad;

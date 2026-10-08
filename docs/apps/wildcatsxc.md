@@ -337,6 +337,35 @@ shows the same time in both. Averages always show the tenth (`tenths()`:
   races scroll sideways. Season and distance filters behave as on Team, and
   squad folding is shared with the Team tab.
 
+### Weekly top-5 chart
+
+Each squad section on Conference and Section opens with **every school's
+top-5 average by week** (`weeklyTop5()`, `drawGroupChart()`).
+
+- **The numbers.** Weeks run Monday–Sunday and are labelled by their Monday.
+  A runner counts once a week, at their best time that week across any race at
+  the distance; the school's five fastest of those are averaged. Under five
+  runners that week, the school has no point. A school with points in only one
+  week shows as a dot, not a line.
+- **Every school is drawn, but not every school gets a colour.** A dozen hues
+  cannot be told apart, least of all under colour-blindness, so the coach's
+  school (the Team tab's pick) is blue with dots, and every other school is a
+  thin gray line to compare against. The chips above the chart — one per
+  school, in the list's order — pick one school out in orange; tapping it again
+  puts it back. Emphasised lines carry end labels (capped at 30% of the width,
+  shortened with "…" if they do not fit). Picking redraws only the chart, never
+  the table. The tooltip lists every school that week, fastest first.
+- **Outliers do not set the scale** (`fence: true` on `lineChart()`,
+  `upperFence()`). A point beyond Q3 + 1.5 × IQR of all the chart's points is
+  drawn as a small marker on the bottom edge, its line breaks there rather than
+  diving to the edge, and the tooltip keeps its real value marked "off the
+  chart". In the first real data Beloit Memorial's only week averaged 26:31
+  against a field within three minutes of each other; on one axis it squashed
+  every other school into a sliver.
+- **Courses differ within a week.** Schools racing different meets the same
+  week ran different courses; the caption says to read the trend rather than
+  any single week. The chart does not adjust for it.
+
 ## Front-end notes
 
 - Rows are flat in state and each carries its race; the overlay groups them.
