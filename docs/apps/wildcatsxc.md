@@ -143,6 +143,45 @@ the two in step.
 - **Effort `medium`** set explicitly. Raise it if reads of rough photos come
   back with gaps; lower it if speed matters more.
 
+## Metrics
+
+The second tab. `xc_schools` fills the team picker; `xc_results` returns one
+school's results flat and every number is computed in the browser, because
+which races count as boys and which distances compare are view choices, not
+storage ones.
+
+**One filter row scopes everything** — team, season, squad, distance — so the
+tiles, charts and tables always agree. Each filter's options come from what
+the ones before it leave, so no combination produces an empty page. Choices
+are remembered in `localStorage['wildcatsxc_metrics']`.
+
+- **Squad is inferred from the race name** (`squadOf()`): runners carry no
+  gender, so "Varsity Girls" / "Women" → Girls, "Boys" / "Men" → Boys, anything
+  else → Other. Girls is tested first because "women" contains "men". A race
+  named without either word lands in Other — rename the race in the meet to fix it.
+- **Distance is a hard filter.** A 4K time and a 5K time on one axis is a
+  meaningless line, so the default is whichever distance the squad ran most.
+- **Team top 5 per meet** (`teamByMeet()`) uses the race at that meet where the
+  team's fastest runner ran, among races with at least five team finishers —
+  the varsity race, normally, even when JV had more runners. It reports the
+  top-5 average and the 1–5 split (gap from first to fifth runner).
+- **Athletes** (`athletesOf()`): season best, first and latest race, and the
+  drop from first race to season best. The tile reports the median drop across
+  runners with two or more races, so one huge improver doesn't define it.
+- **Faster plots higher** on every chart, since "up is good" is how everyone
+  reads a line. The y-axis is inverted to do it; the card subtitle says so.
+
+Charts are hand-drawn inline SVG (`lineChart()`), no library. The runner chart
+is an emphasis chart: the runner in the accent, the team top-5 average in gray
+for context. Hover or arrow keys move a crosshair that snaps to a meet; every
+value it shows is also in the table under the chart. The accent was checked
+with the dataviz palette validator against `--surface` in both themes.
+
+The caveat at the bottom is not boilerplate: course difficulty moves times more
+than a week of fitness does, so meet-to-meet deltas (including the tile's
+"faster than") are course-confounded. Same-course comparison across seasons is
+the natural next metric once there is more than one season of data.
+
 ## Front-end notes
 
 - Rows are flat in state and each carries its race; the overlay groups them.

@@ -49,6 +49,23 @@
             --text-secondary: #c3c2b7;
             --text-muted:     #898781;
         }
+        /* Chart roles. One accent (validated against --surface in both modes),
+           a gray for context, and the chrome. Faster/slower text uses the
+           delta tokens and always carries the word, never the hue alone. */
+        :root, [data-theme="light"] {
+            --series-1:  #2a78d6;
+            --context:   #898781;
+            --grid:      #e1e0d9;
+            --axis:      #c3c2b7;
+            --good-text: #006300;
+        }
+        [data-theme="dark"] {
+            --series-1:  #3987e5;
+            --context:   #898781;
+            --grid:      #2c2c2a;
+            --axis:      #383835;
+            --good-text: #0ca30c;
+        }
         :root {
             --nav-bg:     #111110;
             --nav-border: rgba(255,255,255,0.08);
@@ -296,6 +313,76 @@
             max-width: calc(100% - 32px);
         }
 
+        /* ── VIEW TABS ── */
+        .viewtabs { display: flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; width: max-content; }
+        .viewtabs button {
+            padding: 8px 18px; background: none; border: none; cursor: pointer;
+            font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em;
+            text-transform: uppercase; color: var(--text-secondary);
+        }
+        .viewtabs button[aria-selected="true"] { background: var(--text-primary); color: var(--page); }
+        #meets-view, #metrics-view { display: grid; gap: 14px; }
+        #metrics-view.refreshing { opacity: 0.55; transition: opacity 0.15s; }
+
+        /* ── METRICS ── */
+        .filters { display: flex; flex-wrap: wrap; gap: 8px; }
+        .filters select {
+            font-family: var(--font-mono); font-size: 13px; padding: 9px 10px; max-width: 100%;
+            background: var(--surface); color: var(--text-primary);
+            border: 1px solid var(--border); border-radius: 9px;
+        }
+        .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
+        .tile-label { font-size: 12px; color: var(--text-secondary); }
+        .tile-value { font-size: 28px; font-weight: 600; margin-top: 4px; line-height: 1.1; }
+        .tile-sub { font-size: 12px; color: var(--text-muted); margin-top: 6px; line-height: 1.4; }
+        .faster { color: var(--good-text); }
+        .slower { color: var(--crit); }
+        .card-sub { font-size: 12px; color: var(--text-muted); margin: -6px 0 12px; line-height: 1.45; }
+
+        .chart { position: relative; }
+        .chart svg { display: block; overflow: visible; }
+        .chart svg:focus { outline: none; }
+        .chart svg:focus-visible { outline: 2px solid var(--series-1); outline-offset: 4px; border-radius: 4px; }
+        .chart .grid { stroke: var(--grid); stroke-width: 1; }
+        .chart .axis { stroke: var(--axis); stroke-width: 1; }
+        .chart .ax  { fill: var(--text-muted); font: 11px var(--font-mono); font-variant-numeric: tabular-nums; }
+        .chart .lab { fill: var(--text-secondary); font: 600 11px var(--font-ui); }
+        .chart .ln  { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+        .chart .dot { stroke: var(--surface); stroke-width: 2; }
+        .chart .xhair { stroke: var(--text-muted); stroke-width: 1; }
+        .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
+        .legend span { display: inline-flex; align-items: center; gap: 6px; }
+        .key { display: inline-block; width: 14px; height: 2px; border-radius: 1px; flex: none; }
+        .tip {
+            position: absolute; top: 4px; z-index: 5; pointer-events: none; min-width: 150px; max-width: 220px;
+            background: var(--page); border: 1px solid var(--border); border-radius: 9px;
+            padding: 8px 10px; font-size: 12px; box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+        }
+        .tip-head { color: var(--text-muted); margin-bottom: 4px; line-height: 1.35; }
+        .tip-row { display: flex; align-items: center; gap: 7px; margin-top: 3px; }
+        .tip-row strong { font-size: 14px; font-variant-numeric: tabular-nums; }
+        .tip-row span:last-child { color: var(--text-secondary); }
+
+        .tablewrap { overflow-x: auto; margin-top: 14px; }
+        table.data { width: 100%; border-collapse: collapse; font-size: 13px; }
+        table.data th {
+            text-align: left; font-family: var(--font-mono); font-size: 10px; font-weight: 400;
+            letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted);
+            padding: 0 10px 7px 0; border-bottom: 1px solid var(--border); white-space: nowrap;
+        }
+        table.data td { padding: 9px 10px 9px 0; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        table.data tr:last-child td { border-bottom: none; }
+        table.data .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        table.data small { display: block; color: var(--text-muted); font-size: 11px; margin-top: 1px; }
+        tr.pick { cursor: pointer; }
+        tr.pick:hover td, tr.pick:focus-visible td { background: var(--surface-2); }
+        tr.pick:focus { outline: none; }
+        tr.pick[aria-selected="true"] td { background: var(--surface-2); }
+        tr.pick[aria-selected="true"] td:first-child { box-shadow: inset 3px 0 0 var(--series-1); }
+        tr.pick td:first-child { padding-left: 8px; }
+        .caveat { font-size: 12px; color: var(--text-muted); line-height: 1.5; padding: 0 2px; }
+
         footer { text-align: center; padding: 28px 16px 40px; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
         footer a { color: var(--text-muted); }
 
@@ -305,6 +392,9 @@
             .meet { grid-template-columns: 1fr auto; }
             .meet .mdate { grid-column: 1 / -1; }
             .runners-head, .runner { grid-template-columns: 40px 1fr 84px 26px; }
+            .tiles { grid-template-columns: 1fr 1fr; }
+            .tiles .tile:last-child { grid-column: 1 / -1; }
+            .hide-sm { display: none; }
         }
     </style>
 </head>
@@ -334,9 +424,15 @@
         <div class="banner bad hidden" id="pin-error" style="margin-top:12px"></div>
     </section>
 
+    <div class="viewtabs hidden" id="viewtabs" role="tablist">
+        <button type="button" role="tab" id="tab-meets" aria-selected="true">Meets</button>
+        <button type="button" role="tab" id="tab-metrics" aria-selected="false">Metrics</button>
+    </div>
+
     <div class="banner bad hidden" id="page-error"></div>
 
-    <section class="card hidden" id="scan-card">
+    <div class="hidden" id="meets-view">
+    <section class="card" id="scan-card">
         <div class="card-title">Scan a meet</div>
         <div class="field">
             <label for="schools">Only these schools</label>
@@ -358,10 +454,47 @@
         </div>
     </section>
 
-    <section class="card hidden" id="meets-card">
+    <section class="card" id="meets-card">
         <div class="card-title"><span>Meets</span><span id="meets-note"></span></div>
         <div id="meets"></div>
     </section>
+    </div>
+
+    <!-- Metrics: one filter row scopes every tile, chart and table below it. -->
+    <div class="hidden" id="metrics-view">
+        <div class="filters">
+            <select id="f-school" aria-label="Team"></select>
+            <select id="f-season" aria-label="Season"></select>
+            <select id="f-squad" aria-label="Boys or girls"></select>
+            <select id="f-dist" aria-label="Distance"></select>
+        </div>
+        <section class="card hidden" id="metrics-empty"><p class="msg" id="metrics-empty-msg"></p></section>
+        <div id="metrics-body">
+            <div class="tiles" id="tiles"></div>
+
+            <section class="card" style="margin-top:14px">
+                <div class="card-title"><span>Team top 5 by meet</span><span id="team-note"></span></div>
+                <p class="card-sub">Average of the five fastest team times in each meet's main race. Faster is higher.</p>
+                <div class="chart" id="team-chart"></div>
+                <div class="tablewrap"><table class="data" id="team-table"></table></div>
+            </section>
+
+            <section class="card" style="margin-top:14px" id="athlete-card">
+                <div class="card-title"><span id="athlete-title">Runner</span><span id="athlete-note"></span></div>
+                <p class="card-sub" id="athlete-sub"></p>
+                <div class="chart" id="athlete-chart"></div>
+                <div class="tablewrap"><table class="data" id="athlete-table"></table></div>
+            </section>
+
+            <section class="card" style="margin-top:14px">
+                <div class="card-title"><span>Roster</span><span id="roster-note"></span></div>
+                <p class="card-sub">Sorted by season best. Tap a runner to chart them.</p>
+                <div class="tablewrap" style="margin-top:0"><table class="data" id="roster"></table></div>
+            </section>
+
+            <p class="caveat" style="margin-top:14px">Courses differ: hills, footing and weather move a time more than a week of training does, so a slower time on a harder course is not a step back. Compare the same course across seasons, or look at the trend over several meets.</p>
+        </div>
+    </div>
 
 </div>
 
@@ -453,6 +586,7 @@ let pin = load(PIN_KEY);
 // saved meet being edited. Rows are flat and carry their race; the overlay
 // groups them for display.
 let review    = null;
+let view      = load('wildcatsxc_view') === 'metrics' ? 'metrics' : 'meets';
 let appending = false;
 let nextUid   = 1;
 
@@ -517,6 +651,7 @@ $('pin-form').addEventListener('submit', async e => {
         $('pin').value = '';
         render();
         renderMeets(d.meets);
+        if (view === 'metrics') loadMetrics();
     } catch (err) {
         pin = null;
         $('pin-error').textContent = err.message;
@@ -538,8 +673,11 @@ function lock() {
 function render() {
     const inn = !!pin;
     $('locked').classList.toggle('hidden', inn);
-    $('scan-card').classList.toggle('hidden', !inn);
-    $('meets-card').classList.toggle('hidden', !inn);
+    $('viewtabs').classList.toggle('hidden', !inn);
+    $('meets-view').classList.toggle('hidden', !inn || view !== 'meets');
+    $('metrics-view').classList.toggle('hidden', !inn || view !== 'metrics');
+    $('tab-meets').setAttribute('aria-selected', String(view === 'meets'));
+    $('tab-metrics').setAttribute('aria-selected', String(view === 'metrics'));
     $('lock-btn').classList.toggle('hidden', !inn);
     if (!inn) { showError(''); setTimeout(() => $('pin').focus(), 0); }
 }
@@ -939,6 +1077,7 @@ $('save').addEventListener('click', async () => {
         });
         closeOverlay();
         toast('Saved ' + r.saved + (r.saved === 1 ? ' result' : ' results'));
+        mx.schools = null; mx.results = null;
         loadMeets();
     } catch (e) {
         box.textContent = e.message; box.classList.remove('hidden');
@@ -959,11 +1098,414 @@ $('confirm-yes').addEventListener('click', async () => {
         await api('?action=xc_meet&id=' + review.meet_id, { method: 'DELETE' });
         closeOverlay();
         toast('Meet deleted');
+        mx.schools = null; mx.results = null;
         loadMeets();
     } catch (e) {
         $('review-error').textContent = e.message;
         $('review-error').classList.remove('hidden');
     }
+});
+
+// ── Metrics ──────────────────────────────────────────────────────────────
+// Everything is computed here from one school's flat results. The filter row
+// (season, squad, distance) scopes every tile, chart and table at once, so the
+// numbers on the page always agree with each other.
+const METRICS_KEY = 'wildcatsxc_metrics';
+let mx = { schools: null, school: null, results: null, filters: {}, athlete: null };
+try { Object.assign(mx.filters, JSON.parse(load(METRICS_KEY)) || {}); } catch (e) {}
+
+// Runners carry no gender, so a squad is read off the race name. Girls is
+// tested first because "women" contains "men".
+function squadOf(race) {
+    if (/girl|women|female|\bw\b|\bg\b/i.test(race)) return 'Girls';
+    if (/boy|\bmen\b|male|\bm\b|\bb\b/i.test(race)) return 'Boys';
+    return 'Other';
+}
+
+const dayMs = ymd => { const [y, m, d] = ymd.split('-').map(Number); return Date.UTC(y, m - 1, d); };
+const shortDate = ms => new Date(ms).toLocaleDateString([], { month: 'short', day: 'numeric', timeZone: 'UTC' });
+const fmtDist = m => !m ? 'Unknown distance' : (m === 3219 ? '2 mile' : (m % 1000 === 0 ? (m / 1000) + 'K' : m + 'm'));
+
+/** 1043400 → "17:23.4" — tenths, the precision coaches read results in. */
+function fmtMs(ms) {
+    const t = Math.round(ms / 100), m = Math.floor(t / 600), s = (t % 600) / 10;
+    return m + ':' + s.toFixed(1).padStart(4, '0');
+}
+/** A gap: "12.4s" under a minute, "1:02.4" over. */
+const fmtGap = ms => Math.abs(ms) < 60000 ? (Math.abs(ms) / 1000).toFixed(1) + 's' : fmtMs(Math.abs(ms));
+const median = a => { const s = [...a].sort((x, y) => x - y), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
+
+function setView(v) {
+    view = v;
+    store('wildcatsxc_view', v);
+    render();
+    if (v === 'metrics') loadMetrics();
+}
+
+async function loadMetrics() {
+    if (!pin) return;
+    $('metrics-view').classList.add('refreshing');   // hold the last render while fetching
+    try {
+        if (!mx.schools) mx.schools = (await api('?action=xc_schools')).schools;
+        if (!mx.schools.length) return metricsEmpty('No results saved yet. Scan or paste a meet on the Meets tab first.');
+
+        const want = mx.schools.some(s => s.school === mx.filters.school) ? mx.filters.school : mx.schools[0].school;
+        $('f-school').innerHTML = mx.schools.map(s =>
+            `<option value="${esc(s.school)}"${s.school === want ? ' selected' : ''}>${esc(s.school)} (${s.athletes})</option>`).join('');
+        if (mx.school !== want || !mx.results) {
+            mx.results = (await api('?action=xc_results&school=' + encodeURIComponent(want))).results;
+            mx.school = want;
+        }
+        mx.filters.school = want;
+        showError('');
+        renderMetrics();
+    } catch (e) {
+        showError(e.message);
+    } finally {
+        $('metrics-view').classList.remove('refreshing');
+    }
+}
+
+function metricsEmpty(msg) {
+    $('metrics-empty-msg').textContent = msg;
+    $('metrics-empty').classList.toggle('hidden', !msg);
+    $('metrics-body').classList.toggle('hidden', !!msg);
+}
+
+function fillSelect(id, values, selected, label) {
+    $(id).innerHTML = values.map(v =>
+        `<option value="${esc(v)}"${v === selected ? ' selected' : ''}>${esc(label(v))}</option>`).join('');
+}
+
+/**
+ * Each meet's team score line: the race where the team's fastest runner ran
+ * (its varsity race, normally) among races with at least five team finishers.
+ * Top-5 average and the 1–5 split are the two numbers an XC coach reads first.
+ */
+function teamByMeet(rows) {
+    const meets = new Map();
+    rows.forEach(r => {
+        if (!meets.has(r.meet_id)) meets.set(r.meet_id, { meet: r.meet, date: r.date, location: r.location, races: new Map() });
+        const races = meets.get(r.meet_id).races;
+        if (!races.has(r.race)) races.set(r.race, []);
+        races.get(r.race).push(r.time_ms);
+    });
+    const out = [];
+    meets.forEach((m, id) => {
+        let best = null;
+        m.races.forEach((times, race) => {
+            if (times.length < 5) return;
+            times.sort((a, b) => a - b);
+            if (!best || times[0] < best.times[0]) best = { race, times };
+        });
+        if (!best) return;
+        const top5 = best.times.slice(0, 5);
+        out.push({
+            meet_id: id, meet: m.meet, date: m.date, race: best.race, runners: best.times.length,
+            avg: top5.reduce((a, b) => a + b, 0) / 5, split: top5[4] - top5[0],
+        });
+    });
+    return out.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function athletesOf(rows) {
+    const by = new Map();
+    rows.forEach(r => {
+        if (!by.has(r.athlete_id)) by.set(r.athlete_id, { id: r.athlete_id, name: r.name, grade: 0, runs: [] });
+        const a = by.get(r.athlete_id);
+        a.runs.push(r);
+        if (r.grade) a.grade = r.grade;
+    });
+    return [...by.values()].map(a => {
+        a.runs.sort((x, y) => x.date.localeCompare(y.date));
+        a.best   = a.runs.reduce((b, r) => r.time_ms < b.time_ms ? r : b);
+        a.first  = a.runs[0];
+        a.latest = a.runs[a.runs.length - 1];
+        a.drop   = a.first.time_ms - a.best.time_ms;
+        return a;
+    }).sort((x, y) => x.best.time_ms - y.best.time_ms);
+}
+
+function renderMetrics() {
+    const f = mx.filters;
+    const all = mx.results;
+    if (!all.length) return metricsEmpty('No results for ' + mx.school + ' yet.');
+
+    // Each filter's options come from what is left after the ones before it,
+    // so no choice can lead to an empty page.
+    const seasons = [...new Set(all.map(r => r.date.slice(0, 4)))].sort().reverse();
+    if (!seasons.includes(f.season)) f.season = seasons[0];
+    const inSeason = all.filter(r => r.date.startsWith(f.season));
+    const squads = ['Boys', 'Girls', 'Other'].filter(s => inSeason.some(r => squadOf(r.race) === s));
+    if (!squads.includes(f.squad)) f.squad = squads[0];
+    const inSquad = inSeason.filter(r => squadOf(r.race) === f.squad);
+    const distCount = {};
+    inSquad.forEach(r => { distCount[r.distance_m] = (distCount[r.distance_m] || 0) + 1; });
+    const dists = Object.keys(distCount).map(Number).sort((a, b) => distCount[b] - distCount[a]);
+    if (!dists.includes(f.dist)) f.dist = dists[0];
+    const rows = inSquad.filter(r => r.distance_m === f.dist);
+
+    fillSelect('f-season', seasons, f.season, s => s + ' season');
+    fillSelect('f-squad', squads, f.squad, s => s === 'Other' ? 'Other races' : s);
+    fillSelect('f-dist', dists.map(String), String(f.dist), d => fmtDist(+d));
+    store(METRICS_KEY, JSON.stringify(f));
+    metricsEmpty('');
+
+    const team = teamByMeet(rows);
+    const athletes = athletesOf(rows);
+    const meetCount = new Set(rows.map(r => r.meet_id)).size;
+    if (!athletes.some(a => a.id === mx.athlete)) mx.athlete = athletes[0] ? athletes[0].id : null;
+
+    renderTiles(athletes, team, meetCount);
+    renderTeam(team);
+    renderAthlete(athletes.find(a => a.id === mx.athlete), team);
+    renderRoster(athletes);
+}
+
+function tile(label, value, sub) {
+    return `<div class="tile"><div class="tile-label">${esc(label)}</div>
+        <div class="tile-value">${esc(value)}</div><div class="tile-sub">${sub}</div></div>`;
+}
+
+function renderTiles(athletes, team, meetCount) {
+    const f = mx.filters;
+    const multi = athletes.filter(a => a.runs.length >= 2);
+    const drop = multi.length ? median(multi.map(a => a.drop)) : null;
+
+    let teamTile;
+    if (!team.length) {
+        teamTile = tile('Top-5 average', '—', 'No race yet with five team finishers.');
+    } else {
+        const last = team[team.length - 1], prev = team[team.length - 2];
+        let sub = esc(last.meet);
+        if (prev) {
+            const d = prev.avg - last.avg;
+            sub = Math.abs(d) < 50 ? 'Same as ' + esc(prev.meet)
+                : `<span class="${d > 0 ? 'faster' : 'slower'}">${d > 0 ? '▲' : '▼'} ${fmtGap(d)} ${d > 0 ? 'faster' : 'slower'}</span> than ${esc(prev.meet)}`;
+        }
+        teamTile = tile('Top-5 average, latest meet', fmtMs(last.avg), sub);
+    }
+    $('tiles').innerHTML =
+        tile('Runners', String(athletes.length), `${meetCount} meet${meetCount === 1 ? '' : 's'} · ${esc(f.squad)} ${esc(fmtDist(f.dist))}`) +
+        (drop === null
+            ? tile('Typical drop to season best', '—', 'Needs runners with two or more races.')
+            : tile('Typical drop to season best', fmtGap(drop), `Median, first race to season best, across ${multi.length} runner${multi.length === 1 ? '' : 's'} with 2+ races.`)) +
+        teamTile;
+}
+
+function renderTeam(team) {
+    $('team-note').textContent = team.length ? team.length + (team.length === 1 ? ' meet' : ' meets') : '';
+    if (!team.length) {
+        $('team-chart').innerHTML = '<p class="msg">Shows up once a race has five finishers from this team.</p>';
+        $('team-table').innerHTML = '';
+        return;
+    }
+    const last = team[team.length - 1];
+    lineChart($('team-chart'), {
+        label: `Team top-5 average by meet, ${team.length} meets, latest ${fmtMs(last.avg)}`,
+        series: [{ name: 'Top-5 average', color: 'var(--series-1)',
+                   points: team.map(m => ({ x: dayMs(m.date), y: m.avg, sub: m.meet })) }],
+        annotate: [{ x: dayMs(last.date), y: last.avg, text: fmtMs(last.avg) }],
+    });
+    $('team-table').innerHTML = `<thead><tr><th>Meet</th><th class="num">Top-5 avg</th><th class="num">1–5 split</th><th class="num hide-sm">Runners</th></tr></thead><tbody>` +
+        [...team].reverse().map(m => `<tr>
+            <td>${esc(m.meet)}<small>${esc(fmtDate(m.date))} · ${esc(m.race)}</small></td>
+            <td class="num">${fmtMs(m.avg)}</td>
+            <td class="num">${fmtGap(m.split)}</td>
+            <td class="num hide-sm">${m.runners}</td></tr>`).join('') + '</tbody>';
+}
+
+function renderAthlete(a, team) {
+    if (!a) { $('athlete-card').classList.add('hidden'); return; }
+    $('athlete-card').classList.remove('hidden');
+    $('athlete-title').textContent = a.name;
+    $('athlete-note').textContent = a.grade ? 'Grade ' + a.grade : '';
+    $('athlete-sub').textContent = `Season best ${fmtMs(a.best.time_ms)} at ${a.best.meet}` +
+        (a.runs.length > 1 && a.drop > 0 ? `, ${fmtGap(a.drop)} faster than their first race.` : '.');
+
+    // Emphasis: the runner in the accent, the team's top-5 average in gray
+    // behind them for context.
+    const series = [{ name: a.name, color: 'var(--series-1)',
+                      points: a.runs.map(r => ({ x: dayMs(r.date), y: r.time_ms, sub: r.meet })) }];
+    if (team.length) series.push({ name: 'Team top-5 average', color: 'var(--context)',
+                                   points: team.map(m => ({ x: dayMs(m.date), y: m.avg, sub: m.meet })) });
+    lineChart($('athlete-chart'), {
+        label: `${a.name}: ${a.runs.length} races, season best ${fmtMs(a.best.time_ms)}`,
+        series,
+        annotate: [{ x: dayMs(a.best.date), y: a.best.time_ms, text: 'SB ' + fmtMs(a.best.time_ms) }],
+    });
+    $('athlete-table').innerHTML = `<thead><tr><th>Meet</th><th class="num hide-sm">Place</th><th class="num">Time</th></tr></thead><tbody>` +
+        [...a.runs].reverse().map(r => `<tr>
+            <td>${esc(r.meet)}<small>${esc(fmtDate(r.date))} · ${esc(r.race)}</small></td>
+            <td class="num hide-sm">${r.place || '—'}</td>
+            <td class="num">${fmtMs(r.time_ms)}${r === a.best ? '<small>season best</small>' : ''}</td></tr>`).join('') + '</tbody>';
+}
+
+function renderRoster(athletes) {
+    $('roster-note').textContent = athletes.length + (athletes.length === 1 ? ' runner' : ' runners');
+    $('roster').innerHTML = `<thead><tr><th>Runner</th><th class="num hide-sm">Races</th><th class="num">Best</th><th class="num hide-sm">Latest</th><th class="num">Drop</th><th class="hide-sm">Trend</th></tr></thead><tbody>` +
+        athletes.map(a => `<tr class="pick" tabindex="0" data-athlete="${a.id}" aria-selected="${a.id === mx.athlete}">
+            <td>${esc(a.name)}<small>${a.grade ? 'Grade ' + a.grade : '&nbsp;'}</small></td>
+            <td class="num hide-sm">${a.runs.length}</td>
+            <td class="num">${fmtMs(a.best.time_ms)}</td>
+            <td class="num hide-sm">${fmtMs(a.latest.time_ms)}</td>
+            <td class="num">${a.runs.length > 1 && a.drop > 0 ? '<span class="faster">' + fmtGap(a.drop) + '</span>' : '—'}</td>
+            <td class="hide-sm">${sparkline(a.runs)}</td></tr>`).join('') + '</tbody>';
+}
+
+/** Tiny trend in the context gray, latest race dotted in the accent. Faster is up. */
+function sparkline(runs) {
+    if (runs.length < 2) return '';
+    const W = 72, H = 22, p = 3;
+    const ys = runs.map(r => r.time_ms), lo = Math.min(...ys), hi = Math.max(...ys);
+    const x = i => p + i * (W - 2 * p) / (runs.length - 1);
+    const y = v => hi === lo ? H / 2 : p + (v - lo) / (hi - lo) * (H - 2 * p);
+    const pts = runs.map((r, i) => x(i).toFixed(1) + ',' + y(r.time_ms).toFixed(1)).join(' ');
+    const lx = x(runs.length - 1), ly = y(ys[ys.length - 1]);
+    return `<svg width="${W}" height="${H}" aria-hidden="true" style="display:block;overflow:visible">
+        <polyline points="${pts}" style="fill:none;stroke:var(--context);stroke-width:1.5;stroke-linejoin:round;stroke-linecap:round"/>
+        <circle cx="${lx}" cy="${ly}" r="3" style="fill:var(--series-1)"/></svg>`;
+}
+
+/** Whole-second ticks at a step that gives three to five of them. */
+function timeTicks(lo, hi) {
+    const step = [1, 2, 5, 10, 15, 20, 30, 60, 120, 300, 600].map(s => s * 1000)
+        .find(s => (hi - lo) / s <= 5) || 600000;
+    const out = [];
+    for (let t = Math.ceil(lo / step) * step; t <= hi; t += step) out.push(t);
+    return out;
+}
+const tickLabel = t => Math.floor(t / 60000) + ':' + String(Math.floor(t / 1000) % 60).padStart(2, '0');
+
+/**
+ * A time-over-date line chart, inline SVG. Faster (smaller) times plot higher.
+ * Redraws at the container's width when it changes. Hover or arrow keys move a
+ * crosshair that snaps to a meet date, with one tooltip listing every series.
+ */
+function lineChart(el, opts) {
+    el._opts = opts;
+    el._w = 0;
+    drawLine(el);
+    if (!el._ro) {
+        el._ro = new ResizeObserver(() => { if (el.clientWidth !== el._w) drawLine(el); });
+        el._ro.observe(el);
+    }
+}
+
+function drawLine(el) {
+    const { series, annotate = [], label } = el._opts;
+    const W = el.clientWidth;
+    if (!W) return;
+    el._w = W;
+    const H = 220, m = { t: 24, r: 22, b: 26, l: 46 };
+
+    const pts = series.flatMap(s => s.points);
+    const xs = [...new Set(pts.map(p => p.x))].sort((a, b) => a - b);
+    let x0 = xs[0], x1 = xs[xs.length - 1];
+    if (x0 === x1) { x0 -= 3 * 864e5; x1 += 3 * 864e5; }
+    let lo = Math.min(...pts.map(p => p.y)), hi = Math.max(...pts.map(p => p.y));
+    const pad = Math.max((hi - lo) * 0.12, 3000);
+    lo -= pad; hi += pad;
+    const X = x => m.l + (x - x0) / (x1 - x0) * (W - m.l - m.r);
+    const Y = y => m.t + (y - lo) / (hi - lo) * (H - m.t - m.b);
+
+    let svg = `<svg width="${W}" height="${H}" role="img" tabindex="0" aria-label="${esc(label)}">`;
+    timeTicks(lo, hi).forEach(t => {
+        svg += `<line class="grid" x1="${m.l}" x2="${W - m.r}" y1="${Y(t)}" y2="${Y(t)}"/>
+                <text class="ax" x="${m.l - 8}" y="${Y(t) + 4}" text-anchor="end">${tickLabel(t)}</text>`;
+    });
+    svg += `<line class="axis" x1="${m.l}" x2="${W - m.r}" y1="${H - m.b}" y2="${H - m.b}"/>`;
+    // Date labels: as many as fit at ~64px apart, always including the last
+    // meet, and dropping whichever label would crowd it.
+    const every = Math.max(1, Math.ceil(xs.length / Math.max(2, Math.floor((W - m.l - m.r) / 64))));
+    const shown = xs.filter((x, i) => i % every === 0);
+    if (shown[shown.length - 1] !== xs[xs.length - 1]) {
+        if (X(xs[xs.length - 1]) - X(shown[shown.length - 1]) < 64) shown.pop();
+        shown.push(xs[xs.length - 1]);
+    }
+    shown.forEach(x => {
+        svg += `<text class="ax" x="${X(x)}" y="${H - 8}" text-anchor="middle">${shortDate(x)}</text>`;
+    });
+    svg += `<line class="xhair" x1="0" x2="0" y1="${m.t - 6}" y2="${H - m.b}" visibility="hidden"/>`;
+    // Context first so the accent series draws on top of it.
+    [...series].reverse().forEach(s => {
+        const ps = [...s.points].sort((a, b) => a.x - b.x);
+        if (ps.length > 1) svg += `<path class="ln" style="stroke:${s.color}" d="${ps.map((p, i) => (i ? 'L' : 'M') + X(p.x).toFixed(1) + ',' + Y(p.y).toFixed(1)).join('')}"/>`;
+        ps.forEach(p => { svg += `<circle class="dot" style="fill:${s.color}" cx="${X(p.x)}" cy="${Y(p.y)}" r="4"/>`; });
+    });
+    annotate.forEach(a => {
+        const ax = Math.min(Math.max(X(a.x), m.l + 30), W - m.r - 30);
+        svg += `<text class="lab" x="${ax}" y="${Y(a.y) - 11}" text-anchor="middle">${esc(a.text)}</text>`;
+    });
+    svg += `<rect x="${m.l}" y="0" width="${W - m.l - m.r}" height="${H}" fill="transparent"/></svg>`;
+
+    const legend = series.length > 1
+        ? `<div class="legend">${series.map(s => `<span><i class="key" style="background:${s.color}"></i>${esc(s.name)}</span>`).join('')}</div>`
+        : '';
+    el.innerHTML = legend + svg + '<div class="tip" hidden></div>';
+
+    const svgEl = el.querySelector('svg'), hair = el.querySelector('.xhair'), tip = el.querySelector('.tip');
+    let idx = -1;
+    function show(i) {
+        idx = Math.max(0, Math.min(xs.length - 1, i));
+        const x = xs[idx], px = X(x);
+        hair.setAttribute('x1', px); hair.setAttribute('x2', px); hair.setAttribute('visibility', 'visible');
+        tip.textContent = '';
+        const head = document.createElement('div');
+        head.className = 'tip-head';
+        const any = pts.find(p => p.x === x);
+        head.textContent = shortDate(x) + (any && any.sub ? ' · ' + any.sub : '');
+        tip.appendChild(head);
+        series.forEach(s => {
+            const p = s.points.find(q => q.x === x);
+            if (!p) return;
+            const row = document.createElement('div'); row.className = 'tip-row';
+            const key = document.createElement('i'); key.className = 'key'; key.style.background = s.color;
+            const val = document.createElement('strong'); val.textContent = fmtMs(p.y);
+            const name = document.createElement('span'); name.textContent = s.name;
+            row.append(key, val, name);
+            tip.appendChild(row);
+        });
+        tip.hidden = false;
+        const tw = tip.offsetWidth;
+        tip.style.left = (px + 14 + tw > W ? px - 14 - tw : px + 14) + 'px';
+        // Below the legend, level with the plot. SVG elements have no
+        // offsetTop, so measure.
+        tip.style.top = (svgEl.getBoundingClientRect().top - el.getBoundingClientRect().top) + 'px';
+    }
+    function hide() { hair.setAttribute('visibility', 'hidden'); tip.hidden = true; idx = -1; }
+    svgEl.addEventListener('pointermove', e => {
+        const r = svgEl.getBoundingClientRect(), px = e.clientX - r.left;
+        let best = 0;
+        xs.forEach((x, i) => { if (Math.abs(X(x) - px) < Math.abs(X(xs[best]) - px)) best = i; });
+        show(best);
+    });
+    svgEl.addEventListener('pointerleave', hide);
+    svgEl.addEventListener('focus', () => show(xs.length - 1));
+    svgEl.addEventListener('blur', hide);
+    svgEl.addEventListener('keydown', e => {
+        if (e.key === 'ArrowLeft')  { e.preventDefault(); show(idx - 1); }
+        if (e.key === 'ArrowRight') { e.preventDefault(); show(idx + 1); }
+        if (e.key === 'Escape') hide();
+    });
+}
+
+$('tab-meets').addEventListener('click', () => setView('meets'));
+$('tab-metrics').addEventListener('click', () => setView('metrics'));
+$('f-school').addEventListener('change', e => { mx.filters.school = e.target.value; mx.athlete = null; loadMetrics(); });
+$('f-season').addEventListener('change', e => { mx.filters.season = e.target.value; renderMetrics(); });
+$('f-squad').addEventListener('change', e => { mx.filters.squad = e.target.value; mx.athlete = null; renderMetrics(); });
+$('f-dist').addEventListener('change', e => { mx.filters.dist = +e.target.value; renderMetrics(); });
+
+function pickAthlete(tr) {
+    mx.athlete = +tr.dataset.athlete;
+    renderMetrics();
+    $('athlete-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+$('roster').addEventListener('click', e => { const tr = e.target.closest('tr.pick'); if (tr) pickAthlete(tr); });
+$('roster').addEventListener('keydown', e => {
+    const tr = e.target.closest('tr.pick');
+    if (tr && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pickAthlete(tr); }
 });
 
 // ── Wiring ───────────────────────────────────────────────────────────────
@@ -983,6 +1525,7 @@ if ('serviceWorker' in navigator) {
 
 render();
 loadMeets();
+if (view === 'metrics') loadMetrics();
 </script>
 </body>
 </html>

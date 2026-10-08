@@ -3970,6 +3970,54 @@ if ($method === 'GET' && $action === 'xc_meets') {
     exit;
 }
 
+// GET ?action=xc_schools — every school on record with its runner and result
+// counts, most results first. Feeds the team picker on the metrics view.
+if ($method === 'GET' && $action === 'xc_schools') {
+    xcRequirePin($pdo);
+    $st = $pdo->query("SELECT a.school, COUNT(DISTINCT a.id) AS athletes, COUNT(r.id) AS results
+                       FROM xc_athletes a JOIN xc_results r ON r.athlete_id = a.id
+                       GROUP BY a.school ORDER BY results DESC, a.school");
+    echo json_encode(['success' => true, 'schools' => array_map(fn($s) => [
+        'school'   => $s['school'],
+        'athletes' => (int)$s['athletes'],
+        'results'  => (int)$s['results'],
+    ], $st->fetchAll())]);
+    exit;
+}
+
+// GET ?action=xc_results&school=X — every result for one school, flat and
+// oldest first, for the metrics view to slice by season, squad and distance.
+// Flat rather than pre-aggregated: a season is a few hundred rows, and the
+// grouping (which races count as boys, which distance compares) is a view
+// choice that belongs in the browser.
+if ($method === 'GET' && $action === 'xc_results') {
+    xcRequirePin($pdo);
+    $school = trim((string)($_GET['school'] ?? ''));
+    if ($school === '') { http_response_code(400); echo json_encode(['error' => 'Choose a school.']); exit; }
+    $st = $pdo->prepare("SELECT r.athlete_id, a.name, r.meet_id, m.name AS meet, m.meet_date, m.location,
+                                r.race, r.distance_m, r.place, r.grade, r.time_ms
+                         FROM xc_results r
+                         JOIN xc_athletes a ON a.id = r.athlete_id
+                         JOIN xc_meets m    ON m.id = r.meet_id
+                         WHERE a.school = ?
+                         ORDER BY m.meet_date, m.id, r.time_ms");
+    $st->execute([$school]);
+    echo json_encode(['success' => true, 'results' => array_map(fn($r) => [
+        'athlete_id' => (int)$r['athlete_id'],
+        'name'       => $r['name'],
+        'meet_id'    => (int)$r['meet_id'],
+        'meet'       => $r['meet'],
+        'date'       => $r['meet_date'],
+        'location'   => $r['location'] ?? '',
+        'race'       => $r['race'],
+        'distance_m' => (int)$r['distance_m'],
+        'place'      => (int)$r['place'],
+        'grade'      => (int)$r['grade'],
+        'time_ms'    => (int)$r['time_ms'],
+    ], $st->fetchAll())]);
+    exit;
+}
+
 // GET ?action=xc_meet&id=X — one meet with every result, in the same row shape
 // xc_scan returns, so the app edits a saved meet with the grid it checks a scan in.
 if ($method === 'GET' && $action === 'xc_meet') {
