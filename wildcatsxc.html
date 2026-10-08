@@ -389,7 +389,7 @@
         .chart .ln  { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
         .chart .dot { stroke: var(--surface); stroke-width: 2; }
         .chart .ln.muted { stroke-width: 1.25; }
-        .chart .dot.muted { stroke-width: 1; }
+        .chart .dot.muted { stroke-width: 1.5; }
         .chart .offscale { stroke: var(--surface); stroke-width: 1; }
         .tip-row.muted strong { font-weight: 500; }
 
@@ -1738,8 +1738,9 @@ function drawLine(el) {
     shown.forEach(x => { svg += `<text class="ax" x="${X(x)}" y="${H - 8}" text-anchor="middle">${axisDate(x)}</text>`; });
     svg += `<line class="xhair" x1="0" x2="0" y1="${m.t - 6}" y2="${H - m.b}" visibility="hidden"/>`;
     // Muted context lines first, then the rest with the first series on top.
-    // A muted line is thinner and has no dots — it is there to be compared
-    // against, not read point by point.
+    // A muted line is thinner, with smaller dots. It still gets a dot at every
+    // point: without them, gray lines started and stopped in mid-air beside
+    // other schools' lone dots, and read as lines that missed their dots.
     [...series.filter(s => s.muted), ...series.filter(s => !s.muted).reverse()].forEach(s => {
         const ps = [...s.points].sort((a, b) => a.x - b.x);
         // A line breaks at an off-scale point rather than diving to the edge,
@@ -1753,7 +1754,7 @@ function drawLine(el) {
             if (off(p)) {
                 const x = X(p.x), y = H - m.b - 3;
                 svg += `<path class="offscale" style="fill:${s.color}" d="M${x - 4},${y - 6}L${x + 4},${y - 6}L${x},${y}Z"/>`;
-            } else if (!s.muted || ps.length === 1) {
+            } else {
                 svg += `<circle class="dot${s.muted ? ' muted' : ''}" style="fill:${s.color}" cx="${X(p.x)}" cy="${Y(p.y)}" r="${s.muted ? 3 : 4}"/>`;
             }
         });

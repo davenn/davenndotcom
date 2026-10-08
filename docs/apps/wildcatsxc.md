@@ -350,7 +350,9 @@ top-5 average by week** (`weeklyTop5()`, `drawGroupChart()`).
 - **Every school is drawn, but not every school gets a colour.** A dozen hues
   cannot be told apart, least of all under colour-blindness, so the coach's
   school (the Team tab's pick) is blue with dots, and every other school is a
-  thin gray line to compare against. The chips above the chart — one per
+  thin gray line, with small dots, to compare against. Gray lines first had no
+  dots, and they started and stopped in mid-air beside other schools' lone
+  dots — it read as lines failing to reach their points. The chips above the chart — one per
   school, in the list's order — pick one school out in orange; tapping it again
   puts it back. Emphasised lines carry end labels (capped at 30% of the width,
   shortened with "…" if they do not fit). Picking redraws only the chart, never
