@@ -587,7 +587,7 @@ results anywhere go with it.
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** &id=X — the meet and its results; runners left with no
 - **Query parameters:** `id`
-- **Source:** [`api.php:4223`](../api.php#L4223)
+- **Source:** [`api.php:4229`](../api.php#L4229)
 
 ### GET `?action=xc_meet`
 
@@ -596,7 +596,7 @@ xc_scan returns, so the app edits a saved meet with the grid it checks a scan in
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** &id=X — one meet with every result, in the same row shape
 - **Query parameters:** `id`
-- **Source:** [`api.php:4193`](../api.php#L4193)
+- **Source:** [`api.php:4199`](../api.php#L4199)
 
 ### GET `?action=xc_meets`
 
@@ -623,14 +623,16 @@ in xc_scan's shape for checking.
 
 ### GET `?action=xc_results`
 
-date order, for the Team tab to arrange. Flat rather than pre-arranged: a
-school's season is a few hundred rows, and how they are grouped (boys and
-girls, which distance) is a view choice that belongs in the browser.
+date order, for the Team tab to arrange. `school[]=A&school[]=B` (up to 40)
+returns several at once, each row carrying its school — what the
+Conference and Section tabs ask for. Flat rather than pre-arranged: how
+rows are grouped (boys and girls, which distance, top ten per school) is a
+view choice that belongs in the browser.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** &school=X — every result for one school, flat and in
 - **Query parameters:** `school`
-- **Source:** [`api.php:4164`](../api.php#L4164)
+- **Source:** [`api.php:4166`](../api.php#L4166)
 
 ### POST `?action=xc_save_meet`
 

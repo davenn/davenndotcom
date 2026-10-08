@@ -1131,15 +1131,15 @@
                 <p class="op-desc">{url}</p>
             </div>
         </div>
-        <div class="op get" id="get-xc_results" data-search="xc_results get wildcatsxc date order, for the team tab to arrange. flat rather than pre-arranged: a">
+        <div class="op get" id="get-xc_results" data-search="xc_results get wildcatsxc date order, for the team tab to arrange. `school[]=a&amp;school[]=b` (up to 40)">
             <button class="op-head" type="button" aria-expanded="false">
                 <span class="method">GET</span>
                 <span class="op-path">?action=xc_results</span>
-                <span class="op-sum">date order, for the Team tab to arrange. Flat rather than pre-arranged: a</span>
+                <span class="op-sum">date order, for the Team tab to arrange. `school[]=A&amp;school[]=B` (up to 40)</span>
                 <span class="caret">▶</span>
             </button>
             <div class="op-body" hidden>
-                <p class="op-desc">date order, for the Team tab to arrange. Flat rather than pre-arranged: a school's season is a few hundred rows, and how they are grouped (boys and girls, which distance) is a view choice that belongs in the browser.</p>
+                <p class="op-desc">date order, for the Team tab to arrange. <code class="inline">school[]=A&amp;school[]=B</code> (up to 40) returns several at once, each row carrying its school — what the Conference and Section tabs ask for. Flat rather than pre-arranged: how rows are grouped (boys and girls, which distance, top ten per school) is a view choice that belongs in the browser.</p>
                 <h4>Authentication</h4>
                 <p class="op-desc">WildcatsXC team PIN — <code class="inline">X-XC-PIN</code></p>
                 <h4>Takes</h4>

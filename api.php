@@ -4158,24 +4158,30 @@ if ($method === 'GET' && $action === 'xc_schools') {
 }
 
 // GET ?action=xc_results&school=X — every result for one school, flat and in
-// date order, for the Team tab to arrange. Flat rather than pre-arranged: a
-// school's season is a few hundred rows, and how they are grouped (boys and
-// girls, which distance) is a view choice that belongs in the browser.
+// date order, for the Team tab to arrange. `school[]=A&school[]=B` (up to 40)
+// returns several at once, each row carrying its school — what the
+// Conference and Section tabs ask for. Flat rather than pre-arranged: how
+// rows are grouped (boys and girls, which distance, top ten per school) is a
+// view choice that belongs in the browser.
 if ($method === 'GET' && $action === 'xc_results') {
     xcRequirePin($pdo);
-    $school = trim((string)($_GET['school'] ?? ''));
-    if ($school === '') { http_response_code(400); echo json_encode(['error' => 'Choose a school.']); exit; }
-    $st = $pdo->prepare("SELECT r.athlete_id, a.name, r.meet_id, m.name AS meet, m.meet_date,
+    $schools = array_values(array_unique(array_filter(array_map(
+        fn($s) => trim((string)$s), (array)($_GET['school'] ?? [])), fn($s) => $s !== '')));
+    if (!$schools) { http_response_code(400); echo json_encode(['error' => 'Choose a school.']); exit; }
+    if (count($schools) > 40) { http_response_code(400); echo json_encode(['error' => 'Ask for at most 40 schools at once.']); exit; }
+    $in = implode(',', array_fill(0, count($schools), '?'));
+    $st = $pdo->prepare("SELECT r.athlete_id, a.name, a.school, r.meet_id, m.name AS meet, m.meet_date,
                                 r.race, r.distance_m, r.place, r.grade, r.time_ms
                          FROM xc_results r
                          JOIN xc_athletes a ON a.id = r.athlete_id
                          JOIN xc_meets m    ON m.id = r.meet_id
-                         WHERE a.school = ?
+                         WHERE a.school IN ($in)
                          ORDER BY m.meet_date, m.id, r.time_ms");
-    $st->execute([$school]);
+    $st->execute($schools);
     echo json_encode(['success' => true, 'results' => array_map(fn($r) => [
         'athlete_id' => (int)$r['athlete_id'],
         'name'       => $r['name'],
+        'school'     => $r['school'],
         'meet_id'    => (int)$r['meet_id'],
         'meet'       => $r['meet'],
         'date'       => $r['meet_date'],

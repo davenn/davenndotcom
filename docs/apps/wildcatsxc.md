@@ -230,10 +230,17 @@ squad — so every time is visible before anything is summarised.
   "women" contains "men"). But many sheets name a race just "Varsity" or
   "JV1", and splitting race by race cut those runners' seasons in two — in
   the first real data, 82 of Verona's 203 results sat in a separate "Other"
-  section. A runner only races one gender's races, so any named race of theirs
-  places all of them, across every season and distance. Only a runner whose
-  races are all unnamed lands in "Other races" — naming one of their races
-  (edit the meet) moves them.
+  section. Two facts settle almost everyone: a runner only races one gender's
+  races, so any named race of theirs places all of them, across every season
+  and distance; and everyone in one race is the same gender, so an **unnamed
+  race takes the gender of the runners in it already known** from elsewhere,
+  which then places the rest of that field. The second step repeats until
+  nothing changes. It matters most across schools: on the Conference tab, all
+  of Janesville Craig's and Parker's runners came from one unnamed Midwest
+  Invitational race and would otherwise be unplaceable (with it, all 490
+  runners in the first real data were placed). Only runners whose races stay
+  unknown land in "Other races" — naming one of their races (edit the meet)
+  moves them.
 - **Season and distance filter the whole page.** A time at 4K and one at 5K
   are not comparable, so only one distance is shown — the one the team ran
   most — with a picker that appears only when there is a choice (the season
@@ -295,6 +302,35 @@ squad — so every time is visible before anything is summarised.
   device in `localStorage['wildcatsxc_team_folded']`, keyed by squad name — a
   coach of one squad folds the other once, and it stays folded across visits,
   schools and seasons. A convenience only: nothing about it reaches the server.
+
+## Conference and Section tabs
+
+Two tabs, one view: each combines a fixed list of schools into one ranked list
+per squad — **each school's 10 fastest runners by season best, ranked
+together**. Columns: rank and runner (pinned), season best, school, races.
+
+- **The school lists live in `GROUPS`** in `wildcatsxc.html` — the Big Eight
+  for Conference, the WIAA sectional for Section. Edit them there when the
+  conference or the sectional assignment changes (sectionals change yearly).
+  Names are matched to the stored ones loosely (`schoolKey()`: case, spaces and
+  "High School" ignored), so "Madison La Follette" also finds
+  "Madison LaFollette". The section list as first given had typos ("Sun Prarie
+  East", "Sun Praie West"); the list holds the correct spellings.
+- **One request per tab**: `xc_results` takes `school[]=…` repeated and returns
+  every listed school's results, each row carrying its school. Cached per tab
+  until a meet is saved or deleted.
+- **Boys and girls** use the same per-runner rule as the Team tab
+  (`squadsByRunner()`), which is where the unnamed-race step earns its keep.
+- **The coach's own school** — whatever is picked on the Team tab — is tinted
+  with a bar on the runner cell. The school column names it too, so colour is
+  never the only cue.
+- **Coverage is stated, not hidden.** A school with fewer than 10 runners
+  simply contributes fewer (Beloit Memorial had 5 at first), and a school with
+  no results this season and distance is named under the heading — a ranking
+  should never look complete when it isn't.
+- Best sits right after the runner so it stays on screen on a phone; school and
+  races scroll sideways. Season and distance filters behave as on Team, and
+  squad folding is shared with the Team tab.
 
 ## Front-end notes
 

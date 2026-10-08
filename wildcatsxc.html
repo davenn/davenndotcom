@@ -346,7 +346,7 @@
         /* Grid items default to min-width: auto and grow to fit a wide table;
            this lets them stay page-width so the table scrolls inside its card. */
         .wrap > *, .viewpane > * { min-width: 0; }
-        #team-view.refreshing #team-body { opacity: 0.55; transition: opacity 0.15s; }
+        #team-view.refreshing #team-body, #group-view.refreshing #group-body { opacity: 0.55; transition: opacity 0.15s; }
 
         /* ── TEAM ── */
         .filters { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -404,6 +404,23 @@
         table.season tr.pick:focus { outline: none; }
         table.season tr.pick[aria-selected="true"] td { background: var(--surface-2); }
         table.season tr.pick[aria-selected="true"] td.who { box-shadow: inset 3px 0 0 var(--series-1); padding-left: 8px; }
+
+        /* Conference / Section: rank sits inside the pinned runner cell, so it
+           scrolls with the name; the grade lines up under the name. */
+        table.group .rk {
+            display: inline-block; min-width: 2.4em; color: var(--text-muted);
+            font-family: var(--font-mono); font-size: 12px;
+        }
+        table.group .who small { padding-left: 2.4em; }
+        /* Every runner cell gets the room the highlight bar needs, so a
+           highlighted row lines up with the rest instead of shifting right. */
+        table.group .who { padding-left: 8px; }
+        table.group .school { text-align: left; }
+        table.group td.school { color: var(--text-secondary); }
+        /* The coach's own school. The school column already names it, so the
+           tint is a second cue, never the only one. */
+        table.group tr.ours td { background: color-mix(in srgb, var(--series-1) 9%, var(--surface)); }
+        table.group tr.ours td.who { box-shadow: inset 3px 0 0 var(--series-1); }
         .squadtoggle[aria-expanded="false"] .card-title { margin-bottom: 0; }
         .squadtoggle .card-title > span:first-child { display: inline-flex; align-items: center; gap: 6px; }
         .squadtoggle:hover .card-title, .squadtoggle:focus-visible .card-title { color: var(--text-primary); }
@@ -439,7 +456,10 @@
 
 
         @media (max-width: 480px) {
-            .wrap { padding: 12px; }
+            .wrap { padding: 12px 12px 48px; }
+            /* Four tabs share the row evenly rather than overflow it. */
+            .viewtabs { width: 100%; }
+            .viewtabs button { flex: 1; padding: 8px 4px; letter-spacing: 0.03em; }
             .meetfields { grid-template-columns: 1fr; }
             .meet { grid-template-columns: 1fr auto; }
             .meet .mdate { grid-column: 1 / -1; }
@@ -474,6 +494,8 @@
     <div class="viewtabs hidden" id="viewtabs" role="tablist">
         <button type="button" role="tab" id="tab-meets" aria-selected="true">Meets</button>
         <button type="button" role="tab" id="tab-team" aria-selected="false">Team</button>
+        <button type="button" role="tab" id="tab-conference" aria-selected="false">Conference</button>
+        <button type="button" role="tab" id="tab-section" aria-selected="false">Section</button>
     </div>
 
     <div class="banner bad hidden" id="page-error"></div>
@@ -509,6 +531,15 @@
             <select id="t-dist" aria-label="Distance" class="hidden"></select>
         </div>
         <div id="team-body"></div>
+    </div>
+
+    <!-- Conference and Section: one view, two school lists (GROUPS). -->
+    <div class="viewpane hidden" id="group-view">
+        <div class="filters">
+            <select id="g-season" aria-label="Season" class="hidden"></select>
+            <select id="g-dist" aria-label="Distance" class="hidden"></select>
+        </div>
+        <div id="group-body"></div>
     </div>
 
 </div>
@@ -613,7 +644,8 @@ let pin = load(PIN_KEY);
 // saved meet being edited. Rows are flat and carry their race; the overlay
 // groups them for display.
 let review    = null;
-let view      = load('wildcatsxc_view') === 'team' ? 'team' : 'meets';
+const VIEWS   = ['meets', 'team', 'conference', 'section'];
+let view      = VIEWS.includes(load('wildcatsxc_view')) ? load('wildcatsxc_view') : 'meets';
 let appending = false;
 let nextUid   = 1;
 
@@ -678,7 +710,7 @@ $('pin-form').addEventListener('submit', async e => {
         $('pin').value = '';
         render();
         renderMeets(d.meets);
-        if (view === 'team') loadTeam();
+        loadView();
     } catch (err) {
         pin = null;
         $('pin-error').textContent = err.message;
@@ -703,8 +735,8 @@ function render() {
     $('viewtabs').classList.toggle('hidden', !inn);
     $('meets-view').classList.toggle('hidden', !inn || view !== 'meets');
     $('team-view').classList.toggle('hidden', !inn || view !== 'team');
-    $('tab-meets').setAttribute('aria-selected', String(view === 'meets'));
-    $('tab-team').setAttribute('aria-selected', String(view === 'team'));
+    $('group-view').classList.toggle('hidden', !inn || !(view in GROUPS));
+    VIEWS.forEach(v => $('tab-' + v).setAttribute('aria-selected', String(view === v)));
     $('lock-btn').classList.toggle('hidden', !inn);
     if (!inn) { showError(''); setTimeout(() => $('pin').focus(), 0); }
 }
@@ -1299,7 +1331,7 @@ $('save').addEventListener('click', async () => {
         });
         closeOverlay();
         toast('Saved ' + r.saved + (r.saved === 1 ? ' result' : ' results'));
-        team.schools = null; team.results = null;
+        team.schools = null; team.results = null; groupCache.clear();
         loadMeets();
     } catch (e) {
         box.textContent = e.message; box.classList.remove('hidden');
@@ -1333,7 +1365,7 @@ $('delete-meet').addEventListener('click', async () => {
         await api('?action=xc_meet&id=' + review.meet_id, { method: 'DELETE' });
         closeOverlay();
         toast('Meet deleted');
-        team.schools = null; team.results = null;
+        team.schools = null; team.results = null; groupCache.clear();
         loadMeets();
     } catch (e) {
         $('review-error').textContent = e.message;
@@ -1360,25 +1392,48 @@ function squadOf(race) {
 /**
  * Each runner's squad, decided per runner rather than per race. Plenty of
  * sheets name a race just "Varsity" or "JV1", and splitting by race name put
- * those results in a separate section, cutting a runner's season in two. A
- * runner only ever races one gender's races, so any race of theirs that does
- * name one settles it for all of them. Only a runner with no named race at
- * all is left in 'Other'. Uses every result for the school, not just the
- * filtered ones, so a label from another season or distance still counts.
+ * those results in a separate section, cutting a runner's season in two.
+ *
+ * Two facts settle almost everyone. A runner only ever races one gender's
+ * races, so any race of theirs that names one settles them. And everyone in
+ * one race is the same gender, so an unnamed race takes the gender of the
+ * runners in it already known from elsewhere — which then settles the rest of
+ * that field, including runners from schools seen nowhere else (on the
+ * Conference tab, all of Janesville Craig's runners came from one unnamed
+ * race). That second step repeats until nothing changes. Only runners whose
+ * races stay unknown are left in 'Other'. Uses every result given, not just
+ * the filtered ones, so a label from another season or distance still counts.
  */
 function squadsByRunner(results) {
-    const seen = new Map();
+    const known = new Map();                       // athlete_id → 'Boys' | 'Girls'
+    const tally = new Map();
     results.forEach(r => {
         const s = squadOf(r.race);
         if (s === 'Other') return;
-        const c = seen.get(r.athlete_id) || { Boys: 0, Girls: 0 };
+        const c = tally.get(r.athlete_id) || { Boys: 0, Girls: 0 };
         c[s]++;
-        seen.set(r.athlete_id, c);
+        tally.set(r.athlete_id, c);
     });
-    return id => {
-        const c = seen.get(id);
-        return !c ? 'Other' : (c.Girls > c.Boys ? 'Girls' : 'Boys');
-    };
+    tally.forEach((c, id) => known.set(id, c.Girls > c.Boys ? 'Girls' : 'Boys'));
+
+    const fields = new Map();                      // one race at one meet → its runners
+    results.forEach(r => {
+        if (squadOf(r.race) !== 'Other') return;
+        const k = r.meet_id + '|' + r.race;
+        if (!fields.has(k)) fields.set(k, []);
+        fields.get(k).push(r.athlete_id);
+    });
+    for (let changed = true; changed; ) {
+        changed = false;
+        fields.forEach(ids => {
+            const c = { Boys: 0, Girls: 0 };
+            ids.forEach(id => { if (known.has(id)) c[known.get(id)]++; });
+            if (!c.Boys && !c.Girls) return;
+            const s = c.Girls > c.Boys ? 'Girls' : 'Boys';
+            ids.forEach(id => { if (!known.has(id)) { known.set(id, s); changed = true; } });
+        });
+    }
+    return id => known.get(id) || 'Other';
 }
 
 const shortDate = ymd => {
@@ -1399,7 +1454,13 @@ function setView(v) {
     view = v;
     store('wildcatsxc_view', v);
     render();
-    if (v === 'team') loadTeam();
+    loadView();
+}
+
+/** Fetch whatever the current tab needs (Meets loads on its own). */
+function loadView() {
+    if (view === 'team') loadTeam();
+    else if (view in GROUPS) loadGroup(view);
 }
 
 async function loadTeam() {
@@ -1856,8 +1917,137 @@ $('team-body').addEventListener('click', e => {
     if (again) again.focus();
 });
 
+// ── Conference & Section ─────────────────────────────────────────────────
+// Several schools at once: each school's fastest runners by season best,
+// ranked together in one list per squad.
+
+/**
+ * The schools each tab combines. This is the one place to edit when the
+ * conference or the WIAA sectional assignment changes. Names are matched to
+ * the stored ones loosely (case, spaces and "High School" ignored), so
+ * "Madison La Follette" also finds "Madison LaFollette".
+ */
+const GROUPS = {
+    conference: { label: 'Conference', perSchool: 10, schools: [
+        'Beloit Memorial', 'Janesville Craig', 'Janesville Parker', 'Madison East', 'Madison La Follette',
+        'Madison Memorial', 'Madison West', 'Middleton', 'Sun Prairie East', 'Sun Prairie West', 'Verona Area'] },
+    section: { label: 'Section', perSchool: 10, schools: [
+        'DeForest', 'Madison East', 'Madison La Follette', 'Madison Memorial', 'Madison West', 'Middleton',
+        'Monona Grove', 'Oregon', 'Sun Prairie East', 'Sun Prairie West', 'Verona Area', 'Waunakee'] },
+};
+const groupCache = new Map();                    // tab → that group's results
+const groupState = { season: null, dist: null };
+const schoolKey = s => s.toLowerCase().replace(/high school|\bhs\b/g, '').replace(/[^a-z0-9]/g, '');
+
+async function loadGroup(v) {
+    if (!pin) return;
+    const g = GROUPS[v];
+    $('group-view').classList.add('refreshing');
+    try {
+        if (!team.schools) team.schools = (await api('?action=xc_schools')).schools;
+        if (!groupCache.has(v)) {
+            const want = new Set(g.schools.map(schoolKey));
+            const names = team.schools.map(s => s.school).filter(n => want.has(schoolKey(n)));
+            groupCache.set(v, names.length
+                ? (await api('?action=xc_results&' + names.map(n => 'school[]=' + encodeURIComponent(n)).join('&'))).results
+                : []);
+        }
+        showError('');
+        if (view === v) renderGroup(v);           // the coach may have switched tabs while this loaded
+    } catch (e) {
+        showError(e.message);
+    } finally {
+        $('group-view').classList.remove('refreshing');
+    }
+}
+
+function renderGroup(v) {
+    const g = GROUPS[v];
+    const all = groupCache.get(v) || [];
+    if (!all.length) {
+        ['g-season', 'g-dist'].forEach(id => $(id).classList.add('hidden'));
+        $('group-body').innerHTML = `<section class="card"><p class="msg">No results saved yet for any ${esc(g.label.toLowerCase())} school.</p></section>`;
+        return;
+    }
+    const seasons = [...new Set(all.map(r => r.date.slice(0, 4)))].sort().reverse();
+    if (!seasons.includes(groupState.season)) groupState.season = seasons[0];
+    const inSeason = all.filter(r => r.date.startsWith(groupState.season));
+    const count = {};
+    inSeason.forEach(r => { count[r.distance_m] = (count[r.distance_m] || 0) + 1; });
+    const dists = Object.keys(count).map(Number).sort((a, b) => count[b] - count[a]);
+    if (!dists.includes(groupState.dist)) groupState.dist = dists[0];
+    fillSelect('g-season', seasons, groupState.season, y => y + ' season');
+    fillSelect('g-dist', dists, groupState.dist, d => d ? distLabel(d) : 'Unknown distance');
+
+    const rows = inSeason.filter(r => r.distance_m === groupState.dist);
+    const squad = squadsByRunner(all);
+    $('group-body').innerHTML = ['Boys', 'Girls', 'Other']
+        .map(sq => groupCard(g, sq, rows.filter(r => squad(r.athlete_id) === sq)))
+        .join('');
+}
+
+function groupCard(g, squad, rows) {
+    if (!rows.length) return '';
+    const display = new Map(g.schools.map(n => [schoolKey(n), n]));   // stored spelling → the list's
+    const by = new Map();
+    rows.forEach(r => {
+        if (!by.has(r.athlete_id)) by.set(r.athlete_id, { name: r.name, school: display.get(schoolKey(r.school)) || r.school, grade: 0, best: Infinity, races: 0 });
+        const a = by.get(r.athlete_id);
+        a.races++;
+        a.best = Math.min(a.best, r.time_ms);
+        if (r.grade) a.grade = r.grade;
+    });
+    // Each school's fastest few, then everyone ranked together.
+    const perSchool = new Map();
+    by.forEach(a => { if (!perSchool.has(a.school)) perSchool.set(a.school, []); perSchool.get(a.school).push(a); });
+    const ranked = [...perSchool.values()]
+        .flatMap(list => list.sort((x, y) => x.best - y.best).slice(0, g.perSchool))
+        .sort((x, y) => x.best - y.best);
+    const missing = g.schools.filter(n => !perSchool.has(n));
+    const short = shortNames(ranked.map(a => a.name));
+    const ours = schoolKey(team.school || load(TEAM_KEY) || '');
+
+    const body = ranked.map((a, i) => `<tr${schoolKey(a.school) === ours ? ' class="ours"' : ''}>
+        <td class="who lead" title="${esc(a.name)}"><span class="rk">${i + 1}</span><span aria-label="${esc(a.name)}">${esc(short.get(a.name))}</span><small>${a.grade ? 'Grade ' + a.grade : '&nbsp;'}</small></td>
+        <td class="sb">${fmtTime(a.best)}</td>
+        <td class="school">${esc(a.school)}</td>
+        <td>${a.races}</td></tr>`).join('');
+
+    const label = squad === 'Other' ? 'Other races' : squad;
+    const open = !team.folded.has(squad);
+    const oursName = g.schools.find(n => schoolKey(n) === ours);
+    return `<section class="card">
+        <button class="squadtoggle" type="button" data-squad="${esc(squad)}" aria-expanded="${open}"
+                aria-label="${open ? 'Hide' : 'Show'} ${esc(label)}">
+            <div class="card-title">
+                <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>${esc(label)}</span>
+                <span>${ranked.length} runners · ${perSchool.size} school${perSchool.size === 1 ? '' : 's'}</span>
+            </div>
+        </button>
+        ${open ? `<p class="card-sub">Each school's ${g.perSchool} fastest by season best, ranked together; times are at ${esc(distLabel(groupState.dist))}.${oursName ? ' ' + esc(oursName) + ' is highlighted.' : ''}${missing.length ? ' No results yet for ' + esc(missing.join(', ')) + '.' : ''}</p>
+        <div class="gridwrap"><table class="season group"><thead><tr><th class="who lead"><span class="rk">#</span>Runner</th><th>Best</th><th class="school">School</th><th>Races</th></tr></thead>
+        <tbody>${body}</tbody></table></div>` : ''}
+    </section>`;
+}
+
+// Folding is shared with the Team tab: a squad folded there is folded here.
+$('group-body').addEventListener('click', e => {
+    const btn = e.target.closest('[data-squad]');
+    if (!btn) return;
+    const squad = btn.dataset.squad;
+    if (!team.folded.delete(squad)) team.folded.add(squad);
+    store(FOLD_KEY, JSON.stringify([...team.folded]));
+    renderGroup(view);
+    const again = [...$('group-body').querySelectorAll('[data-squad]')].find(b => b.dataset.squad === squad);
+    if (again) again.focus();
+});
+$('g-season').addEventListener('change', e => { groupState.season = e.target.value; renderGroup(view); });
+$('g-dist').addEventListener('change', e => { groupState.dist = +e.target.value; renderGroup(view); });
+
 $('tab-meets').addEventListener('click', () => setView('meets'));
 $('tab-team').addEventListener('click', () => setView('team'));
+$('tab-conference').addEventListener('click', () => setView('conference'));
+$('tab-section').addEventListener('click', () => setView('section'));
 $('t-school').addEventListener('change', e => { team.school = e.target.value; team.results = null; team.selected.clear(); loadTeam(); });
 $('t-season').addEventListener('change', e => { team.season = e.target.value; renderTeam(); });
 $('t-dist').addEventListener('change', e => { team.dist = +e.target.value; renderTeam(); });
@@ -1879,7 +2069,7 @@ if ('serviceWorker' in navigator) {
 
 render();
 loadMeets();
-if (view === 'team') loadTeam();
+loadView();
 </script>
 </body>
 </html>
