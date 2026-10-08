@@ -2583,19 +2583,18 @@ function cpWeekPayload(PDO $pdo, array $week): array {
 // of quirks to reason about.
 
 /**
- * Downscale to the long edge the model actually uses — 1568px for the pick
- * sheet's model, 2576px for the high-resolution ones. A phone photo is far
- * larger, and the extra pixels are resized away server-side anyway.
+ * Downscale to the 1568px long edge the model actually uses. A phone photo is
+ * far larger, and the extra pixels are resized away server-side anyway.
  * Returns [bytes, mediaType].
  */
-function cpPrepareImage(string $bytes, string $media_type, int $max_edge = 1568): array {
+function cpPrepareImage(string $bytes, string $media_type): array {
     if (!function_exists('imagecreatefromstring')) return [$bytes, $media_type];
     $img = @imagecreatefromstring($bytes);
     if ($img === false) return [$bytes, $media_type];
 
     $w = imagesx($img); $h = imagesy($img);
-    if (max($w, $h) > $max_edge) {
-        $scale  = $max_edge / max($w, $h);
+    if (max($w, $h) > 1568) {
+        $scale  = 1568 / max($w, $h);
         $scaled = imagescale($img, (int)round($w * $scale), (int)round($h * $scale));
         if ($scaled !== false) {
             ob_start(); imagejpeg($scaled, null, 90); $bytes = ob_get_clean();
@@ -3590,8 +3589,8 @@ function xcRequirePin(PDO $pdo): void {
 }
 
 /**
- * Ask Claude to read a results sheet. $docs is a list of [bytes, mediaType],
- * one per page photo or PDF. Returns ['result' => array] or ['error' => string].
+ * Ask Claude to read a results PDF. $docs is a list of [bytes, 'application/pdf'].
+ * Returns ['result' => array] or ['error' => string].
  *
  * Streamed, unlike the pick-sheet reader: a big invitational is hundreds of
  * rows, which is minutes of output, and a non-streamed request that long sits
@@ -3605,7 +3604,7 @@ function xcRequirePin(PDO $pdo): void {
  * cache rather than paying for it again.
  */
 function xcReadResults(array $docs, string $schools, string $api_key, int $page = 0): array {
-    $prompt = 'These are the results of a high school cross country meet: a printed results sheet, a timing company PDF, or a photo of one. There may be several pages and several races.
+    $prompt = 'These are the results of a high school cross country meet, as a PDF from the meet or its timing company. There may be several pages and several races.
 
 Report:
 - meet_name, as printed.
@@ -3627,7 +3626,7 @@ These times are used to track each runner across a season, so a misread digit do
     if ($schools !== '') {
         $prompt .= "\n\nOnly include runners from these schools: " . $schools . '. Sheets often abbreviate school names, so include a runner when the abbreviation plainly means one of these schools. Leave everyone else out, but keep their place numbers as printed.';
     }
-    $prompt .= "\n\nAlso report page_count: how many pages this PDF has, or 1 for a photo.";
+    $prompt .= "\n\nAlso report page_count: how many pages this PDF has.";
     if ($page > 0) {
         $prompt .= "\n\nRead ONLY page " . $page . ' of this PDF; the other pages are read separately. Take the meet name, date and location from wherever they appear in the document. If a race on this page continues from an earlier page without repeating its heading, use that race\'s name and distance from the earlier page. If this page has no individual results (a cover page or only team scores), return an empty races list with readable true.';
     }
@@ -3676,7 +3675,7 @@ These times are used to track each runner across a season, so a misread digit do
     $content = [];
     foreach ($docs as [$bytes, $media_type]) {
         $content[] = [
-            'type'   => $media_type === 'application/pdf' ? 'document' : 'image',
+            'type'   => 'document',
             'source' => ['type' => 'base64', 'media_type' => $media_type, 'data' => base64_encode($bytes)],
         ];
     }
@@ -3759,8 +3758,10 @@ These times are used to track each runner across a season, so a misread digit do
     return is_array($result) ? ['result' => $result] : ['error' => 'Could not read the results.'];
 }
 
-// POST ?action=xc_scan  (multipart: files[] — page photos or PDFs; optional schools)
-// Reads a results sheet. Saves nothing — the app shows every row for checking
+// POST ?action=xc_scan  (multipart: files[] — PDFs; optional schools, page)
+// Reads a results PDF. PDFs only, by the owner's choice: results come in as a
+// PDF, a results link (xc_milesplit) or pasted text (xc_match), never a
+// photo. Saves nothing — the app shows every row for checking
 // first. Rows come back flat, each carrying its race, and already lined up
 // against the stored athletes: an exact name + school match takes the stored
 // spelling, and a new name close to an existing teammate's carries that name
@@ -3791,7 +3792,6 @@ if ($method === 'POST' && $action === 'xc_scan') {
     $count = is_array($f['tmp_name']) ? count($f['tmp_name']) : 1;
     if ($count > 10) { http_response_code(400); echo json_encode(['error' => 'Upload at most 10 pages at a time.']); exit; }
 
-    $mime_map = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp', 'pdf' => 'application/pdf'];
     $docs = []; $total = 0;
     for ($i = 0; $i < $count; $i++) {
         $name = is_array($f['name'])     ? $f['name'][$i]     : $f['name'];
@@ -3801,20 +3801,18 @@ if ($method === 'POST' && $action === 'xc_scan') {
         if ($err !== UPLOAD_ERR_OK || !$tmp) {
             http_response_code(400); echo json_encode(['error' => $name . ' did not upload. It may be too large.']); exit;
         }
-        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-        if (!isset($mime_map[$ext])) { http_response_code(400); echo json_encode(['error' => 'Use photos (JPG, PNG, WebP) or a PDF.']); exit; }
+        // The extension is a hint; the bytes are the check, so a renamed
+        // photo is turned away too.
+        if (strtolower(pathinfo($name, PATHINFO_EXTENSION)) !== 'pdf' || file_get_contents($tmp, false, null, 0, 5) !== '%PDF-') {
+            http_response_code(400); echo json_encode(['error' => 'Only PDFs can be uploaded. For anything else, paste the results or a results link.']); exit;
+        }
         $total += $size;
         if ($total > 20 * 1024 * 1024) { http_response_code(400); echo json_encode(['error' => 'Keep each upload under 20 MB in total.']); exit; }
-        $bytes = file_get_contents($tmp);
-        // Dense results pages need the full 2576px the model reads at, not
-        // the pick sheet's 1568.
-        $docs[] = $mime_map[$ext] === 'application/pdf'
-            ? [$bytes, 'application/pdf']
-            : cpPrepareImage($bytes, $mime_map[$ext], 2576);
+        $docs[] = [file_get_contents($tmp), 'application/pdf'];
     }
 
     $page = max(0, min(200, (int)($_POST['page'] ?? 0)));
-    if ($page && (count($docs) !== 1 || $docs[0][1] !== 'application/pdf')) {
+    if ($page && count($docs) !== 1) {
         http_response_code(400); echo json_encode(['error' => 'A page number only applies to a single PDF.']); exit;
     }
 

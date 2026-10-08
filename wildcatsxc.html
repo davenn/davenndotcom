@@ -489,16 +489,9 @@
         </div>
         <div class="scanbar">
             <span class="spacer"></span>
-            <button class="primary icon hidden" id="camera-btn" type="button"
-                    title="Take a photo of the results" aria-label="Take a photo of the results">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M4 7h3l2-2.5h6L17 7h3a1.5 1.5 0 0 1 1.5 1.5v10a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5v-10A1.5 1.5 0 0 1 4 7z"/>
-                    <circle cx="12" cy="13.2" r="3.6"/>
-                </svg>
-            </button>
             <button class="ghost" id="link-btn" type="button">MileSplit link</button>
             <button class="ghost" id="paste-btn" type="button">Paste results</button>
-            <button class="primary" id="upload-btn" type="button">Upload photos or PDF</button>
+            <button class="primary" id="upload-btn" type="button">Upload PDF</button>
         </div>
     </section>
 
@@ -533,7 +526,7 @@
 </div>
 <div class="actions hidden" id="review-actions">
     <button class="danger hidden" id="delete-meet" type="button">Delete meet</button>
-    <button class="ghost" id="add-page" type="button">Add a page</button>
+    <button class="ghost" id="add-page" type="button">Add a PDF</button>
     <button class="ghost" id="paste-more" type="button">Paste a race</button>
     <button class="ghost" id="link-more" type="button">Add from MileSplit</button>
     <span class="spacer"></span>
@@ -592,11 +585,8 @@
 
 <div class="toast hidden" id="toast" role="status"></div>
 
-<!-- Two inputs on purpose. 'capture' does not add the camera as an option, it
-     forces it and takes the photo library away, so one input cannot serve both
-     shooting the sheet in front of you and picking a PDF or earlier photo. -->
-<input type="file" id="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple class="hidden">
-<input type="file" id="file-cam" accept="image/*" capture="environment" class="hidden">
+<!-- Results come in as a PDF, a results link or pasted text — never a photo. -->
+<input type="file" id="file" accept="application/pdf,.pdf" multiple class="hidden">
 
 <script>
 const API = '/api.php';
@@ -733,7 +723,7 @@ async function loadMeets() {
 function renderMeets(meets) {
     $('meets-note').textContent = meets.length ? meets.length + (meets.length === 1 ? ' meet' : ' meets') : '';
     if (!meets.length) {
-        $('meets').innerHTML = '<p class="msg">No meets yet. Scan a results sheet above and it will show up here.</p>';
+        $('meets').innerHTML = '<p class="msg">No meets yet. Add one above from a MileSplit link, pasted results or a PDF.</p>';
         return;
     }
     $('meets').innerHTML = meets.map(m => `
@@ -764,26 +754,26 @@ $('meets').addEventListener('click', async e => {
 });
 
 // ── Scanning ─────────────────────────────────────────────────────────────
-const isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-if (isTouch) {
-    $('camera-btn').classList.remove('hidden');
-    $('upload-btn').className = 'ghost';   // on a phone, shooting the sheet leads
-    $('upload-btn').textContent = 'Upload';
-}
-$('camera-btn').addEventListener('click', () => { appending = false; $('file-cam').click(); });
 $('upload-btn').addEventListener('click', () => { appending = false; $('file').click(); });
-$('add-page').addEventListener('click', () => { appending = true; (isTouch ? $('file-cam') : $('file')).click(); });
+$('add-page').addEventListener('click', () => { appending = true; $('file').click(); });
 
 $('schools').value = load(SCHOOLS_KEY) || '';
 $('schools').addEventListener('change', e => store(SCHOOLS_KEY, e.target.value.trim()));
 
-['file', 'file-cam'].forEach(id => $(id).addEventListener('change', scanFiles));
+$('file').addEventListener('change', scanFiles);
 
 async function scanFiles(ev) {
     const files = Array.from(ev.target.files || []);
     ev.target.value = '';
     if (!files.length) return;
     const append = appending && review;
+    // The picker asks for PDFs, but some phones let any file through.
+    const isPdf = f => f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+    if (!files.every(isPdf)) {
+        const msg = 'Only PDFs can be uploaded. For anything else, paste the results or a results link.';
+        if (append) { scanStatus('bad', msg); } else { showError(msg); }
+        return;
+    }
 
     const waiting = `<div class="loading"><div class="spinner"></div><div>
         <p class="msg" id="scan-progress">Reading every runner, school and time.</p>
@@ -796,12 +786,11 @@ async function scanFiles(ev) {
         openOverlay('Reading the results', `<div class="card">${waiting}</div>`);
     }
 
-    // One request per photo and per PDF page. A whole meet in one request ran
+    // One request per PDF page. A whole meet in one request ran
     // past what the host allows and came back as a bare 500; a page at a time
     // keeps every request short. A PDF's first page reports how many pages it
     // has, so its other pages are queued once that answer is in.
     const schools = $('schools').value.trim();
-    const isPdf = f => f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
     const out = new Map();                 // "file:page" → { r } or { err }
     let done = 0, total = files.length;
     const progress = () => {
@@ -819,7 +808,7 @@ async function scanFiles(ev) {
     }
 
     try {
-        const first = files.map((file, fi) => ({ file, fi, page: isPdf(file) ? 1 : 0 }));
+        const first = files.map((file, fi) => ({ file, fi, page: 1 }));
         await inPool(first, readPart, 3);
         const rest = [];
         first.forEach(t => {
@@ -852,7 +841,7 @@ async function scanFiles(ev) {
             const why = notes.length ? notes.join(' ') : 'No results could be read from that file.';
             if (append) { scanStatus('bad', why); return; }
             openOverlay('Could not read that', `<div class="banner bad">${esc(why)}</div>
-                <p class="msg">Try again with the whole page in frame, flat, in even light — or upload the PDF if the meet posted one.</p>`);
+                <p class="msg">Check it is the meet's results PDF, or paste the results or a results link instead.</p>`);
             return;
         }
         takeRows({ meet: meet || { name: '', date: '', location: '' }, rows, note: '', warnings: notes }, append);

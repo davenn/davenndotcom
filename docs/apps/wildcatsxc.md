@@ -33,11 +33,16 @@ loads the list on the right PIN and returns 401 on a wrong one.
 
 ## From sheet to saved meet
 
-1. **Scan** (`xc_scan`) — Claude (`claude-opus-5-5`) returns the meet name,
-   date, course and every race's finishers. Nothing is saved, and the files are
-   never written to disk. **The app sends one request per photo and one per
-   PDF page** (see below), three at a time, and stitches the parts back
-   together in document order.
+1. **Read** — results come in three ways and **never as a photo** (the owner
+   removed photo upload): a **PDF** (`xc_scan`), a **MileSplit link**
+   (`xc_milesplit`), or **pasted text** (`xc_match`). For a PDF, Claude
+   (`claude-opus-5-5`) returns the meet name, date, course and every race's
+   finishers. Nothing is saved, and the file is never written to disk. **The
+   app sends one request per PDF page** (see below), three at a time, and
+   stitches the parts back together in document order. `xc_scan` accepts
+   only PDFs — by extension *and* by the file's `%PDF-` header, so a photo
+   renamed `.pdf` is turned away — and the app checks before uploading,
+   since some phones ignore the picker's PDF-only filter.
 2. **Check** — the app shows every row grouped by race, editable. A time that
    was unreadable comes back blank and the row is marked red: the prompt asks
    for a blank rather than a guess, because one misread digit becomes a fake
@@ -62,8 +67,8 @@ app can show.
 into the prompt so the model skips everyone else — for relevance, and it also
 shortens each page's read.
 
-**Add a page** appends a second scan to the meet open for review — for a sheet
-that runs across pages photographed separately.
+**Add a PDF** appends another PDF to the meet open for review — for a meet
+whose races were posted as separate files.
 
 ## Importing a MileSplit link
 
@@ -207,10 +212,7 @@ the two in step.
   refused request is retried server-side on another model. When that happens
   mid-stream the refused model's partial text stays in the stream ahead of the
   fallback's answer, which is why only the last text block counts.
-- **Images at 2576px**, the high-resolution models' limit, through
-  `cpPrepareImage($bytes, $type, 2576)` — results pages are far denser than a
-  pick sheet.
-- **Effort `medium`** set explicitly. Raise it if reads of rough photos come
+- **Effort `medium`** set explicitly. Raise it if reads of scanned PDFs come
   back with gaps; lower it if speed matters more.
 
 ## Team tab

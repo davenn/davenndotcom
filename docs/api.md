@@ -466,28 +466,28 @@ to anyone else. Nothing in the site calls this — it is run by hand.
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Query parameters:** `season`, `week`
-- **Source:** [`api.php:3381`](../api.php#L3381)
+- **Source:** [`api.php:3380`](../api.php#L3380)
 
 ### DELETE `?action=cp_entry`
 
 - **Auth:** None
 - **Takes:** &id=X
 - **Query parameters:** `id`
-- **Source:** [`api.php:3441`](../api.php#L3441)
+- **Source:** [`api.php:3440`](../api.php#L3440)
 
 ### DELETE `?action=cp_pending`
 
 - **Auth:** Single-use link token — `?token=`
 - **Takes:** &token=… — drop a staged sheet once it is saved.
 - **Query parameters:** `token`
-- **Source:** [`api.php:3304`](../api.php#L3304)
+- **Source:** [`api.php:3303`](../api.php#L3303)
 
 ### GET `?action=cp_pending`
 
 - **Auth:** Single-use link token — `?token=`
 - **Takes:** &token=… — collect a staged sheet for review.
 - **Query parameters:** `token`
-- **Source:** [`api.php:3282`](../api.php#L3282)
+- **Source:** [`api.php:3281`](../api.php#L3281)
 
 ### POST `?action=cp_purge_photos`
 
@@ -497,14 +497,14 @@ run after the first.
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** header: X-Admin-Secret
-- **Source:** [`api.php:3348`](../api.php#L3348)
+- **Source:** [`api.php:3347`](../api.php#L3347)
 
 ### DELETE `?action=cp_roster`
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** &id=…  header: X-Admin-Secret — unlink a number.
 - **Query parameters:** `id`
-- **Source:** [`api.php:3333`](../api.php#L3333)
+- **Source:** [`api.php:3332`](../api.php#L3332)
 
 ### GET `?action=cp_roster`
 
@@ -513,13 +513,13 @@ number, which is the most sensitive thing the pool holds.
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** header: X-Admin-Secret — who is linked to what number.
-- **Source:** [`api.php:3316`](../api.php#L3316)
+- **Source:** [`api.php:3315`](../api.php#L3315)
 
 ### POST `?action=cp_save_entry`
 
 - **Auth:** None
 - **Takes:** {season, week, player_name, picks:[{game_id,pick,confidence}]}
-- **Source:** [`api.php:2891`](../api.php#L2891)
+- **Source:** [`api.php:2890`](../api.php#L2890)
 
 ### POST `?action=cp_save_week`
 
@@ -527,7 +527,7 @@ Creates the week, or updates the spreads on one that already has entries.
 
 - **Auth:** None
 - **Takes:** {season, week, push_rule, games:[{away,home,favorite,spread}]}
-- **Source:** [`api.php:2800`](../api.php#L2800)
+- **Source:** [`api.php:2799`](../api.php#L2799)
 
 ### POST `?action=cp_scan`
 
@@ -538,33 +538,33 @@ misread team name and both happen.
 - **Auth:** None
 - **Takes:** (multipart: photo, optional season + week)
 - **Query parameters:** `season`, `week`
-- **Source:** [`api.php:2747`](../api.php#L2747)
+- **Source:** [`api.php:2746`](../api.php#L2746)
 
 ### POST `?action=cp_sms`
 
 - **Auth:** None
 - **Takes:** Twilio inbound webhook.
-- **Source:** [`api.php:3138`](../api.php#L3138)
+- **Source:** [`api.php:3137`](../api.php#L3137)
 
 ### DELETE `?action=cp_week`
 
 - **Auth:** None
 - **Takes:** &season=&week=
 - **Query parameters:** `season`, `week`
-- **Source:** [`api.php:3450`](../api.php#L3450)
+- **Source:** [`api.php:3449`](../api.php#L3449)
 
 ### GET `?action=cp_week`
 
 - **Auth:** None
 - **Takes:** &season=&week=
 - **Query parameters:** `season`, `week`, `force`
-- **Source:** [`api.php:2963`](../api.php#L2963)
+- **Source:** [`api.php:2962`](../api.php#L2962)
 
 ### GET `?action=cp_weeks`
 
 - **Auth:** None
 - **Takes:** every week that has been set up, newest first.
-- **Source:** [`api.php:3426`](../api.php#L3426)
+- **Source:** [`api.php:3425`](../api.php#L3425)
 
 ## WildcatsXC
 
@@ -578,7 +578,7 @@ that a model read would only add cost and minutes.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** {rows:[{race, distance_m, place, name, grade, school, time}]}
-- **Source:** [`api.php:3885`](../api.php#L3885)
+- **Source:** [`api.php:3883`](../api.php#L3883)
 
 ### DELETE `?action=xc_meet`
 
@@ -587,7 +587,7 @@ results anywhere go with it.
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** &id=X — the meet and its results; runners left with no
 - **Query parameters:** `id`
-- **Source:** [`api.php:4225`](../api.php#L4225)
+- **Source:** [`api.php:4223`](../api.php#L4223)
 
 ### GET `?action=xc_meet`
 
@@ -596,7 +596,7 @@ xc_scan returns, so the app edits a saved meet with the grid it checks a scan in
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** &id=X — one meet with every result, in the same row shape
 - **Query parameters:** `id`
-- **Source:** [`api.php:4195`](../api.php#L4195)
+- **Source:** [`api.php:4193`](../api.php#L4193)
 
 ### GET `?action=xc_meets`
 
@@ -604,7 +604,7 @@ holds. Also what the app calls to check a PIN when it is first entered.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** every meet, newest first, with how many runners each
-- **Source:** [`api.php:4130`](../api.php#L4130)
+- **Source:** [`api.php:4128`](../api.php#L4128)
 
 ### POST `?action=xc_milesplit`
 
@@ -619,7 +619,7 @@ in xc_scan's shape for checking.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** {url}
-- **Source:** [`api.php:3944`](../api.php#L3944)
+- **Source:** [`api.php:3942`](../api.php#L3942)
 
 ### GET `?action=xc_results`
 
@@ -630,7 +630,7 @@ girls, which distance) is a view choice that belongs in the browser.
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** &school=X — every result for one school, flat and in
 - **Query parameters:** `school`
-- **Source:** [`api.php:4166`](../api.php#L4166)
+- **Source:** [`api.php:4164`](../api.php#L4164)
 
 ### POST `?action=xc_save_meet`
 
@@ -641,11 +641,13 @@ second page can be scanned later; a runner already in it is updated.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** {meet_id?, name, date, location, rows:[{race, distance_m, place, name, grade, school, time}]}
-- **Source:** [`api.php:4044`](../api.php#L4044)
+- **Source:** [`api.php:4042`](../api.php#L4042)
 
 ### POST `?action=xc_scan`
 
-Reads a results sheet. Saves nothing — the app shows every row for checking
+Reads a results PDF. PDFs only, by the owner's choice: results come in as a
+PDF, a results link (xc_milesplit) or pasted text (xc_match), never a
+photo. Saves nothing — the app shows every row for checking
 first. Rows come back flat, each carrying its race, and already lined up
 against the stored athletes: an exact name + school match takes the stored
 spelling, and a new name close to an existing teammate's carries that name
@@ -655,8 +657,8 @@ reads a PDF, a page per request, so no request runs long enough for the
 host to kill it. Every reply carries page_count.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
-- **Takes:** (multipart: files[] — page photos or PDFs; optional schools)
-- **Source:** [`api.php:3771`](../api.php#L3771)
+- **Takes:** (multipart: files[] — PDFs; optional schools, page)
+- **Source:** [`api.php:3772`](../api.php#L3772)
 
 ### GET `?action=xc_schools`
 
@@ -664,7 +666,7 @@ counts, most results first. Feeds the team picker on the Team tab.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** every school on record with its runner and result
-- **Source:** [`api.php:4149`](../api.php#L4149)
+- **Source:** [`api.php:4147`](../api.php#L4147)
 
 ## Daily Tasks
 

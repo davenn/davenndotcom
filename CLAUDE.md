@@ -262,7 +262,7 @@ against a local env file.
 
 - **Anthropic API** — Toolshare's `tb_identify_tool` (photo → tool details),
   Confidence Pool's `cp_scan` (photo of a filled pick sheet → picks) and
-  WildcatsXC's `xc_scan` (results photos or PDF → runners and times). Uses
+  WildcatsXC's `xc_scan` (results PDF → runners and times). Uses
   `claude-opus-5`, `claude-opus-5-5` (WildcatsXC, streamed, with server-side refusal
   fallbacks) and `claude-haiku-4-5-20251001`.
 - **Twilio** — outbound SMS for subscriber notifications; inbound webhook at
