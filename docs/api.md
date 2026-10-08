@@ -576,7 +576,7 @@ that a model read would only add cost and minutes.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** {rows:[{race, distance_m, place, name, grade, school, time}]}
-- **Source:** [`api.php:3842`](../api.php#L3842)
+- **Source:** [`api.php:3885`](../api.php#L3885)
 
 ### DELETE `?action=xc_meet`
 
@@ -585,7 +585,7 @@ results anywhere go with it.
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** &id=X — the meet and its results; runners left with no
 - **Query parameters:** `id`
-- **Source:** [`api.php:4136`](../api.php#L4136)
+- **Source:** [`api.php:4179`](../api.php#L4179)
 
 ### GET `?action=xc_meet`
 
@@ -594,7 +594,7 @@ xc_scan returns, so the app edits a saved meet with the grid it checks a scan in
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** &id=X — one meet with every result, in the same row shape
 - **Query parameters:** `id`
-- **Source:** [`api.php:4106`](../api.php#L4106)
+- **Source:** [`api.php:4149`](../api.php#L4149)
 
 ### GET `?action=xc_meets`
 
@@ -602,7 +602,7 @@ holds. Also what the app calls to check a PIN when it is first entered.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** every meet, newest first, with how many runners each
-- **Source:** [`api.php:4087`](../api.php#L4087)
+- **Source:** [`api.php:4130`](../api.php#L4130)
 
 ### POST `?action=xc_milesplit`
 
@@ -617,7 +617,7 @@ in xc_scan's shape for checking.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** {url}
-- **Source:** [`api.php:3901`](../api.php#L3901)
+- **Source:** [`api.php:3944`](../api.php#L3944)
 
 ### POST `?action=xc_save_meet`
 
@@ -628,7 +628,7 @@ second page can be scanned later; a runner already in it is updated.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** {meet_id?, name, date, location, rows:[{race, distance_m, place, name, grade, school, time}]}
-- **Source:** [`api.php:4001`](../api.php#L4001)
+- **Source:** [`api.php:4044`](../api.php#L4044)
 
 ### POST `?action=xc_scan`
 
@@ -637,11 +637,13 @@ first. Rows come back flat, each carrying its race, and already lined up
 against the stored athletes: an exact name + school match takes the stored
 spelling, and a new name close to an existing teammate's carries that name
 as `similar` for the coach to accept or ignore. The files are never written
-to disk.
+to disk. With `page` (and a single PDF), reads just that page — how the app
+reads a PDF, a page per request, so no request runs long enough for the
+host to kill it. Every reply carries page_count.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** (multipart: files[] — page photos or PDFs; optional schools)
-- **Source:** [`api.php:3754`](../api.php#L3754)
+- **Source:** [`api.php:3771`](../api.php#L3771)
 
 ## Daily Tasks
 

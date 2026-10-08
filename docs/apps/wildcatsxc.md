@@ -33,9 +33,11 @@ loads the list on the right PIN and returns 401 on a wrong one.
 
 ## From sheet to saved meet
 
-1. **Scan** (`xc_scan`) — up to 10 page photos or a PDF in one request. Claude
-   (`claude-opus-5-5`) returns the meet name, date, course and every race's
-   finishers. Nothing is saved, and the files are never written to disk.
+1. **Scan** (`xc_scan`) — Claude (`claude-opus-5-5`) returns the meet name,
+   date, course and every race's finishers. Nothing is saved, and the files are
+   never written to disk. **The app sends one request per photo and one per
+   PDF page** (see below), three at a time, and stitches the parts back
+   together in document order.
 2. **Check** — the app shows every row grouped by race, editable. A time that
    was unreadable comes back blank and the row is marked red: the prompt asks
    for a blank rather than a guess, because one misread digit becomes a fake
@@ -43,11 +45,22 @@ loads the list on the right PIN and returns 401 on a wrong one.
 3. **Save** (`xc_save_meet`) — validated again server-side, written in one
    transaction.
 
+**Why a page at a time.** A whole meet PDF in one request is minutes of
+output, and the host does not let a PHP request run that long: a 7-page,
+318-runner PDF died at 97 seconds as a bare 500 with an empty body. So
+`scanFiles()` sends page 1 first — every reply carries `page_count` — then
+queues the remaining pages, three in flight (`inPool()`). Each request reads
+one page (`xc_scan` with `page`) in roughly half a minute. The PDF goes up with
+every page request but is marked for prompt caching, so after the first it is
+a cheap cache read. A page that fails, or holds only team scores, becomes a
+note in the review rather than failing the whole upload. Two safety nets stay
+in `xc_scan` regardless: it reconnects to MySQL if the read outlasted the
+connection, and a shutdown handler turns any PHP fatal into a JSON error the
+app can show.
+
 **The school filter** ("Only these schools", remembered per device) is passed
-into the prompt so the model skips everyone else. It exists for speed as much
-as relevance: a large invitational is hundreds of rows, minutes of output, and
-the request can hit `max_tokens` (the app then says to filter or split the
-upload).
+into the prompt so the model skips everyone else — for relevance, and it also
+shortens each page's read.
 
 **Add a page** appends a second scan to the meet open for review — for a sheet
 that runs across pages photographed separately.
@@ -171,7 +184,11 @@ the two in step.
 
 - **Streamed** — a long read on a silent non-streamed connection is what
   proxies drop. Text is collected per content block and only the last text
-  block is parsed.
+  block is parsed. Streaming does not lift the host's own request limit,
+  which is why PDFs are also split by page.
+- **`page` reads one page of a PDF** and adds instructions to carry a race
+  name across a page break. The document block carries `cache_control`, with
+  the page-specific prompt after it, so the PDF is the cached prefix.
 - **`fallbacks: "default"`** (beta `server-side-fallback-2026-07-01`) — a
   refused request is retried server-side on another model. When that happens
   mid-stream the refused model's partial text stays in the stream ahead of the

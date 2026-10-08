@@ -3596,8 +3596,15 @@ function xcRequirePin(PDO $pdo): void {
  * Streamed, unlike the pick-sheet reader: a big invitational is hundreds of
  * rows, which is minutes of output, and a non-streamed request that long sits
  * silent on the wire where any proxy along the way can drop it.
+ *
+ * $page > 0 reads only that page of a single PDF. A whole meet in one request
+ * ran past what the host allows a PHP request (a 318-runner PDF died at 97s),
+ * so the app reads a PDF a page per request; every reply carries page_count
+ * so the app learns how many pages to ask for after the first. The PDF is
+ * marked for prompt caching, so the pages after the first re-read it from the
+ * cache rather than paying for it again.
  */
-function xcReadResults(array $docs, string $schools, string $api_key): array {
+function xcReadResults(array $docs, string $schools, string $api_key, int $page = 0): array {
     $prompt = 'These are the results of a high school cross country meet: a printed results sheet, a timing company PDF, or a photo of one. There may be several pages and several races.
 
 Report:
@@ -3620,11 +3627,16 @@ These times are used to track each runner across a season, so a misread digit do
     if ($schools !== '') {
         $prompt .= "\n\nOnly include runners from these schools: " . $schools . '. Sheets often abbreviate school names, so include a runner when the abbreviation plainly means one of these schools. Leave everyone else out, but keep their place numbers as printed.';
     }
+    $prompt .= "\n\nAlso report page_count: how many pages this PDF has, or 1 for a photo.";
+    if ($page > 0) {
+        $prompt .= "\n\nRead ONLY page " . $page . ' of this PDF; the other pages are read separately. Take the meet name, date and location from wherever they appear in the document. If a race on this page continues from an earlier page without repeating its heading, use that race\'s name and distance from the earlier page. If this page has no individual results (a cover page or only team scores), return an empty races list with readable true.';
+    }
 
     $schema = [
         'type'       => 'object',
         'properties' => [
-            'readable'  => ['type' => 'boolean'],
+            'readable'   => ['type' => 'boolean'],
+            'page_count' => ['type' => 'integer'],
             'meet_name' => ['type' => 'string'],
             'meet_date' => ['type' => 'string'],
             'location'  => ['type' => 'string'],
@@ -3657,7 +3669,7 @@ These times are used to track each runner across a season, so a misread digit do
                 ],
             ],
         ],
-        'required'             => ['readable', 'meet_name', 'meet_date', 'location', 'note', 'races'],
+        'required'             => ['readable', 'page_count', 'meet_name', 'meet_date', 'location', 'note', 'races'],
         'additionalProperties' => false,
     ];
 
@@ -3668,6 +3680,9 @@ These times are used to track each runner across a season, so a misread digit do
             'source' => ['type' => 'base64', 'media_type' => $media_type, 'data' => base64_encode($bytes)],
         ];
     }
+    // The document is the cache prefix; the page-specific prompt comes after
+    // it, so every page request after the first is a cache read.
+    if ($page > 0) $content[count($content) - 1]['cache_control'] = ['type' => 'ephemeral'];
     $content[] = ['type' => 'text', 'text' => $prompt];
 
     $payload = json_encode([
@@ -3750,8 +3765,18 @@ These times are used to track each runner across a season, so a misread digit do
 // against the stored athletes: an exact name + school match takes the stored
 // spelling, and a new name close to an existing teammate's carries that name
 // as `similar` for the coach to accept or ignore. The files are never written
-// to disk.
+// to disk. With `page` (and a single PDF), reads just that page — how the app
+// reads a PDF, a page per request, so no request runs long enough for the
+// host to kill it. Every reply carries page_count.
 if ($method === 'POST' && $action === 'xc_scan') {
+    // A PHP fatal here (a host time limit, a lost connection) otherwise ends
+    // the request as a bare 500 with no body, which tells nobody anything.
+    register_shutdown_function(function () {
+        $e = error_get_last();
+        if ($e && in_array($e['type'], [E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR], true)) {
+            echo json_encode(['error' => 'Server error while reading: ' . $e['message']]);
+        }
+    });
     xcRequirePin($pdo);
     $api_key = $_ENV['ANTHROPIC_API_KEY'] ?? '';
     if (!$api_key) { http_response_code(500); echo json_encode(['error' => 'Results reading is not configured on the server.']); exit; }
@@ -3788,9 +3813,14 @@ if ($method === 'POST' && $action === 'xc_scan') {
             : cpPrepareImage($bytes, $mime_map[$ext], 2576);
     }
 
+    $page = max(0, min(200, (int)($_POST['page'] ?? 0)));
+    if ($page && (count($docs) !== 1 || $docs[0][1] !== 'application/pdf')) {
+        http_response_code(400); echo json_encode(['error' => 'A page number only applies to a single PDF.']); exit;
+    }
+
     @set_time_limit(600);
     $schools = mb_substr(trim((string)($_POST['schools'] ?? '')), 0, 300);
-    $read = xcReadResults($docs, $schools, $api_key);
+    $read = xcReadResults($docs, $schools, $api_key, $page);
     if (isset($read['error'])) { http_response_code(502); echo json_encode(['error' => $read['error']]); exit; }
     $result = $read['result'];
 
@@ -3808,20 +3838,33 @@ if ($method === 'POST' && $action === 'xc_scan') {
             ];
         }
     }
-    if (empty($result['readable']) || !$rows) {
+    $page_count = max(1, min(200, (int)($result['page_count'] ?? 1)));
+    // One page of a PDF can legitimately hold no results (a cover, team
+    // scores); only a whole read with nothing in it is unreadable.
+    if (empty($result['readable']) || (!$rows && !$page)) {
         echo json_encode([
-            'success'  => true,
-            'readable' => false,
-            'note'     => (string)($result['note'] ?? '') ?: 'No results could be read from that file.',
+            'success'    => true,
+            'readable'   => false,
+            'page_count' => $page_count,
+            'note'       => (string)($result['note'] ?? '') ?: 'No results could be read from that file.',
         ]); exit;
     }
 
-    $matched = xcMatchRows($pdo, $rows);
+    // The read can outlast MySQL's idle timeout on the connection opened at
+    // the start of the request; reconnect rather than die on the first query.
+    try { $pdo->query('SELECT 1'); } catch (PDOException $e) {
+        $pdo = new PDO("mysql:host=$host;dbname=$db;charset=utf8mb4", $user, $pass, [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        ]);
+    }
+    $matched = $rows ? xcMatchRows($pdo, $rows) : ['rows' => [], 'warnings' => []];
 
     echo json_encode([
-        'success'  => true,
-        'readable' => true,
-        'meet'     => [
+        'success'    => true,
+        'readable'   => true,
+        'page_count' => $page_count,
+        'meet'       => [
             'name'     => trim((string)($result['meet_name'] ?? '')),
             'date'     => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($result['meet_date'] ?? '')) ? $result['meet_date'] : '',
             'location' => trim((string)($result['location'] ?? '')),

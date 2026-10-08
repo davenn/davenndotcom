@@ -1154,7 +1154,7 @@
                 <span class="caret">▶</span>
             </button>
             <div class="op-body" hidden>
-                <p class="op-desc">Reads a results sheet. Saves nothing — the app shows every row for checking first. Rows come back flat, each carrying its race, and already lined up against the stored athletes: an exact name + school match takes the stored spelling, and a new name close to an existing teammate's carries that name as <code class="inline">similar</code> for the coach to accept or ignore. The files are never written to disk.</p>
+                <p class="op-desc">Reads a results sheet. Saves nothing — the app shows every row for checking first. Rows come back flat, each carrying its race, and already lined up against the stored athletes: an exact name + school match takes the stored spelling, and a new name close to an existing teammate's carries that name as <code class="inline">similar</code> for the coach to accept or ignore. The files are never written to disk. With <code class="inline">page</code> (and a single PDF), reads just that page — how the app reads a PDF, a page per request, so no request runs long enough for the host to kill it. Every reply carries page_count.</p>
                 <h4>Authentication</h4>
                 <p class="op-desc">WildcatsXC team PIN — <code class="inline">X-XC-PIN</code></p>
                 <h4>Takes</h4>

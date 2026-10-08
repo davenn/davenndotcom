@@ -635,8 +635,8 @@ async function scanFiles(ev) {
     const append = appending && review;
 
     const waiting = `<div class="loading"><div class="spinner"></div><div>
-        <p class="msg">Reading every runner, school and time.</p>
-        <p class="msg" style="color:var(--text-muted)">A full meet can take a minute or two.</p></div></div>`;
+        <p class="msg" id="scan-progress">Reading every runner, school and time.</p>
+        <p class="msg" style="color:var(--text-muted)">About half a minute a page, three pages at a time.</p></div></div>`;
     if (append) {
         $('scan-status').className = 'card';
         $('scan-status').innerHTML = waiting;
@@ -645,25 +645,76 @@ async function scanFiles(ev) {
         openOverlay('Reading the results', `<div class="card">${waiting}</div>`);
     }
 
-    const fd = new FormData();
-    files.forEach(f => fd.append('files[]', f));
-    fd.append('schools', $('schools').value.trim());
+    // One request per photo and per PDF page. A whole meet in one request ran
+    // past what the host allows and came back as a bare 500; a page at a time
+    // keeps every request short. A PDF's first page reports how many pages it
+    // has, so its other pages are queued once that answer is in.
+    const schools = $('schools').value.trim();
+    const isPdf = f => f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+    const out = new Map();                 // "file:page" → { r } or { err }
+    let done = 0, total = files.length;
+    const progress = () => {
+        const el = $('scan-progress');
+        if (el && total > 1) el.textContent = `Read ${done} of ${total} pages…`;
+    };
+    async function readPart(t) {
+        const fd = new FormData();
+        fd.append('files[]', t.file);
+        fd.append('schools', schools);
+        if (t.page) fd.append('page', t.page);
+        try { out.set(t.fi + ':' + t.page, { r: await api('?action=xc_scan', { method: 'POST', body: fd }) }); }
+        catch (e) { out.set(t.fi + ':' + t.page, { err: e.message }); }
+        done++; progress();
+    }
 
     try {
-        const r = await api('?action=xc_scan', { method: 'POST', body: fd });
-        if (!r.readable) {
-            if (append) { scanStatus('bad', r.note); return; }
-            openOverlay('Could not read that', `<div class="banner bad">${esc(r.note)}</div>
+        const first = files.map((file, fi) => ({ file, fi, page: isPdf(file) ? 1 : 0 }));
+        await inPool(first, readPart, 3);
+        const rest = [];
+        first.forEach(t => {
+            const got = out.get(t.fi + ':' + t.page);
+            const n = t.page && got.r ? Math.min(got.r.page_count || 1, 200) : 1;
+            for (let p = 2; p <= n; p++) rest.push({ file: t.file, fi: t.fi, page: p });
+        });
+        total += rest.length; progress();
+        await inPool(rest, readPart, 3);
+
+        // Stitch the parts back together in document order.
+        const keys = [...out.keys()].sort((a, b) => {
+            const [af, ap] = a.split(':').map(Number), [bf, bp] = b.split(':').map(Number);
+            return af - bf || ap - bp;
+        });
+        const rows = [], notes = [];
+        let meet = null;
+        keys.forEach(k => {
+            const [fi, page] = k.split(':').map(Number), got = out.get(k);
+            const where = (files.length > 1 ? files[fi].name + ' ' : '') + (page ? 'page ' + page : '');
+            if (got.err) { notes.push((where ? where + ': ' : '') + got.err); return; }
+            const r = got.r;
+            if (!meet && r.meet && (r.meet.name || r.meet.date)) meet = r.meet;
+            if (r.readable) rows.push(...r.rows);
+            if (r.note) notes.push(keys.length > 1 && where ? where + ': ' + r.note : r.note);
+            notes.push(...(r.warnings || []));
+        });
+
+        if (!rows.length) {
+            const why = notes.length ? notes.join(' ') : 'No results could be read from that file.';
+            if (append) { scanStatus('bad', why); return; }
+            openOverlay('Could not read that', `<div class="banner bad">${esc(why)}</div>
                 <p class="msg">Try again with the whole page in frame, flat, in even light — or upload the PDF if the meet posted one.</p>`);
             return;
         }
-        takeRows(r, append);
-    } catch (e) {
-        if (append) { scanStatus('bad', e.message); return; }
-        openOverlay('Could not read that', `<div class="banner bad">${esc(e.message)}</div>`);
+        takeRows({ meet: meet || { name: '', date: '', location: '' }, rows, note: '', warnings: notes }, append);
     } finally {
         $('add-page').disabled = $('save').disabled = false;
     }
+}
+
+/** Run worker over items, at most `size` at once. */
+async function inPool(items, worker, size) {
+    let next = 0;
+    const lane = async () => { while (next < items.length) await worker(items[next++]); };
+    await Promise.all(Array.from({ length: Math.min(size, items.length) }, lane));
 }
 
 function scanStatus(kind, msg) {
