@@ -1616,18 +1616,45 @@ function drawLine(el) {
         tip.style.top = (svgEl.getBoundingClientRect().top - el.getBoundingClientRect().top) + 'px';
     }
     function hide() { hair.setAttribute('visibility', 'hidden'); tip.hidden = true; idx = -1; }
-    svgEl.addEventListener('pointermove', e => {
+    const nearest = e => {
         const px = e.clientX - svgEl.getBoundingClientRect().left;
         let best = 0;
         xs.forEach((x, i) => { if (Math.abs(X(x) - px) < Math.abs(X(xs[best]) - px)) best = i; });
-        show(best);
+        return best;
+    };
+    // A mouse hovers; a finger or pen taps. Touch has no hover, so on a tap
+    // the browser sends pointerdown/up and then an immediate pointerleave —
+    // no pointermove at all — and a tap also focuses the chart. So: a mouse
+    // follows pointermove and hides on leave; a tap shows the nearest meet and
+    // the tooltip stays until another tap moves it or a tap elsewhere closes
+    // it. A finger dragging is left to scroll the page.
+    let tapped = false;
+    svgEl.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') show(nearest(e)); });
+    svgEl.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') hide(); });
+    svgEl.addEventListener('pointerdown', e => {
+        if (e.pointerType === 'mouse') return;
+        tapped = true;
+        show(nearest(e));
     });
-    svgEl.addEventListener('pointerleave', hide);
-    svgEl.addEventListener('focus', () => show(xs.length - 1));
+    // A tap's focus lands between pointerdown and pointerup; past that the
+    // flag must not linger, or the next keyboard focus would be mistaken for it.
+    svgEl.addEventListener('pointerup', () => { tapped = false; });
+    svgEl.addEventListener('pointercancel', () => { tapped = false; });
+    // Keyboard focus opens on the latest meet; focus that came from a tap
+    // keeps the meet the finger chose.
+    svgEl.addEventListener('focus', () => { if (!tapped) show(xs.length - 1); tapped = false; });
     svgEl.addEventListener('blur', hide);
+    el._hide = hide;
+    if (!el._outside) {
+        // Some phones never focus an SVG, so blur cannot be relied on to
+        // close a tapped tooltip: any tap outside this chart closes it.
+        el._outside = true;
+        document.addEventListener('pointerdown', ev => { if (!el.contains(ev.target)) el._hide(); });
+    }
     svgEl.addEventListener('keydown', e => {
-        if (e.key === 'ArrowLeft')  { e.preventDefault(); show(idx - 1); }
-        if (e.key === 'ArrowRight') { e.preventDefault(); show(idx + 1); }
+        // With nothing showing (after Escape, say) an arrow starts from the latest meet.
+        if (e.key === 'ArrowLeft')  { e.preventDefault(); show(idx < 0 ? xs.length - 1 : idx - 1); }
+        if (e.key === 'ArrowRight') { e.preventDefault(); show(idx < 0 ? xs.length - 1 : idx + 1); }
         if (e.key === 'Escape') hide();
     });
 }

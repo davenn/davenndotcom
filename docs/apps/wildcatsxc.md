@@ -265,6 +265,18 @@ squad — so every time is visible before anything is summarised.
   the accent was checked against `--surface` in both themes with the dataviz
   palette validator. Raw times still carry course differences, and the chart
   does not adjust for them.
+- **Reading a meet off the chart** works three ways, and they differ because
+  the devices do. *Mouse*: a crosshair follows the pointer, snapping to the
+  nearest meet, and leaving hides it. *Touch or pen*: there is no hover —
+  a tap sends pointerdown/up and then an immediate pointerleave, no
+  pointermove — so a tap shows the nearest meet and the tooltip stays until
+  another tap moves it or a tap anywhere outside the chart closes it (some
+  phones never focus an SVG, so blur cannot be the close signal); dragging
+  still scrolls the page. *Keyboard*: focusing the chart opens the latest
+  meet, arrows step, Escape closes. A tap also focuses the chart, so a flag
+  set on pointerdown and cleared on pointerup keeps that focus from jumping
+  the tooltip to the latest meet. The first version handled only mouse
+  movement, so taps on a phone showed the wrong meet or nothing.
 - **Squads fold.** Each section's title row is its toggle (chevron, label,
   runner count stay visible when folded). Folded squads are remembered on the
   device in `localStorage['wildcatsxc_team_folded']`, keyed by squad name — a
