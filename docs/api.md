@@ -587,7 +587,7 @@ results anywhere go with it.
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** &id=X — the meet and its results; runners left with no
 - **Query parameters:** `id`
-- **Source:** [`api.php:4229`](../api.php#L4229)
+- **Source:** [`api.php:4241`](../api.php#L4241)
 
 ### GET `?action=xc_meet`
 
@@ -596,15 +596,17 @@ xc_scan returns, so the app edits a saved meet with the grid it checks a scan in
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** &id=X — one meet with every result, in the same row shape
 - **Query parameters:** `id`
-- **Source:** [`api.php:4199`](../api.php#L4199)
+- **Source:** [`api.php:4211`](../api.php#L4211)
 
 ### GET `?action=xc_meets`
 
-holds. Also what the app calls to check a PIN when it is first entered.
+holds and how many came from each school (`schools`: name → count), so the
+app can show just the meets the coach's own school ran. Also what the app
+calls to check a PIN when it is first entered.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** every meet, newest first, with how many runners each
-- **Source:** [`api.php:4128`](../api.php#L4128)
+- **Source:** [`api.php:4130`](../api.php#L4130)
 
 ### POST `?action=xc_milesplit`
 
@@ -632,7 +634,7 @@ view choice that belongs in the browser.
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** &school=X — every result for one school, flat and in
 - **Query parameters:** `school`
-- **Source:** [`api.php:4166`](../api.php#L4166)
+- **Source:** [`api.php:4178`](../api.php#L4178)
 
 ### POST `?action=xc_save_meet`
 
@@ -668,7 +670,7 @@ counts, most results first. Feeds the team picker on the Team tab.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** every school on record with its runner and result
-- **Source:** [`api.php:4147`](../api.php#L4147)
+- **Source:** [`api.php:4159`](../api.php#L4159)
 
 ## Daily Tasks
 

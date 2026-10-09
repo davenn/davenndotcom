@@ -70,6 +70,25 @@ shortens each page's read.
 **Add a PDF** appends another PDF to the meet open for review — for a meet
 whose races were posted as separate files.
 
+## The Meets list
+
+Opens on **only the meets our school ran** — a checkbox, "Only Verona Area
+meets", ticked by default; unticking shows every meet entered. The choice is
+remembered per device (`localStorage['wildcatsxc_meets_all']` is set only
+when it is off). With it on, each meet's count reads "our runners of all
+runners" (40 of 397), and the heading says how many meets are hidden
+("6 meets of 7").
+
+**"Our school"** is `ourSchool()`: the Team tab's pick, else `HOME_SCHOOL`
+(Verona Area). The same helper decides the highlighted rows and blue line on
+Conference and Section, so all three always agree; picking another team on the
+Team tab changes the Meets filter too, and the label says which school it is.
+
+`xc_meets` returns each meet's runners by school (`schools`: name → count),
+from a second grouped query rather than `GROUP_CONCAT`, whose 1 KB default
+would silently truncate a big invitational's school list. Schools are matched
+loosely (`schoolKey()`), as on every other tab.
+
 ## Importing a MileSplit link
 
 **MileSplit link** (and **Add from MileSplit** in the review) takes a results

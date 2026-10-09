@@ -4124,13 +4124,24 @@ if ($method === 'POST' && $action === 'xc_save_meet') {
 }
 
 // GET ?action=xc_meets — every meet, newest first, with how many runners each
-// holds. Also what the app calls to check a PIN when it is first entered.
+// holds and how many came from each school (`schools`: name → count), so the
+// app can show just the meets the coach's own school ran. Also what the app
+// calls to check a PIN when it is first entered.
 if ($method === 'GET' && $action === 'xc_meets') {
     xcRequirePin($pdo);
     $st = $pdo->query("SELECT m.id, m.name, m.meet_date, m.location,
                               COUNT(r.id) AS runners, COUNT(DISTINCT r.race) AS races
                        FROM xc_meets m LEFT JOIN xc_results r ON r.meet_id = m.id
                        GROUP BY m.id ORDER BY m.meet_date DESC, m.id DESC");
+    $meets = $st->fetchAll();
+    // A second, grouped query rather than GROUP_CONCAT, whose default 1 KB
+    // cap would silently truncate a big invitational's school list.
+    $by_meet = [];
+    foreach ($pdo->query("SELECT r.meet_id, a.school, COUNT(*) AS n
+                          FROM xc_results r JOIN xc_athletes a ON a.id = r.athlete_id
+                          GROUP BY r.meet_id, a.school")->fetchAll() as $row) {
+        $by_meet[(int)$row['meet_id']][$row['school']] = (int)$row['n'];
+    }
     echo json_encode(['success' => true, 'meets' => array_map(fn($m) => [
         'id'       => (int)$m['id'],
         'name'     => $m['name'],
@@ -4138,7 +4149,8 @@ if ($method === 'GET' && $action === 'xc_meets') {
         'location' => $m['location'] ?? '',
         'runners'  => (int)$m['runners'],
         'races'    => (int)$m['races'],
-    ], $st->fetchAll())]);
+        'schools'  => (object)($by_meet[(int)$m['id']] ?? []),
+    ], $meets)]);
     exit;
 }
 

@@ -182,6 +182,11 @@
         }
         .meet:first-of-type { border-top: none; }
         .meet:hover .mname { text-decoration: underline; }
+        .switchrow {
+            display: inline-flex; align-items: center; gap: 8px; margin: -4px 0 6px;
+            font-size: 13px; color: var(--text-secondary); cursor: pointer;
+        }
+        .switchrow input { width: 16px; height: 16px; accent-color: var(--series-1); cursor: pointer; }
         .mdate { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
         .mname { display: block; font-size: 15px; font-weight: 600; }
         .msub  { display: block; font-size: 12px; color: var(--text-muted); margin-top: 2px; }
@@ -544,6 +549,7 @@
 
     <section class="card" id="meets-card">
         <div class="card-title"><span>Meets</span><span id="meets-note"></span></div>
+        <label class="switchrow"><input type="checkbox" id="meets-ours" checked> <span id="meets-ours-label">Only our meets</span></label>
         <div id="meets"></div>
     </section>
     </div>
@@ -777,20 +783,50 @@ async function loadMeets() {
     }
 }
 
+// The coach's own school: whatever the Team tab has picked, else Verona Area —
+// the same school Conference and Section highlight.
+const HOME_SCHOOL = 'Verona Area';
+const ourSchool = () => team.school || load(TEAM_KEY) || HOME_SCHOOL;
+
+// The Meets list opens on just the meets our school ran; the switch shows
+// every meet entered. Remembered per device, on by default.
+const MEETS_ALL_KEY = 'wildcatsxc_meets_all';
+let meetsData = null;
+$('meets-ours').checked = load(MEETS_ALL_KEY) !== '1';
+$('meets-ours').addEventListener('change', e => {
+    store(MEETS_ALL_KEY, e.target.checked ? null : '1');
+    if (meetsData) renderMeets(meetsData);
+});
+
 function renderMeets(meets) {
-    $('meets-note').textContent = meets.length ? meets.length + (meets.length === 1 ? ' meet' : ' meets') : '';
+    meetsData = meets;
+    const school = ourSchool(), key = schoolKey(school);
+    const onlyOurs = $('meets-ours').checked;
+    $('meets-ours-label').textContent = 'Only ' + school + ' meets';
+    // Runners from our school at each meet, matched loosely like everywhere else.
+    const ours = m => Object.entries(m.schools || {}).reduce((n, [name, c]) => n + (schoolKey(name) === key ? c : 0), 0);
+    const shown = onlyOurs ? meets.filter(m => ours(m) > 0) : meets;
+
+    $('meets-note').textContent = shown.length ? shown.length + (shown.length === 1 ? ' meet' : ' meets') +
+        (onlyOurs && shown.length < meets.length ? ' of ' + meets.length : '') : '';
     if (!meets.length) {
         $('meets').innerHTML = '<p class="msg">No meets yet. Add one above from a MileSplit link, pasted results or a PDF.</p>';
         return;
     }
-    $('meets').innerHTML = meets.map(m => `
+    if (!shown.length) {
+        $('meets').innerHTML = `<p class="msg">No meets with ${esc(school)} runners yet. Untick the box to see all ${meets.length} meets.</p>`;
+        return;
+    }
+    $('meets').innerHTML = shown.map(m => `
         <button class="meet" type="button" data-id="${m.id}">
             <span class="mdate">${esc(fmtDate(m.date))}</span>
             <span>
                 <span class="mname">${esc(m.name)}</span>
                 <span class="msub">${esc([m.location, m.races + (m.races === 1 ? ' race' : ' races')].filter(Boolean).join(' · '))}</span>
             </span>
-            <span class="mcount">${m.runners}<small>runners</small></span>
+            ${onlyOurs
+                ? `<span class="mcount">${ours(m)}<small>of ${m.runners}</small></span>`
+                : `<span class="mcount">${m.runners}<small>runners</small></span>`}
         </button>`).join('');
 }
 
@@ -1524,6 +1560,7 @@ function setView(v) {
 
 /** Fetch whatever the current tab needs (Meets loads on its own). */
 function loadView() {
+    if (view === 'meets' && meetsData) renderMeets(meetsData);
     if (view === 'team') loadTeam();
     else if (view in GROUPS) loadGroup(view);
 }
@@ -2149,7 +2186,7 @@ function drawGroupChart(squad) {
     const d = groupCharts.get(squad);
     const el = [...$('group-body').querySelectorAll('[data-gchart]')].find(x => x.dataset.gchart === squad);
     if (!d || !el) return;
-    const ours = schoolKey(team.school || load(TEAM_KEY) || '');
+    const ours = schoolKey(ourSchool());
     const role = sc => schoolKey(sc.name) === ours ? 'own' : sc.name === groupState.pick ? 'pick' : 'other';
     const series = d.schools.map(sc => ({
         name: sc.name,
@@ -2192,7 +2229,7 @@ function groupCard(g, squad, rows) {
         .sort((x, y) => x.best - y.best);
     const missing = g.schools.filter(n => !perSchool.has(n));
     const short = shortNames(ranked.map(a => a.name));
-    const ours = schoolKey(team.school || load(TEAM_KEY) || '');
+    const ours = schoolKey(ourSchool());
 
     const body = ranked.map((a, i) => `<tr${schoolKey(a.school) === ours ? ' class="ours"' : ''}>
         <td class="who lead" title="${esc(a.name)}"><span class="rk">${i + 1}</span><span aria-label="${esc(a.name)}">${esc(short.get(a.name))}</span><small>${a.grade ? 'Grade ' + a.grade : '&nbsp;'}</small></td>
