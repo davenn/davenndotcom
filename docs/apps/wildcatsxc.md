@@ -80,7 +80,7 @@ runners" (40 of 397), and the heading says how many meets are hidden
 ("6 meets of 7").
 
 **"Our school"** is `ourSchool()`: the Team tab's pick, else `HOME_SCHOOL`
-(Verona Area). The same helper decides the highlighted rows and blue line on
+(Verona Area). The same helper decides the highlighted rows and orange line on
 Conference and Section, so all three always agree; picking another team on the
 Team tab changes the Meets filter too, and the label says which school it is.
 
@@ -326,10 +326,14 @@ squad — so every time is visible before anything is summarised.
   scrolled sideways stays put.
 - **Chart mechanics.** Hand-drawn SVG (`lineChart()`), no library. The axis
   runs tick to tick (`tickStep()`), so every line has a labelled gridline above
-  and below it. Blue (`--series-1`) is a runner or the top five, orange
-  (`--series-2`) the whole team; the pair passed the dataviz palette validator
+  and below it. **Orange (`--series-1`) is Verona's school colour** — a
+  runner, the top five, the coach's school — and blue (`--series-2`) the whole
+  team or a school picked for comparison (the owner swapped them from the
+  original blue-first order). The pair passed the dataviz palette validator
   against `--surface` in both themes, with light orange just under 3:1, so
-  team lines carry direct end labels ("Top 5", "Team") as well as the legend.
+  orange lines always carry a direct label (end labels, "SB", "Top 5") as well
+  as the legend, and keyboard focus rings use the text colour rather than
+  `--series-1`, since a focus indicator needs 3:1.
   Raw times still carry course differences, and neither view adjusts for them.
 - **Reading a meet off the chart** works three ways, and they differ because
   the devices do. *Mouse*: a crosshair follows the pointer, snapping to the
@@ -395,21 +399,21 @@ top-5 average by week** (`weeklyTop5()`, `drawGroupChart()`).
   week shows as a dot, not a line.
 - **Every school is drawn, but not every school gets a colour.** A dozen hues
   cannot be told apart, least of all under colour-blindness, so the coach's
-  school (the Team tab's pick) is blue with dots, and every other school is a
+  school (the Team tab's pick) is orange, Verona's colour, with dots, and every other school is a
   thin gray line, with small dots, to compare against. Gray lines first had no
   dots, and they started and stopped in mid-air beside other schools' lone
   dots — it read as lines failing to reach their points. The chips above the chart — one per
-  school, in the list's order — pick one school out in orange; tapping it again
+  school, in the list's order — pick one school out in blue; tapping it again
   puts it back. Emphasised lines carry end labels (capped at 30% of the width,
   shortened with "…" if they do not fit). The tooltip lists every school that
   week, fastest first.
 - **A picked school is picked out in the ranked table too** (`syncPicked()`):
-  its runners take the same orange tint and bar as its line, and the table's
+  its runners take the same blue tint and bar as its line, and the table's
   subtitle names it. The pick is shared by Conference and Section, so it
   carries across the two. Picking redraws the chart and toggles a class on the
   table rows in place — the table is never re-rendered, so a scrolled table
   stays put. The coach's own school can't be picked (its chip is not a
-  button), so blue and orange never land on the same row.
+  button), so orange and blue never land on the same row.
 - **Outliers do not set the scale** (`fence: true` on `lineChart()`,
   `upperFence()`). A point beyond Q3 + 1.5 × IQR of all the chart's points is
   drawn as a small marker on the bottom edge, its line breaks there rather than
