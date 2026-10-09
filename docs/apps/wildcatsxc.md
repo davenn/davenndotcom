@@ -401,8 +401,15 @@ top-5 average by week** (`weeklyTop5()`, `drawGroupChart()`).
   dots — it read as lines failing to reach their points. The chips above the chart — one per
   school, in the list's order — pick one school out in orange; tapping it again
   puts it back. Emphasised lines carry end labels (capped at 30% of the width,
-  shortened with "…" if they do not fit). Picking redraws only the chart, never
-  the table. The tooltip lists every school that week, fastest first.
+  shortened with "…" if they do not fit). The tooltip lists every school that
+  week, fastest first.
+- **A picked school is picked out in the ranked table too** (`syncPicked()`):
+  its runners take the same orange tint and bar as its line, and the table's
+  subtitle names it. The pick is shared by Conference and Section, so it
+  carries across the two. Picking redraws the chart and toggles a class on the
+  table rows in place — the table is never re-rendered, so a scrolled table
+  stays put. The coach's own school can't be picked (its chip is not a
+  button), so blue and orange never land on the same row.
 - **Outliers do not set the scale** (`fence: true` on `lineChart()`,
   `upperFence()`). A point beyond Q3 + 1.5 × IQR of all the chart's points is
   drawn as a small marker on the bottom edge, its line breaks there rather than

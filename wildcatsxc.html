@@ -445,13 +445,16 @@
         table.group .who small { padding-left: 2.4em; }
         /* Every runner cell gets the room the highlight bar needs, so a
            highlighted row lines up with the rest instead of shifting right. */
-        table.group .who { padding-left: 12px; }
+        table.season.group .who { padding-left: 12px; }   /* outranks table.season .who's padding-left: 0, which comes later */
         table.group .school { text-align: left; }
         table.group td.school { color: var(--text-secondary); }
         /* The coach's own school. The school column already names it, so the
            tint is a second cue, never the only one. */
         table.group tr.ours td { background: color-mix(in srgb, var(--series-1) 9%, var(--surface)); }
         table.group tr.ours td.who { box-shadow: inset 3px 0 0 var(--series-1); }
+        /* A school picked out on the chart: its line's orange, same treatment. */
+        table.group tr.picked td { background: color-mix(in srgb, var(--series-2) 10%, var(--surface)); }
+        table.group tr.picked td.who { box-shadow: inset 3px 0 0 var(--series-2); }
         .squadtoggle[aria-expanded="false"] .card-title { margin-bottom: 0; }
         .squadtoggle .card-title > span:first-child { display: inline-flex; align-items: center; gap: 6px; }
         .squadtoggle:hover .card-title, .squadtoggle:focus-visible .card-title { color: var(--text-primary); }
@@ -2291,7 +2294,7 @@ function groupCard(g, squad, rows) {
     const short = shortNames(ranked.map(a => a.name));
     const ours = schoolKey(ourSchool());
 
-    const body = ranked.map((a, i) => `<tr${schoolKey(a.school) === ours ? ' class="ours"' : ''}>
+    const body = ranked.map((a, i) => `<tr data-school="${esc(a.school)}" class="${schoolKey(a.school) === ours ? 'ours' : a.school === groupState.pick ? 'picked' : ''}">
         <td class="who lead" title="${esc(a.name)}"><span class="rk">${i + 1}</span><span aria-label="${esc(a.name)}">${esc(short.get(a.name))}</span><small>${a.grade ? 'Grade ' + a.grade : '&nbsp;'}</small></td>
         <td class="sb">${fmtTime(a.best)}</td>
         <td>${tenths(a.total / a.races)}</td>
@@ -2326,10 +2329,26 @@ function groupCard(g, squad, rows) {
             </div>
         </button>
         ${open ? `<div class="groupcols"><div class="gc-chart">${chart}</div><div class="gc-table">
-        <p class="card-sub" style="margin-top:14px">Each school's ${g.perSchool} fastest by season best, ranked together. Average is across all of a runner's races; times are at ${esc(distLabel(groupState.dist))}.${oursName ? ' ' + esc(oursName) + ' is highlighted.' : ''}${missing.length ? ' No results yet for ' + esc(missing.join(', ')) + '.' : ''}</p>
+        <p class="card-sub" style="margin-top:14px">Each school's ${g.perSchool} fastest by season best, ranked together. Average is across all of a runner's races; times are at ${esc(distLabel(groupState.dist))}.${oursName ? ' ' + esc(oursName) + ' is highlighted in blue.' : ''}<span data-picknote>${pickNote()}</span>${missing.length ? ' No results yet for ' + esc(missing.join(', ')) + '.' : ''}</p>
         <div class="gridwrap"><table class="season group"><thead><tr><th class="who lead"><span class="rk">#</span>Runner</th><th>Best</th><th>Average</th><th class="school">School</th><th>Races</th></tr></thead>
         <tbody>${body}</tbody></table></div></div></div>` : ''}
     </section>`;
+}
+
+/** The subtitle's mention of the school picked out on the chart, if any. */
+const pickNote = () => groupState.pick ? ' ' + esc(groupState.pick) + ' is picked out in orange.' : '';
+
+/**
+ * The school picked on the chart is picked out in the ranked tables too: its
+ * runners take the orange tint and bar, matching its line. Done on the rows
+ * in place rather than by re-rendering, so a scrolled table stays put. The
+ * coach's own school keeps its blue and can't be picked (its chip is not a
+ * button), so the two never clash.
+ */
+function syncPicked() {
+    $('group-body').querySelectorAll('tr[data-school]').forEach(tr =>
+        tr.classList.toggle('picked', !tr.classList.contains('ours') && tr.dataset.school === groupState.pick));
+    $('group-body').querySelectorAll('[data-picknote]').forEach(el => { el.innerHTML = pickNote(); });
 }
 
 // A chip picks a school out on that section's chart, or puts it back.
@@ -2339,6 +2358,7 @@ $('group-body').addEventListener('click', e => {
     if (chip) {
         groupState.pick = groupState.pick === chip.dataset.pick ? null : chip.dataset.pick;
         groupCharts.forEach((_, sq) => drawGroupChart(sq));
+        syncPicked();
         return;
     }
     const btn = e.target.closest('[data-squad]');
