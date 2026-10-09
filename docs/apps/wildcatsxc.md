@@ -414,6 +414,22 @@ top-5 average by week** (`weeklyTop5()`, `drawGroupChart()`).
   week ran different courses; the caption says to read the trend rather than
   any single week. The chart does not adjust for it.
 
+## Screen sizes
+
+The phone layout is the base; wider screens use the room rather than
+centring a phone-width column. The page grows to 1280px, and:
+
+| From | What changes |
+|---|---|
+| 900px | Check/edit screen widens to 1100px; meet name, date and course share a line; **each runner is one line** (place, name, grade, school, time, tag, remove) instead of two — the markup is unchanged and CSS grid areas reorder it, with the column header naming each one |
+| 1000px | Meets tab: the add-a-meet panel becomes a 340px column that stays in view (sticky), the meets list beside it |
+| 1200px | Conference / Section: the weekly chart and the ranked table sit side by side, the chart sticky while the table scrolls |
+
+Charts grow taller with width (`drawLine()`: 210px under 560px wide, up to
+320px), so a full-width desktop chart is not a flat ribbon. The Team tab's
+season grid needs nothing extra — the width alone shows more meet columns
+before it scrolls. The locked (PIN) card stays at 560px.
+
 ## Front-end notes
 
 - Rows are flat in state and each carries its race; the overlay groups them.

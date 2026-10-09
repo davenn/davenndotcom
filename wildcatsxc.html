@@ -127,7 +127,7 @@
         [data-theme="dark"]  .theme-toggle-thumb { transform: translateX(0);    background: #666; }
 
         /* ── LAYOUT ── */
-        .wrap { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; display: grid; gap: 14px; }
+        .wrap { max-width: 1280px; margin: 0 auto; padding: 16px 16px 48px; display: grid; gap: 14px; }
         .card {
             background: var(--surface); border: 1px solid var(--border);
             border-radius: 14px; padding: 16px;
@@ -445,7 +445,7 @@
         table.group .who small { padding-left: 2.4em; }
         /* Every runner cell gets the room the highlight bar needs, so a
            highlighted row lines up with the rest instead of shifting right. */
-        table.group .who { padding-left: 8px; }
+        table.group .who { padding-left: 12px; }
         table.group .school { text-align: left; }
         table.group td.school { color: var(--text-secondary); }
         /* The coach's own school. The school column already names it, so the
@@ -485,6 +485,54 @@
         table.season .none { color: var(--text-muted); }
         table.season .lead { border-right: 1px solid var(--border); }
 
+
+        /* ── WIDER SCREENS ──
+           Phone layout is the base; these give a tablet or desktop the room
+           to show more at once rather than a phone-width column. */
+        .runners-head .wide { display: none; }
+        .groupcols { display: block; }
+        #locked { max-width: 560px; }
+
+        @media (min-width: 900px) {
+            .wrap { padding: 24px 28px 64px; gap: 18px; }
+            .overlay-inner { max-width: 1100px; }
+            /* Meet name, date and course on one line. */
+            .meetfields { grid-template-columns: minmax(0, 1.4fr) 180px minmax(0, 1fr); }
+            .meetfields .wide { grid-column: auto; }
+            /* Each runner on one line instead of two: far more of a race fits
+               on screen. The markup is unchanged; grid areas reorder it. */
+            .runners-head, .runner {
+                grid-template-columns: 56px minmax(0, 1.3fr) 52px minmax(0, 1fr) 104px 150px 30px;
+                grid-template-areas: "place name grade school time tag remove";
+            }
+            .runner { row-gap: 0; }
+            .runner > [data-field="place"],  .runners-head .h-place  { grid-area: place; }
+            .runner > [data-field="name"],   .runners-head .h-name   { grid-area: name; }
+            .runner > [data-field="grade"],  .runners-head .h-grade  { grid-area: grade; }
+            .runner > [data-field="school"], .runners-head .h-school { grid-area: school; }
+            .runner > [data-field="time"],   .runners-head .h-time   { grid-area: time; }
+            .runner > .tagcell,              .runners-head .h-tag    { grid-area: tag; }
+            .runner > .remove,               .runners-head .h-x      { grid-area: remove; }
+            .runners-head .wide { display: inline; }
+            .runners-head .narrow { display: none; }
+        }
+
+        @media (min-width: 1000px) {
+            /* Meets: the add-a-meet panel in a narrow column that stays in
+               view, the meets list beside it. */
+            #meets-view { grid-template-columns: 340px minmax(0, 1fr); align-items: start; }
+            #scan-card { position: sticky; top: calc(var(--nav-h) + 18px); }
+            #scan-card .scanbar { flex-direction: column; align-items: stretch; }
+            #scan-card .scanbar .spacer { display: none; }
+        }
+
+        @media (min-width: 1200px) {
+            /* Conference / Section: weekly chart beside the ranked table, the
+               chart held in view while the table scrolls. */
+            .groupcols { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+            .groupcols .gc-chart { position: sticky; top: calc(var(--nav-h) + 18px); }
+            .groupcols .gc-table > .card-sub:first-child { margin-top: 0 !important; }
+        }
 
         @media (max-width: 480px) {
             .wrap { padding: 12px 12px 48px; }
@@ -1280,7 +1328,7 @@ function renderReview() {
             ${isShort(race.distance_m) ? `<p class="racenote">Under 5K: these times will be saved as 5K equivalents.</p>` : ''}
             ${shut
                 ? `<p class="racesum">${n} runner${n === 1 ? '' : 's'}${fix ? ` · <span class="tofix">${fix} to fix</span>` : ''}</p>`
-                : `<div class="runners-head"><span>Pl</span><span>Name · school</span><span style="text-align:center">Time</span><span></span></div>
+                : `<div class="runners-head"><span class="h-place">Pl</span><span class="h-name"><span class="narrow">Name · school</span><span class="wide">Name</span></span><span class="h-grade wide">Gr</span><span class="h-school wide">School</span><span class="h-time" style="text-align:center">Time</span><span class="h-tag wide"></span><span class="h-x"></span></div>
             ${race.rows.map(runnerHtml).join('')}`}
             <div class="racefoot">
                 <button class="addrow" type="button" data-addrow="${i}">+ Add runner</button>
@@ -1783,7 +1831,10 @@ function drawLine(el) {
     const endRoom = ends.length ? Math.min(Math.max(58, 16 + 6.6 * Math.max(...ends.map(a => a.text.length))), Math.max(58, W * 0.3)) : 22;
     const endChars = Math.floor((endRoom - 16) / 6.6);
     const fitEnd = t => t.length <= endChars ? t : t.slice(0, Math.max(1, endChars - 1)).trimEnd() + '…';
-    const H = 210, m = { t: 22, r: endRoom, b: 26, l: 46 };
+    // Taller as the chart gets wider: 210px on a phone, up to 320px on a
+    // desktop, so a wide chart isn't a flat ribbon.
+    const H = W < 560 ? 210 : Math.round(Math.min(320, 160 + W * 0.12));
+    const m = { t: 22, r: endRoom, b: 26, l: 46 };
 
     const pts = series.flatMap(s => s.points);
     const xs = [...new Set(pts.map(p => p.x))].sort((a, b) => a - b);
@@ -2274,10 +2325,10 @@ function groupCard(g, squad, rows) {
                 <span>${ranked.length} runners · ${perSchool.size} school${perSchool.size === 1 ? '' : 's'}</span>
             </div>
         </button>
-        ${open ? `${chart}
+        ${open ? `<div class="groupcols"><div class="gc-chart">${chart}</div><div class="gc-table">
         <p class="card-sub" style="margin-top:14px">Each school's ${g.perSchool} fastest by season best, ranked together. Average is across all of a runner's races; times are at ${esc(distLabel(groupState.dist))}.${oursName ? ' ' + esc(oursName) + ' is highlighted.' : ''}${missing.length ? ' No results yet for ' + esc(missing.join(', ')) + '.' : ''}</p>
         <div class="gridwrap"><table class="season group"><thead><tr><th class="who lead"><span class="rk">#</span>Runner</th><th>Best</th><th>Average</th><th class="school">School</th><th>Races</th></tr></thead>
-        <tbody>${body}</tbody></table></div>` : ''}
+        <tbody>${body}</tbody></table></div></div></div>` : ''}
     </section>`;
 }
 
