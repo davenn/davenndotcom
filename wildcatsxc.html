@@ -492,6 +492,29 @@
         .rankbar button:hover { color: var(--text-primary); }
         .rankbar button[aria-pressed="true"] { background: var(--text-primary); color: var(--page); font-weight: 500; }
         .rankbar button:focus-visible { outline: 2px solid var(--text-primary); outline-offset: -2px; }
+        /* Virtual meet: sits under the rankings, same box. Entrant chips show
+           a check when in, struck through when left out — not color alone. */
+        .rankings.vmeet { margin-top: 12px; }
+        .vm-note { margin: 0 12px 10px; font-size: 12px; line-height: 1.5; color: var(--text-secondary); }
+        .vm-note.none { color: var(--text-muted); }
+        .vm-chips { margin: 0 12px 12px; }
+        .meetchip {
+            font-family: var(--font-ui); font-size: 12px; cursor: pointer;
+            background: var(--page); border: 1px solid var(--border); border-radius: 20px;
+            padding: 4px 10px; color: var(--text-muted); text-decoration: line-through;
+        }
+        .meetchip[aria-pressed="true"] { color: var(--text-primary); text-decoration: none; border-color: var(--text-secondary); }
+        .meetchip[aria-pressed="true"]::before { content: '✓ '; }
+        .meetchip:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 1px; }
+        table.group td.vm-places, table.group th.vm-places { text-align: left; white-space: nowrap; }
+        th.vm-places small { text-transform: none; letter-spacing: 0; }
+        .vm-places .disp { color: var(--text-muted); }
+        .vm-runners { margin: 4px 12px 8px; }
+        .vm-runners > summary {
+            cursor: pointer; font-size: 12px; color: var(--text-secondary); padding: 6px 0;
+        }
+        .vm-runners > summary:hover { color: var(--text-primary); }
+        .vm-runners .gridwrap { padding: 0; }
         table.group.teams td.who { font-size: 14px; }
         /* The pinned column takes its box's background, which here is the page. */
         .rankings table.season .who { background: var(--page); }
@@ -2380,6 +2403,23 @@ function groupCard(g, squad, rows) {
         <div class="gridwrap"><table class="season group teams" data-rank-table="${esc(squad)}">${rankingsTable(squad)}</table></div>
     </details>`;
 
+    // The virtual meet races every runner in the squad, so it keeps them all,
+    // not just the top ten the runner table shows.
+    const fieldShort = shortNames([...by.values()].map(a => a.name));
+    groupField.set(squad, [...by.values()].map(a => ({
+        name: a.name, short: fieldShort.get(a.name), school: a.school, grade: a.grade, best: a.best, avg: a.total / a.races,
+    })));
+    const meetSchools = g.schools.filter(n => perSchool.has(n));
+    const vmeet = `<details class="rankings vmeet" data-vmeet${vmeetOpen() ? ' open' : ''}>
+        <summary><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>Virtual meet<small data-vmeet-label>${esc(RANK_BY[groupState.rankBy].meet)}</small></summary>
+        <p class="vm-note">Each school's seven fastest race each other. Only runners on full teams (five or more) take places; a team's top five score and its 6th and 7th push other teams' runners back. Lowest score wins. Tap a school to leave it out.</p>
+        <div class="rankbar" role="group" aria-label="Race on">
+            ${Object.entries(RANK_BY).map(([k, m]) => `<button type="button" data-rankby="${k}" aria-pressed="${k === groupState.rankBy}">${esc(m.button)}</button>`).join('')}
+        </div>
+        <div class="chips-row vm-chips">${meetSchools.map(n => `<button class="meetchip" type="button" data-meetschool="${esc(n)}" aria-pressed="${!groupState.meetOut.has(n)}">${esc(n)}</button>`).join('')}</div>
+        <div data-vmeet-body="${esc(squad)}">${vmeetBody(squad)}</div>
+    </details>`;
+
     const body = ranked.map((a, i) => `<tr data-school="${esc(a.school)}" class="${schoolKey(a.school) === ours ? 'ours' : a.school === groupState.pick ? 'picked' : ''}">
         <td class="who lead" title="${esc(a.name)}"><span class="rk">${i + 1}</span><span aria-label="${esc(a.name)}">${esc(short.get(a.name))}</span><small>${a.grade ? 'Grade ' + a.grade : '&nbsp;'}</small></td>
         <td class="sb">${fmtTime(a.best)}</td>
@@ -2414,7 +2454,7 @@ function groupCard(g, squad, rows) {
                 <span>${ranked.length} runners · ${perSchool.size} school${perSchool.size === 1 ? '' : 's'}</span>
             </div>
         </button>
-        ${open ? `<div class="groupcols"><div class="gc-chart">${chart}${rankings}</div><div class="gc-table">
+        ${open ? `<div class="groupcols"><div class="gc-chart">${chart}${rankings}${vmeet}</div><div class="gc-table">
         <p class="card-sub" style="margin-top:14px">Each school's ${g.perSchool} fastest by season best, ranked together. Average is across all of a runner's races; times are at ${esc(distLabel(groupState.dist))}.${oursName ? ' ' + esc(oursName) + ' is highlighted in orange.' : ''}<span data-picknote>${pickNote()}</span>${missing.length ? ' No results yet for ' + esc(missing.join(', ')) + '.' : ''}</p>
         <div class="gridwrap"><table class="season group"><thead><tr><th class="who lead"><span class="rk">#</span>Runner</th><th>Best</th><th>Average</th><th class="school">School</th><th>Races</th></tr></thead>
         <tbody>${body}</tbody></table></div></div></div>` : ''}
@@ -2431,8 +2471,8 @@ const pickNote = () => groupState.pick ? ' ' + esc(groupState.pick) + ' is picke
  * pack that runs well every week over one that peaked once.
  */
 const RANK_BY = {
-    best: { button: 'Season bests',    label: 'top-5 average of season bests' },
-    avg:  { button: 'Season averages', label: 'top-5 average of season averages' },
+    best: { button: 'Season bests',    label: 'top-5 average of season bests',    meet: 'raced on season bests' },
+    avg:  { button: 'Season averages', label: 'top-5 average of season averages', meet: 'raced on season averages' },
 };
 const RANK_BY_KEY = 'wildcatsxc_rank_by';
 groupState.rankBy = load(RANK_BY_KEY) === 'avg' ? 'avg' : 'best';
@@ -2464,7 +2504,75 @@ function setRankBy(by) {
     store(RANK_BY_KEY, by === 'avg' ? 'avg' : null);
     $('group-body').querySelectorAll('[data-rank-table]').forEach(t => { t.innerHTML = rankingsTable(t.dataset.rankTable); });
     $('group-body').querySelectorAll('[data-rank-label]').forEach(l => { l.textContent = RANK_BY[by].label; });
+    $('group-body').querySelectorAll('[data-vmeet-label]').forEach(l => { l.textContent = RANK_BY[by].meet; });
     $('group-body').querySelectorAll('[data-rankby]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.rankby === by)));
+    redrawVmeets();
+}
+
+// ── Virtual meet ─────────────────────────────────────────────────────────
+// Every chosen school's seven fastest, run against each other as a meet is
+// scored: places go only to runners on full teams (five or more entered); a
+// runner on a short team still runs and is listed, but takes no place, as at
+// a real meet. A team scores its top five places; its 6th and 7th score
+// nothing but take places, pushing other teams' runners back. Ties on points
+// go to the better 6th runner, and a team with a 6th beats one without.
+groupState.meetOut = new Set();                   // schools left out of the meet, for this visit
+const groupField = new Map();                     // squad → [{ name, short, school, grade, best, avg }]
+const VMEET_KEY = 'wildcatsxc_vmeet_open';
+const vmeetOpen = () => load(VMEET_KEY) === '1';
+let vmRunnersOpen = false;                        // the "every runner" list inside, across redraws
+
+function scoreMeet(field, by) {
+    const order = (x, y) => x[by] - y[by] || x.name.localeCompare(y.name);
+    const schools = [...new Set(field.map(a => a.school))].filter(s => !groupState.meetOut.has(s));
+    const entries = schools.map(school => ({ school, runners: field.filter(a => a.school === school).sort(order).slice(0, 7) }));
+    const full = new Set(entries.filter(t => t.runners.length >= 5).map(t => t.school));
+    let place = 0;
+    const finish = entries.flatMap(t => t.runners).sort(order)
+        .map(a => ({ ...a, time: a[by], place: full.has(a.school) ? ++place : null }));
+    const teams = entries.filter(t => full.has(t.school)).map(t => {
+        const places = finish.filter(f => f.school === t.school).map(f => f.place);
+        return { school: t.school, places, score: places.slice(0, 5).reduce((s, p) => s + p, 0), sixth: places[5] || Infinity };
+    }).sort((x, y) => x.score - y.score || x.sixth - y.sixth);
+    teams.forEach((t, i) => {
+        const prev = teams[i - 1];
+        t.rank = prev && prev.score === t.score && prev.sixth === t.sixth ? prev.rank : i + 1;
+    });
+    const short = entries.filter(t => !full.has(t.school)).map(t => t.school + ' (' + t.runners.length + ')');
+    return { teams, finish, short };
+}
+
+/** One squad's meet: team scores, then every runner in finishing order. */
+function vmeetBody(squad) {
+    const by = groupState.rankBy;
+    const { teams, finish, short } = scoreMeet(groupField.get(squad) || [], by);
+    const ours = schoolKey(ourSchool());
+    const rowClass = school => schoolKey(school) === ours ? 'ours' : school === groupState.pick ? 'picked' : '';
+    const time = ms => by === 'best' ? fmtTime(ms) : tenths(ms);
+    const shortNote = short.length ? `<p class="vm-note">Running as individuals, under five runners: ${esc(short.join(', '))}.</p>` : '';
+    if (teams.length < 2) return `<p class="vm-note none">Needs at least two schools with five runners to score.</p>${shortNote}`;
+    const scoreRows = teams.map(t => `<tr data-school="${esc(t.school)}" class="${rowClass(t.school)}">
+        <td class="who lead"><span class="rk">${t.rank}</span>${esc(t.school)}</td>
+        <td class="sb">${t.score}</td>
+        <td class="vm-places">${t.places.slice(0, 5).join(' ')}${t.places.slice(5).map(p => ` <span class="disp">(${p})</span>`).join('')}</td></tr>`).join('');
+    const runnerRows = finish.map(f => `<tr data-school="${esc(f.school)}" class="${rowClass(f.school)}">
+        <td class="who lead" title="${esc(f.name)}"><span class="rk">${f.place === null ? '—' : f.place}</span><span aria-label="${esc(f.name)}">${esc(f.short)}</span><small>${f.grade ? 'Grade ' + f.grade : '&nbsp;'}</small></td>
+        <td class="sb">${time(f.time)}</td>
+        <td class="school">${esc(f.school)}</td></tr>`).join('');
+    return `<div class="gridwrap"><table class="season group teams">
+            <thead><tr><th class="who lead"><span class="rk">#</span>School</th><th>Score</th><th class="vm-places">Places <small>(6th, 7th)</small></th></tr></thead>
+            <tbody>${scoreRows}</tbody></table></div>
+        ${shortNote}
+        <details class="vm-runners" data-vm-runners${vmRunnersOpen ? ' open' : ''}>
+            <summary>Every runner · ${finish.length}</summary>
+            <div class="gridwrap"><table class="season group">
+                <thead><tr><th class="who lead"><span class="rk">#</span>Runner</th><th>Time</th><th class="school">School</th></tr></thead>
+                <tbody>${runnerRows}</tbody></table></div>
+        </details>`;
+}
+
+function redrawVmeets() {
+    $('group-body').querySelectorAll('[data-vmeet-body]').forEach(el => { el.innerHTML = vmeetBody(el.dataset.vmeetBody); });
 }
 
 /** A gap between two times: "12.4s" under a minute, "1:02.4" from a minute up. */
@@ -2476,8 +2584,10 @@ const fmtGap = ms => Math.abs(ms) < 60000 ? (Math.abs(ms) / 1000).toFixed(1) + '
 const RANKINGS_KEY = 'wildcatsxc_rankings_open';
 const rankingsOpen = () => load(RANKINGS_KEY) === '1';
 $('group-body').addEventListener('toggle', e => {
-    if (!e.target.matches || !e.target.matches('details[data-rankings]')) return;
-    store(RANKINGS_KEY, e.target.open ? '1' : null);
+    if (!e.target.matches) return;
+    if (e.target.matches('details[data-rankings]')) store(RANKINGS_KEY, e.target.open ? '1' : null);
+    if (e.target.matches('details[data-vmeet]')) store(VMEET_KEY, e.target.open ? '1' : null);
+    if (e.target.matches('details[data-vm-runners]')) vmRunnersOpen = e.target.open;
 }, true);
 
 /**
@@ -2498,6 +2608,15 @@ function syncPicked() {
 $('group-body').addEventListener('click', e => {
     const rankBy = e.target.closest('[data-rankby]');
     if (rankBy) { if (rankBy.dataset.rankby !== groupState.rankBy) setRankBy(rankBy.dataset.rankby); return; }
+    const entrant = e.target.closest('[data-meetschool]');
+    if (entrant) {
+        const s = entrant.dataset.meetschool;
+        groupState.meetOut.has(s) ? groupState.meetOut.delete(s) : groupState.meetOut.add(s);
+        $('group-body').querySelectorAll('[data-meetschool]').forEach(b =>
+            b.setAttribute('aria-pressed', String(!groupState.meetOut.has(b.dataset.meetschool))));
+        redrawVmeets();
+        return;
+    }
     const chip = e.target.closest('[data-pick]');
     if (chip) {
         groupState.pick = groupState.pick === chip.dataset.pick ? null : chip.dataset.pick;

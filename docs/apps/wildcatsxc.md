@@ -423,6 +423,41 @@ and a picked school are untouched. The summary line names the measure showing.
 The choice is remembered per device (`localStorage['wildcatsxc_rank_by']`,
 stored only when it is "avg") and applies to every section on both tabs.
 
+### Virtual meet
+
+A second collapsible box (`<details data-vmeet>`) under the team rankings
+races the chosen schools against each other and scores them the way a cross
+country meet is scored, answering "if everyone runs to form, where do we
+finish?" — the rankings order schools by time, but a meet is won on places.
+
+- Each school enters its **seven fastest** by the current measure, through the
+  same Season bests / Season averages switch as the rankings (one shared
+  setting, so the two never disagree).
+- Only runners on **full teams** (five or more entered) take places. A school
+  with fewer still runs and appears in the runner list, unplaced ("—"), and
+  is named under the scores as running as individuals — as at a real meet.
+- A team's **top five places score**; its 6th and 7th take places too, so
+  they push other teams' runners back, but don't add to the score. The table
+  shows the five scoring places, then the 6th and 7th in parentheses.
+- Lowest score wins. A tie goes to the better 6th runner; a team with a 6th
+  beats one without; otherwise the two share the place.
+- Equal times are broken by name, only so the order is stable — real races
+  don't tie, so it isn't a rule worth more than that.
+- Fewer than two full teams can't make a meet, which says so.
+
+Chips choose who races: every school with runners in this squad starts in,
+and tapping one leaves it out (struck through, the check gone — not color
+alone). That is kept for the visit, not stored: it is a what-if, not a
+setting. "Every runner" lists the whole field in finishing order.
+
+All of a squad's runners are kept in `groupField` (squad → runners), not only
+the ten per school the runner table shows, and `scoreMeet()` is pure, so the
+switch and the chips just redraw `[data-vmeet-body]` through `vmeetBody()`.
+Rows carry `data-school`, so orange/blue highlighting follows `syncPicked()`.
+The box's open state is remembered per device
+(`localStorage['wildcatsxc_vmeet_open']`); the runner list inside stays open
+across redraws for the visit.
+
 ### Weekly top-5 chart
 
 Each squad section on Conference and Section opens with **every school's
