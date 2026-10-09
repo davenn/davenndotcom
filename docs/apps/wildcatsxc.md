@@ -392,8 +392,9 @@ shows the same time in both. Averages always show the tenth (`tenths()`:
 
 ### Team rankings
 
-A collapsible table (`<details data-rankings>`) at the top of each squad's
-table column: **schools ranked by the average of their five fastest season
+A collapsible table (`<details data-rankings>`) directly under each squad's
+weekly chart, in the chart's column (so on a desktop it sits under the chart,
+beside the runner table): **schools ranked by the average of their five fastest season
 bests** — how cross country scores a team — with the gap behind the leader
 and how many runners each school has at this season and distance. A school
 with fewer than five runners can't make a team score, so it is listed after
@@ -454,7 +455,7 @@ centring a phone-width column. The page grows to 1280px, and:
 |---|---|
 | 900px | Check/edit screen widens to 1100px; meet name, date and course share a line; **each runner is one line** (place, name, grade, school, time, tag, remove) instead of two — the markup is unchanged and CSS grid areas reorder it, with the column header naming each one |
 | 1000px | Meets tab: the add-a-meet panel becomes a 340px column that stays in view (sticky), the meets list beside it |
-| 1200px | Conference / Section: the weekly chart and the ranked table sit side by side, the chart sticky while the table scrolls |
+| 1200px | Conference / Section: the weekly chart (with the team rankings under it) and the runner table sit side by side. The chart column is sticky while the table scrolls; with the rankings open it can be taller than the window, and a sticky element taller than the window hides its own bottom, so it is capped at the window height and scrolls on its own |
 
 Charts grow taller with width (`drawLine()`: 210px under 560px wide, up to
 320px), so a full-width desktop chart is not a flat ribbon. The Team tab's
