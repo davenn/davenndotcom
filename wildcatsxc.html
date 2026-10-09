@@ -1638,9 +1638,11 @@ async function loadTeam() {
         }
         $('t-school').classList.remove('hidden');
         const saved = team.school || load(TEAM_KEY);
-        const want = team.schools.some(s => s.school === saved) ? saved : team.schools[0].school;
-        $('t-school').innerHTML = team.schools.map(s =>
-            `<option value="${esc(s.school)}"${s.school === want ? ' selected' : ''}>${esc(s.school)} (${s.athletes})</option>`).join('');
+        // Nothing picked yet on this device: start on our own school, not on
+        // whichever school happens to have the most results.
+        const home = team.schools.find(s => schoolKey(s.school) === schoolKey(HOME_SCHOOL));
+        const want = team.schools.some(s => s.school === saved) ? saved : (home || team.schools[0]).school;
+        $('t-school').innerHTML = teamOptions(want);
         if (team.school !== want || !team.results) {
             team.results = (await api('?action=xc_results&school=' + encodeURIComponent(want))).results;
             team.school = want;
@@ -1653,6 +1655,24 @@ async function loadTeam() {
     } finally {
         $('team-view').classList.remove('refreshing');
     }
+}
+
+/**
+ * The Team picker's options, in three labelled groups: our own school; then
+ * every Conference and Section school (GROUPS), A–Z; then everyone else, A–Z.
+ * The schools a coach actually looks at are at the top instead of buried in a
+ * list sorted by how many results each has.
+ */
+function teamOptions(selected) {
+    const home = schoolKey(HOME_SCHOOL);
+    const near = new Set([...GROUPS.conference.schools, ...GROUPS.section.schools].map(schoolKey));
+    const az = (a, b) => a.school.localeCompare(b.school);
+    const ours   = team.schools.filter(s => schoolKey(s.school) === home);
+    const nearby = team.schools.filter(s => schoolKey(s.school) !== home && near.has(schoolKey(s.school))).sort(az);
+    const rest   = team.schools.filter(s => schoolKey(s.school) !== home && !near.has(schoolKey(s.school))).sort(az);
+    const opt = s => `<option value="${esc(s.school)}"${s.school === selected ? ' selected' : ''}>${esc(s.school)} (${s.athletes})</option>`;
+    const group = (label, list) => list.length ? `<optgroup label="${esc(label)}">${list.map(opt).join('')}</optgroup>` : '';
+    return group('Your team', ours) + group('Conference & Section', nearby) + group('Other schools', rest);
 }
 
 function fillSelect(id, values, selected, label) {

@@ -267,9 +267,12 @@ The first of the metrics views, and deliberately a plain one: one school's
 season laid out as a grid — a runner per row, a meet per column, a section per
 squad — so every time is visible before anything is summarised.
 
-- `xc_schools` fills the team picker (most results first); `xc_results`
-  returns that school's results flat, and the page arranges them. The last
-  team picked is remembered in `localStorage['wildcatsxc_team']`.
+- `xc_schools` fills the team picker; `xc_results` returns that school's
+  results flat, and the page arranges them. The picker (`teamOptions()`) is in
+  three labelled groups: **Your team** (`HOME_SCHOOL`, Verona Area), then
+  **Conference & Section** — every school in either `GROUPS` list, once, A–Z —
+  then **Other schools**, A–Z. It opens on Verona until another team is picked;
+  the last pick is remembered in `localStorage['wildcatsxc_team']`.
 - **Squad is decided per runner** (`squadsByRunner()`), not per race. Runners
   carry no gender, so it is read off race names (`squadOf()`: "Varsity Girls"
   / "Women" → Girls, "Boys" / "Men" → Boys; Girls tested first because
