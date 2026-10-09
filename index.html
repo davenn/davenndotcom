@@ -198,6 +198,9 @@
             box-shadow: 0 8px 24px rgba(0,0,0,0.08);
         }
 
+        /* An app whose icon is an image, not an emoji: it fills the tile. */
+        .app-icon img { width: 100%; height: 100%; display: block; border-radius: inherit; }
+
         .app-icon {
             width: 38px;
             height: 38px;
@@ -425,7 +428,7 @@
         </a>
         <a class="app-card fade-in" href="wildcatsxc.html">
             <span class="app-arrow">↗</span>
-            <div class="app-icon">🏃</div>
+            <div class="app-icon"><img src="icons/wildcatsxc-192.png" alt=""></div>
             <div class="app-name">WildcatsXC</div>
             <p class="app-desc">Upload a results PDF, paste results, or drop in a MileSplit link, and every runner, school and time is read off it. Builds a season record for each athlete. Team PIN required.</p>
             <span class="app-tag">Sports</span>

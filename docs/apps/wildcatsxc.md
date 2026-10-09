@@ -444,6 +444,25 @@ Charts grow taller with width (`drawLine()`: 210px under 560px wide, up to
 season grid needs nothing extra — the width alone shows more meet columns
 before it scrolls. The locked (PIN) card stays at 560px.
 
+## Icon
+
+The Verona Wildcats paw, set on the same dark rounded square (`#0a0a0a`, rx
+100/512) as the other davenn icons. Made from the school's 512px PNG, which
+came on a light gray background with a drop shadow: both were flood-filled
+away from the image edges — neutral grays 100–247, stopped by the sticker's
+pure-white outline, so nothing inside the paw was touched — then the paw was
+fitted to 80% of the square, composed at 2048px and scaled down for smooth
+corners. Three sizes:
+
+| File | Used by |
+|---|---|
+| `icons/wildcatsxc-512.png` | manifest (install, splash) |
+| `icons/wildcatsxc-192.png` | manifest, browser tab (`rel="icon"`), the home page card |
+| `icons/wildcatsxc-180.png` | `apple-touch-icon` (iOS home screen, which ignores SVG) |
+
+It replaced `icons/wildcatsxc.svg`, an emoji tile. To change the icon, make
+new PNGs at those three sizes with the same names.
+
 ## Front-end notes
 
 - Rows are flat in state and each carries its race; the overlay groups them.
