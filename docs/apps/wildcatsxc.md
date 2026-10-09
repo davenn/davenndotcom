@@ -507,6 +507,12 @@ centring a phone-width column. The page grows to 1280px, and:
 | 1000px | Meets tab: the add-a-meet panel becomes a 340px column that stays in view (sticky), the meets list beside it |
 | 1200px | Conference / Section: the weekly chart (with the team rankings under it) and the runner table sit side by side. The chart column is sticky while the table scrolls; with the rankings open it can be taller than the window, and a sticky element taller than the window hides its own bottom, so it is capped at the window height and scrolls on its own |
 
+Below 900px, the pinned name column in every Conference / Section table
+(runner, rankings, virtual meet) is capped at about twelve characters (`.nm`,
+`max-width: 12ch`) so the times get the screen. A longer name wraps onto a
+second line rather than being cut with an ellipsis, because truncating would
+make "Sun Prairie East" and "Sun Prairie West" read the same.
+
 Charts grow taller with width (`drawLine()`: 210px under 560px wide, up to
 320px), so a full-width desktop chart is not a flat ribbon. The Team tab's
 season grid needs nothing extra — the width alone shows more meet columns

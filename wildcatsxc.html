@@ -457,6 +457,12 @@
         /* A school picked out on the chart: its line's blue, same treatment. */
         table.group tr.picked td { background: color-mix(in srgb, var(--series-2) 10%, var(--surface)); }
         table.group tr.picked td.who { box-shadow: inset 3px 0 0 var(--series-2); }
+        /* On a phone the pinned name column takes about twelve characters at
+           most, leaving the times room. A longer name wraps under itself rather
+           than being cut, so "Sun Prairie East" and "…West" stay told apart. */
+        @media (max-width: 899px) {
+            table.group .nm { display: inline-block; max-width: 12ch; white-space: normal; vertical-align: top; overflow-wrap: anywhere; }
+        }
 
         /* Team rankings: a collapsible table above the runner rankings. */
         .rankings { margin-top: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--page); }
@@ -2421,7 +2427,7 @@ function groupCard(g, squad, rows) {
     </details>`;
 
     const body = ranked.map((a, i) => `<tr data-school="${esc(a.school)}" class="${schoolKey(a.school) === ours ? 'ours' : a.school === groupState.pick ? 'picked' : ''}">
-        <td class="who lead" title="${esc(a.name)}"><span class="rk">${i + 1}</span><span aria-label="${esc(a.name)}">${esc(short.get(a.name))}</span><small>${a.grade ? 'Grade ' + a.grade : '&nbsp;'}</small></td>
+        <td class="who lead" title="${esc(a.name)}"><span class="rk">${i + 1}</span><span class="nm" aria-label="${esc(a.name)}">${esc(short.get(a.name))}</span><small>${a.grade ? 'Grade ' + a.grade : '&nbsp;'}</small></td>
         <td class="sb">${fmtTime(a.best)}</td>
         <td>${tenths(a.total / a.races)}</td>
         <td class="school">${esc(a.school)}</td>
@@ -2489,11 +2495,11 @@ function rankingsTable(squad) {
     const rowClass = school => schoolKey(school) === ours ? 'ours' : school === groupState.pick ? 'picked' : '';
     return `<thead><tr><th class="who lead"><span class="rk">#</span>School</th><th>Top-5 avg</th><th>Behind 1st</th><th>Runners</th></tr></thead>
         <tbody>${scored.map((t, i) => `<tr data-school="${esc(t.school)}" class="${rowClass(t.school)}">
-            <td class="who lead"><span class="rk">${i + 1}</span>${esc(t.school)}</td>
+            <td class="who lead"><span class="rk">${i + 1}</span><span class="nm">${esc(t.school)}</span></td>
             <td class="sb">${tenths(t[by])}</td>
             <td>${i === 0 ? '—' : '+' + fmtGap(t[by] - scored[0][by])}</td>
             <td>${t.runners}</td></tr>`).join('')}${short5.map(t => `<tr data-school="${esc(t.school)}" class="${rowClass(t.school)}">
-            <td class="who lead"><span class="rk">—</span>${esc(t.school)}</td>
+            <td class="who lead"><span class="rk">—</span><span class="nm">${esc(t.school)}</span></td>
             <td class="none" colspan="2">needs 5 runners</td>
             <td>${t.runners}</td></tr>`).join('')}</tbody>`;
 }
@@ -2552,11 +2558,11 @@ function vmeetBody(squad) {
     const shortNote = short.length ? `<p class="vm-note">Running as individuals, under five runners: ${esc(short.join(', '))}.</p>` : '';
     if (teams.length < 2) return `<p class="vm-note none">Needs at least two schools with five runners to score.</p>${shortNote}`;
     const scoreRows = teams.map(t => `<tr data-school="${esc(t.school)}" class="${rowClass(t.school)}">
-        <td class="who lead"><span class="rk">${t.rank}</span>${esc(t.school)}</td>
+        <td class="who lead"><span class="rk">${t.rank}</span><span class="nm">${esc(t.school)}</span></td>
         <td class="sb">${t.score}</td>
         <td class="vm-places">${t.places.slice(0, 5).join(' ')}${t.places.slice(5).map(p => ` <span class="disp">(${p})</span>`).join('')}</td></tr>`).join('');
     const runnerRows = finish.map(f => `<tr data-school="${esc(f.school)}" class="${rowClass(f.school)}">
-        <td class="who lead" title="${esc(f.name)}"><span class="rk">${f.place === null ? '—' : f.place}</span><span aria-label="${esc(f.name)}">${esc(f.short)}</span><small>${f.grade ? 'Grade ' + f.grade : '&nbsp;'}</small></td>
+        <td class="who lead" title="${esc(f.name)}"><span class="rk">${f.place === null ? '—' : f.place}</span><span class="nm" aria-label="${esc(f.name)}">${esc(f.short)}</span><small>${f.grade ? 'Grade ' + f.grade : '&nbsp;'}</small></td>
         <td class="sb">${time(f.time)}</td>
         <td class="school">${esc(f.school)}</td></tr>`).join('');
     return `<div class="gridwrap"><table class="season group teams">
