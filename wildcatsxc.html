@@ -478,6 +478,20 @@
         .rankings[open] > summary svg { transform: rotate(90deg); }
         @media (prefers-reduced-motion: reduce) { .rankings > summary svg { transition: none; } }
         .rankings .gridwrap { padding: 0 12px 6px; }
+        /* Season bests / season averages: one segmented switch, the pressed
+           side filled so the state reads without relying on color. */
+        .rankbar {
+            display: inline-flex; margin: 0 12px 8px; border: 1px solid var(--border);
+            border-radius: 6px; overflow: hidden;
+        }
+        .rankbar button {
+            font: inherit; font-size: 12px; padding: 6px 12px; min-height: 32px; cursor: pointer;
+            background: transparent; color: var(--text-secondary); border: 0;
+        }
+        .rankbar button + button { border-left: 1px solid var(--border); }
+        .rankbar button:hover { color: var(--text-primary); }
+        .rankbar button[aria-pressed="true"] { background: var(--text-primary); color: var(--page); font-weight: 500; }
+        .rankbar button:focus-visible { outline: 2px solid var(--text-primary); outline-offset: -2px; }
         table.group.teams td.who { font-size: 14px; }
         /* The pinned column takes its box's background, which here is the page. */
         .rankings table.season .who { background: var(--page); }
@@ -2348,28 +2362,22 @@ function groupCard(g, squad, rows) {
     const short = shortNames(ranked.map(a => a.name));
     const ours = schoolKey(ourSchool());
 
-    // Team rankings: each school's five fastest season bests, averaged —
-    // how cross country scores a team. Fewer than five runners can't make a
-    // team score, so those schools are listed after the ranking, unranked.
-    const teams = [...perSchool.entries()].map(([school, list]) => {
-        const bests = list.map(a => a.best).sort((x, y) => x - y);
-        return { school, runners: bests.length, top5: bests.length >= 5 ? bests.slice(0, 5).reduce((s, v) => s + v, 0) / 5 : null };
-    });
-    const scored = teams.filter(t => t.top5 !== null).sort((x, y) => x.top5 - y.top5);
-    const short5 = teams.filter(t => t.top5 === null).sort((x, y) => x.school.localeCompare(y.school));
-    const rowClass = school => schoolKey(school) === ours ? 'ours' : school === groupState.pick ? 'picked' : '';
+    // Team rankings, two ways: each school's top five by season best, or by
+    // season average (each runner's mean over their races), averaged. Both are
+    // kept so the switch can redraw the table without re-rendering the card.
+    const top5 = v => v.length >= 5 ? v.slice(0, 5).reduce((s, x) => s + x, 0) / 5 : null;
+    groupRankings.set(squad, [...perSchool.entries()].map(([school, list]) => ({
+        school,
+        runners: list.length,
+        best: top5(list.map(a => a.best).sort((x, y) => x - y)),
+        avg:  top5(list.map(a => a.total / a.races).sort((x, y) => x - y)),
+    })));
     const rankings = `<details class="rankings" data-rankings${rankingsOpen() ? ' open' : ''}>
-        <summary><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>Team rankings<small>top-5 average of season bests</small></summary>
-        <div class="gridwrap"><table class="season group teams">
-            <thead><tr><th class="who lead"><span class="rk">#</span>School</th><th>Top-5 avg</th><th>Behind 1st</th><th>Runners</th></tr></thead>
-            <tbody>${scored.map((t, i) => `<tr data-school="${esc(t.school)}" class="${rowClass(t.school)}">
-                <td class="who lead"><span class="rk">${i + 1}</span>${esc(t.school)}</td>
-                <td class="sb">${tenths(t.top5)}</td>
-                <td>${i === 0 ? '—' : '+' + fmtGap(t.top5 - scored[0].top5)}</td>
-                <td>${t.runners}</td></tr>`).join('')}${short5.map(t => `<tr data-school="${esc(t.school)}" class="${rowClass(t.school)}">
-                <td class="who lead"><span class="rk">—</span>${esc(t.school)}</td>
-                <td class="none" colspan="2">needs 5 runners</td>
-                <td>${t.runners}</td></tr>`).join('')}</tbody></table></div>
+        <summary><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>Team rankings<small data-rank-label>${esc(RANK_BY[groupState.rankBy].label)}</small></summary>
+        <div class="rankbar" role="group" aria-label="Rank teams by">
+            ${Object.entries(RANK_BY).map(([k, m]) => `<button type="button" data-rankby="${k}" aria-pressed="${k === groupState.rankBy}">${esc(m.button)}</button>`).join('')}
+        </div>
+        <div class="gridwrap"><table class="season group teams" data-rank-table="${esc(squad)}">${rankingsTable(squad)}</table></div>
     </details>`;
 
     const body = ranked.map((a, i) => `<tr data-school="${esc(a.school)}" class="${schoolKey(a.school) === ours ? 'ours' : a.school === groupState.pick ? 'picked' : ''}">
@@ -2416,6 +2424,49 @@ function groupCard(g, squad, rows) {
 /** The subtitle's mention of the school picked out on the chart, if any. */
 const pickNote = () => groupState.pick ? ' ' + esc(groupState.pick) + ' is picked out in blue.' : '';
 
+/**
+ * What the team rankings rank by. "best": each school's five fastest season
+ * bests, averaged — the default. "avg": each runner's average over all their
+ * races this season; the school's five fastest of those, averaged — rewards a
+ * pack that runs well every week over one that peaked once.
+ */
+const RANK_BY = {
+    best: { button: 'Season bests',    label: 'top-5 average of season bests' },
+    avg:  { button: 'Season averages', label: 'top-5 average of season averages' },
+};
+const RANK_BY_KEY = 'wildcatsxc_rank_by';
+groupState.rankBy = load(RANK_BY_KEY) === 'avg' ? 'avg' : 'best';
+const groupRankings = new Map();                  // squad → [{ school, runners, best, avg }]
+
+/** A squad's rankings table (head and body) under the current measure. */
+function rankingsTable(squad) {
+    const by = groupState.rankBy;
+    const teams = groupRankings.get(squad) || [];
+    const scored = teams.filter(t => t[by] !== null).sort((x, y) => x[by] - y[by]);
+    // Under five runners there is no team score; listed after, unranked.
+    const short5 = teams.filter(t => t[by] === null).sort((x, y) => x.school.localeCompare(y.school));
+    const ours = schoolKey(ourSchool());
+    const rowClass = school => schoolKey(school) === ours ? 'ours' : school === groupState.pick ? 'picked' : '';
+    return `<thead><tr><th class="who lead"><span class="rk">#</span>School</th><th>Top-5 avg</th><th>Behind 1st</th><th>Runners</th></tr></thead>
+        <tbody>${scored.map((t, i) => `<tr data-school="${esc(t.school)}" class="${rowClass(t.school)}">
+            <td class="who lead"><span class="rk">${i + 1}</span>${esc(t.school)}</td>
+            <td class="sb">${tenths(t[by])}</td>
+            <td>${i === 0 ? '—' : '+' + fmtGap(t[by] - scored[0][by])}</td>
+            <td>${t.runners}</td></tr>`).join('')}${short5.map(t => `<tr data-school="${esc(t.school)}" class="${rowClass(t.school)}">
+            <td class="who lead"><span class="rk">—</span>${esc(t.school)}</td>
+            <td class="none" colspan="2">needs 5 runners</td>
+            <td>${t.runners}</td></tr>`).join('')}</tbody>`;
+}
+
+/** Switch the measure: every rankings table on the page follows, nothing else moves. */
+function setRankBy(by) {
+    groupState.rankBy = by;
+    store(RANK_BY_KEY, by === 'avg' ? 'avg' : null);
+    $('group-body').querySelectorAll('[data-rank-table]').forEach(t => { t.innerHTML = rankingsTable(t.dataset.rankTable); });
+    $('group-body').querySelectorAll('[data-rank-label]').forEach(l => { l.textContent = RANK_BY[by].label; });
+    $('group-body').querySelectorAll('[data-rankby]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.rankby === by)));
+}
+
 /** A gap between two times: "12.4s" under a minute, "1:02.4" from a minute up. */
 const fmtGap = ms => Math.abs(ms) < 60000 ? (Math.abs(ms) / 1000).toFixed(1) + 's' : tenths(Math.abs(ms));
 
@@ -2445,6 +2496,8 @@ function syncPicked() {
 // A chip picks a school out on that section's chart, or puts it back.
 // Folding is shared with the Team tab: a squad folded there is folded here.
 $('group-body').addEventListener('click', e => {
+    const rankBy = e.target.closest('[data-rankby]');
+    if (rankBy) { if (rankBy.dataset.rankby !== groupState.rankBy) setRankBy(rankBy.dataset.rankby); return; }
     const chip = e.target.closest('[data-pick]');
     if (chip) {
         groupState.pick = groupState.pick === chip.dataset.pick ? null : chip.dataset.pick;

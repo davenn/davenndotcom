@@ -408,6 +408,21 @@ Closed by default; opening it is remembered per device
 (`localStorage['wildcatsxc_rankings_open']`) for every section and both tabs
 (`toggle` doesn't bubble, so it is caught in the capture phase).
 
+A two-way switch inside the dropdown picks what the ranking is measured on:
+
+- **Season bests** (default) — as above.
+- **Season averages** — each runner's average over all their races this
+  season and distance; the school's five fastest of those, averaged. It
+  rewards a pack that runs well every week over one that peaked once, and a
+  school whose runners raced only once ranks the same either way.
+
+Both numbers are worked out when the card renders and kept in
+`groupRankings` (squad → schools), so the switch redraws only the rankings
+tables (`rankingsTable(squad)`) — the chart, the runner table, the open state
+and a picked school are untouched. The summary line names the measure showing.
+The choice is remembered per device (`localStorage['wildcatsxc_rank_by']`,
+stored only when it is "avg") and applies to every section on both tabs.
+
 ### Weekly top-5 chart
 
 Each squad section on Conference and Section opens with **every school's
