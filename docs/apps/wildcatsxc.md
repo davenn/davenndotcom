@@ -390,6 +390,23 @@ shows the same time in both. Averages always show the tenth (`tenths()`:
   races scroll sideways. Season and distance filters behave as on Team, and
   squad folding is shared with the Team tab.
 
+### Team rankings
+
+A collapsible table (`<details data-rankings>`) at the top of each squad's
+table column: **schools ranked by the average of their five fastest season
+bests** — how cross country scores a team — with the gap behind the leader
+and how many runners each school has at this season and distance. A school
+with fewer than five runners can't make a team score, so it is listed after
+the ranking, unranked, as "needs 5 runners", never averaged over fewer.
+
+"PRs" here means season bests within the selected season and distance — the
+same bests the runner table ranks by; the app only knows times saved in it.
+Rows carry `data-school`, so the coach's school is orange and a school picked
+on the chart is blue, through the same `syncPicked()` as the runner table.
+Closed by default; opening it is remembered per device
+(`localStorage['wildcatsxc_rankings_open']`) for every section and both tabs
+(`toggle` doesn't bubble, so it is caught in the capture phase).
+
 ### Weekly top-5 chart
 
 Each squad section on Conference and Section opens with **every school's

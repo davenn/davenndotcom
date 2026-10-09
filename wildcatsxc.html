@@ -457,6 +457,32 @@
         /* A school picked out on the chart: its line's blue, same treatment. */
         table.group tr.picked td { background: color-mix(in srgb, var(--series-2) 10%, var(--surface)); }
         table.group tr.picked td.who { box-shadow: inset 3px 0 0 var(--series-2); }
+
+        /* Team rankings: a collapsible table above the runner rankings. */
+        .rankings { margin-top: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--page); }
+        .rankings > summary {
+            list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+            font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+            color: var(--text-secondary);
+        }
+        .rankings > summary::-webkit-details-marker { display: none; }
+        .rankings > summary:hover, .rankings > summary:focus-visible { color: var(--text-primary); }
+        .rankings > summary small {
+            margin-left: auto; font-family: var(--font-ui); font-size: 11px; letter-spacing: 0;
+            text-transform: none; color: var(--text-muted);
+        }
+        .rankings > summary svg {
+            width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2;
+            stroke-linecap: round; stroke-linejoin: round; transition: transform 0.15s; flex: none;
+        }
+        .rankings[open] > summary svg { transform: rotate(90deg); }
+        @media (prefers-reduced-motion: reduce) { .rankings > summary svg { transition: none; } }
+        .rankings .gridwrap { padding: 0 12px 6px; }
+        table.group.teams td.who { font-size: 14px; }
+        /* The pinned column takes its box's background, which here is the page. */
+        .rankings table.season .who { background: var(--page); }
+        .rankings table.group tr.ours td   { background: color-mix(in srgb, var(--series-1) 9%, var(--page)); }
+        .rankings table.group tr.picked td { background: color-mix(in srgb, var(--series-2) 10%, var(--page)); }
         .squadtoggle[aria-expanded="false"] .card-title { margin-bottom: 0; }
         .squadtoggle .card-title > span:first-child { display: inline-flex; align-items: center; gap: 6px; }
         .squadtoggle:hover .card-title, .squadtoggle:focus-visible .card-title { color: var(--text-primary); }
@@ -2316,6 +2342,30 @@ function groupCard(g, squad, rows) {
     const short = shortNames(ranked.map(a => a.name));
     const ours = schoolKey(ourSchool());
 
+    // Team rankings: each school's five fastest season bests, averaged —
+    // how cross country scores a team. Fewer than five runners can't make a
+    // team score, so those schools are listed after the ranking, unranked.
+    const teams = [...perSchool.entries()].map(([school, list]) => {
+        const bests = list.map(a => a.best).sort((x, y) => x - y);
+        return { school, runners: bests.length, top5: bests.length >= 5 ? bests.slice(0, 5).reduce((s, v) => s + v, 0) / 5 : null };
+    });
+    const scored = teams.filter(t => t.top5 !== null).sort((x, y) => x.top5 - y.top5);
+    const short5 = teams.filter(t => t.top5 === null).sort((x, y) => x.school.localeCompare(y.school));
+    const rowClass = school => schoolKey(school) === ours ? 'ours' : school === groupState.pick ? 'picked' : '';
+    const rankings = `<details class="rankings" data-rankings${rankingsOpen() ? ' open' : ''}>
+        <summary><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>Team rankings<small>top-5 average of season bests</small></summary>
+        <div class="gridwrap"><table class="season group teams">
+            <thead><tr><th class="who lead"><span class="rk">#</span>School</th><th>Top-5 avg</th><th>Behind 1st</th><th>Runners</th></tr></thead>
+            <tbody>${scored.map((t, i) => `<tr data-school="${esc(t.school)}" class="${rowClass(t.school)}">
+                <td class="who lead"><span class="rk">${i + 1}</span>${esc(t.school)}</td>
+                <td class="sb">${tenths(t.top5)}</td>
+                <td>${i === 0 ? '—' : '+' + fmtGap(t.top5 - scored[0].top5)}</td>
+                <td>${t.runners}</td></tr>`).join('')}${short5.map(t => `<tr data-school="${esc(t.school)}" class="${rowClass(t.school)}">
+                <td class="who lead"><span class="rk">—</span>${esc(t.school)}</td>
+                <td class="none" colspan="2">needs 5 runners</td>
+                <td>${t.runners}</td></tr>`).join('')}</tbody></table></div>
+    </details>`;
+
     const body = ranked.map((a, i) => `<tr data-school="${esc(a.school)}" class="${schoolKey(a.school) === ours ? 'ours' : a.school === groupState.pick ? 'picked' : ''}">
         <td class="who lead" title="${esc(a.name)}"><span class="rk">${i + 1}</span><span aria-label="${esc(a.name)}">${esc(short.get(a.name))}</span><small>${a.grade ? 'Grade ' + a.grade : '&nbsp;'}</small></td>
         <td class="sb">${fmtTime(a.best)}</td>
@@ -2350,7 +2400,7 @@ function groupCard(g, squad, rows) {
                 <span>${ranked.length} runners · ${perSchool.size} school${perSchool.size === 1 ? '' : 's'}</span>
             </div>
         </button>
-        ${open ? `<div class="groupcols"><div class="gc-chart">${chart}</div><div class="gc-table">
+        ${open ? `<div class="groupcols"><div class="gc-chart">${chart}</div><div class="gc-table">${rankings}
         <p class="card-sub" style="margin-top:14px">Each school's ${g.perSchool} fastest by season best, ranked together. Average is across all of a runner's races; times are at ${esc(distLabel(groupState.dist))}.${oursName ? ' ' + esc(oursName) + ' is highlighted in orange.' : ''}<span data-picknote>${pickNote()}</span>${missing.length ? ' No results yet for ' + esc(missing.join(', ')) + '.' : ''}</p>
         <div class="gridwrap"><table class="season group"><thead><tr><th class="who lead"><span class="rk">#</span>Runner</th><th>Best</th><th>Average</th><th class="school">School</th><th>Races</th></tr></thead>
         <tbody>${body}</tbody></table></div></div></div>` : ''}
@@ -2359,6 +2409,19 @@ function groupCard(g, squad, rows) {
 
 /** The subtitle's mention of the school picked out on the chart, if any. */
 const pickNote = () => groupState.pick ? ' ' + esc(groupState.pick) + ' is picked out in blue.' : '';
+
+/** A gap between two times: "12.4s" under a minute, "1:02.4" from a minute up. */
+const fmtGap = ms => Math.abs(ms) < 60000 ? (Math.abs(ms) / 1000).toFixed(1) + 's' : tenths(Math.abs(ms));
+
+// The team rankings start closed; opening them is remembered on this device
+// for every section and both tabs. The toggle event does not bubble, so it
+// is caught on the way down.
+const RANKINGS_KEY = 'wildcatsxc_rankings_open';
+const rankingsOpen = () => load(RANKINGS_KEY) === '1';
+$('group-body').addEventListener('toggle', e => {
+    if (!e.target.matches || !e.target.matches('details[data-rankings]')) return;
+    store(RANKINGS_KEY, e.target.open ? '1' : null);
+}, true);
 
 /**
  * The school picked on the chart is picked out in the ranked tables too: its
