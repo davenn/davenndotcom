@@ -578,7 +578,7 @@ that a model read would only add cost and minutes.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** {rows:[{race, distance_m, place, name, grade, school, time}]}
-- **Source:** [`api.php:3883`](../api.php#L3883)
+- **Source:** [`api.php:3894`](../api.php#L3894)
 
 ### DELETE `?action=xc_meet`
 
@@ -587,7 +587,7 @@ results anywhere go with it.
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** &id=X — the meet and its results; runners left with no
 - **Query parameters:** `id`
-- **Source:** [`api.php:4241`](../api.php#L4241)
+- **Source:** [`api.php:4260`](../api.php#L4260)
 
 ### GET `?action=xc_meet`
 
@@ -596,7 +596,7 @@ xc_scan returns, so the app edits a saved meet with the grid it checks a scan in
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** &id=X — one meet with every result, in the same row shape
 - **Query parameters:** `id`
-- **Source:** [`api.php:4211`](../api.php#L4211)
+- **Source:** [`api.php:4230`](../api.php#L4230)
 
 ### GET `?action=xc_meets`
 
@@ -606,7 +606,7 @@ calls to check a PIN when it is first entered.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** every meet, newest first, with how many runners each
-- **Source:** [`api.php:4130`](../api.php#L4130)
+- **Source:** [`api.php:4149`](../api.php#L4149)
 
 ### POST `?action=xc_milesplit`
 
@@ -621,7 +621,7 @@ in xc_scan's shape for checking.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** {url}
-- **Source:** [`api.php:3942`](../api.php#L3942)
+- **Source:** [`api.php:3953`](../api.php#L3953)
 
 ### GET `?action=xc_results`
 
@@ -634,7 +634,7 @@ view choice that belongs in the browser.
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** &school=X — every result for one school, flat and in
 - **Query parameters:** `school`
-- **Source:** [`api.php:4178`](../api.php#L4178)
+- **Source:** [`api.php:4197`](../api.php#L4197)
 
 ### POST `?action=xc_save_meet`
 
@@ -642,10 +642,14 @@ With meet_id, the rows replace that meet's results — the edit path, where a
 renamed runner must not leave their old row behind. Without one, a meet with
 the same name and date is added to rather than duplicated, so a sheet's
 second page can be scanned later; a runner already in it is updated.
+A race under 5000 m is saved as 5K: each time becomes its xcTo5k() equivalent
+and the distance 5000, so a 3K or 2-mile meet lands on the same trend line.
+The original distance and times are not kept. Under 1000 m is refused as a
+typo (3 for 3000) rather than turned into an absurd 5K time.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** {meet_id?, name, date, location, rows:[{race, distance_m, place, name, grade, school, time}]}
-- **Source:** [`api.php:4042`](../api.php#L4042)
+- **Source:** [`api.php:4057`](../api.php#L4057)
 
 ### POST `?action=xc_scan`
 
@@ -662,7 +666,7 @@ host to kill it. Every reply carries page_count.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** (multipart: files[] — PDFs; optional schools, page)
-- **Source:** [`api.php:3772`](../api.php#L3772)
+- **Source:** [`api.php:3783`](../api.php#L3783)
 
 ### GET `?action=xc_schools`
 
@@ -670,7 +674,7 @@ counts, most results first. Feeds the team picker on the Team tab.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** every school on record with its runner and result
-- **Source:** [`api.php:4159`](../api.php#L4159)
+- **Source:** [`api.php:4178`](../api.php#L4178)
 
 ## Daily Tasks
 

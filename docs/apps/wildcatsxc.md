@@ -224,6 +224,16 @@ every meet. Athletes left with no results after a save or delete are removed
 
 The same runner twice in one save is rejected rather than collapsed.
 
+**Races under 5K are saved as 5K.** Every trend, PR and team table compares
+times at one distance, so a 3K or 2-mile race would otherwise sit on its own
+line. `xc_save_meet` converts each time in a race of 1000–4999 m with Riegel's
+formula, `T × (5000 / d)^1.06` (`xcTo5k()`), rounds to tenths, and stores the
+race as 5000 m. The original distance and times are not kept, and because the
+saved race is then 5000 m, re-saving the meet does not convert it twice. The
+review shows a note on any race that will be converted. A distance under
+1000 m is refused as a typo (3 meant as 3000) instead of being converted;
+0 means unknown and is left alone.
+
 ## Times
 
 Stored as `time_ms`. `xcParseTime()` accepts `17:23`, `17:23.4`, `17:23.45`
