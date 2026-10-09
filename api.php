@@ -3507,6 +3507,17 @@ function xcFormatTime(int $ms): string {
     return $out . '.' . ($frac % 100 === 0 ? (string)intdiv($frac, 100) : str_pad((string)intdiv($frac, 10), 2, '0', STR_PAD_LEFT));
 }
 
+/**
+ * A time over a race shorter than 5K, as its 5K equivalent, by Riegel's
+ * formula T2 = T1 × (D2 / D1)^1.06 — the usual endurance prediction, which
+ * charges for the extra distance rather than scaling linearly. Short races
+ * are stored converted so every result sits on the one 5K trend line.
+ * Rounded to tenths: an estimate should not look like a hand-timed hundredth.
+ */
+function xcTo5k(int $ms, int $distance_m): int {
+    return (int)(round($ms * pow(5000 / $distance_m, 1.06) / 100) * 100);
+}
+
 /** Drop athletes no result points at any more, after a meet is rewritten or deleted. */
 function xcPruneAthletes(PDO $pdo): void {
     $pdo->exec("DELETE a FROM xc_athletes a LEFT JOIN xc_results r ON r.athlete_id = a.id WHERE r.id IS NULL");
@@ -4039,6 +4050,10 @@ if ($method === 'POST' && $action === 'xc_milesplit') {
 // renamed runner must not leave their old row behind. Without one, a meet with
 // the same name and date is added to rather than duplicated, so a sheet's
 // second page can be scanned later; a runner already in it is updated.
+// A race under 5000 m is saved as 5K: each time becomes its xcTo5k() equivalent
+// and the distance 5000, so a 3K or 2-mile meet lands on the same trend line.
+// The original distance and times are not kept. Under 1000 m is refused as a
+// typo (3 for 3000) rather than turned into an absurd 5K time.
 if ($method === 'POST' && $action === 'xc_save_meet') {
     xcRequirePin($pdo);
     $body = json_decode(file_get_contents('php://input'), true) ?: [];
@@ -4053,7 +4068,7 @@ if ($method === 'POST' && $action === 'xc_save_meet') {
     if ($location !== null && mb_strlen($location) > 160) $location = mb_substr($location, 0, 160);
     if (count($rows) < 1 || count($rows) > 3000) { http_response_code(400); echo json_encode(['error' => 'A meet needs between 1 and 3000 results.']); exit; }
 
-    $clean = []; $seen = [];
+    $clean = []; $seen = []; $converted = 0;
     foreach ($rows as $i => $r) {
         $rn = trim((string)($r['name'] ?? ''));
         $rs = trim((string)($r['school'] ?? ''));
@@ -4066,12 +4081,16 @@ if ($method === 'POST' && $action === 'xc_save_meet') {
         if (isset($seen[$key])) { http_response_code(400); echo json_encode(['error' => $rn . ' (' . $rs . ') is listed twice.']); exit; }
         $seen[$key] = true;
         $grade = (int)($r['grade'] ?? 0);
+        $race  = mb_substr(trim((string)($r['race'] ?? '')) ?: 'Race', 0, 80);
+        $dist  = min(20000, max(0, (int)($r['distance_m'] ?? 0)));
+        if ($dist > 0 && $dist < 1000) { http_response_code(400); echo json_encode(['error' => $race . ' is ' . $dist . ' m. Enter the distance in meters, like 3000 for 3K.']); exit; }
+        if ($dist > 0 && $dist < 5000) { $ms = xcTo5k($ms, $dist); $dist = 5000; $converted++; }
         $clean[] = [
             'name'       => $rn,
             'school'     => $rs,
             'key'        => $key,
-            'race'       => mb_substr(trim((string)($r['race'] ?? '')) ?: 'Race', 0, 80),
-            'distance_m' => min(20000, max(0, (int)($r['distance_m'] ?? 0))) ?: null,
+            'race'       => $race,
+            'distance_m' => $dist ?: null,
             'place'      => min(5000, max(0, (int)($r['place'] ?? 0))) ?: null,
             'grade'      => ($grade >= 6 && $grade <= 12) ? $grade : null,
             'time_ms'    => $ms,
@@ -4119,7 +4138,7 @@ if ($method === 'POST' && $action === 'xc_save_meet') {
         $pdo->rollBack();
         http_response_code(500); echo json_encode(['error' => 'Could not save the meet.']); exit;
     }
-    echo json_encode(['success' => true, 'meet_id' => $meet_id, 'saved' => count($clean)]);
+    echo json_encode(['success' => true, 'meet_id' => $meet_id, 'saved' => count($clean), 'converted' => $converted]);
     exit;
 }
 
