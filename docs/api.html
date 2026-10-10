@@ -179,7 +179,7 @@
     <h1>API Reference</h1>
     <p class="lede">Every app on davenn.com is served by a single <code class="inline">api.php</code>. Endpoints are selected by an <code class="inline">action</code> query parameter and always return JSON.</p>
     <div class="base">https://davenn.com/api.php?action=&lt;action&gt;</div>
-    <p class="counts">73 endpoints · 27 tables</p>
+    <p class="counts">74 endpoints · 31 tables</p>
 
     <div class="filter-row">
         <input type="search" id="filter" placeholder="Filter endpoints…" aria-label="Filter endpoints">
@@ -1398,6 +1398,24 @@
             </div>
         </div>
     </section>
+    <section class="grp">
+        <h2 class="tag">Analytics</h2>
+        <div class="op post" id="post-an_hit" data-search="an_hit post analytics the page-view beacon every page sends on load: path, referrer, device class,">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=an_hit</span>
+                <span class="op-sum">The page-view beacon every page sends on load: path, referrer, device class,</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">The page-view beacon every page sends on load: path, referrer, device class, installed-as-app, theme and language. Open by necessity, and it always answers 204 so a caller cannot tell whether a hit was kept. The server adds browser and OS families and the city, which is looked up from the IP; the IP itself is never stored.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">body: { p, r, d, i, t, l }</p>
+            </div>
+        </div>
+    </section>
 
     <section class="schema">
         <h2 class="tag">Schema</h2>
@@ -1637,6 +1655,44 @@ contact_value VARCHAR(120) NOT NULL
 unsub_token   VARCHAR(64)  NOT NULL
 created_at    DATETIME     DEFAULT CURRENT_TIMESTAMP
 UNIQUE KEY uniq_contact (contact_type, contact_value)</code></pre>
+        <p class="group">Analytics</p>
+        <h3>an_hits</h3>
+        <pre><code>id        BIGINT AUTO_INCREMENT PRIMARY KEY
+ts        DATETIME     NOT NULL
+page      VARCHAR(60)  NOT NULL
+vid       CHAR(16)     NOT NULL
+referrer  VARCHAR(100) DEFAULT NULL
+device    VARCHAR(8)   DEFAULT NULL
+browser   VARCHAR(16)  DEFAULT NULL
+os        VARCHAR(16)  DEFAULT NULL
+installed TINYINT(1)   NOT NULL DEFAULT 0
+theme     VARCHAR(5)   DEFAULT NULL
+lang      VARCHAR(15)  DEFAULT NULL
+city      VARCHAR(80)  DEFAULT NULL
+region    VARCHAR(80)  DEFAULT NULL
+country   CHAR(2)      DEFAULT NULL
+lat       DECIMAL(5,2) DEFAULT NULL
+lon       DECIMAL(5,2) DEFAULT NULL
+KEY idx_ts (ts)
+KEY idx_vid (vid, ts)</code></pre>
+        <h3>an_daily</h3>
+        <pre><code>day      DATE        NOT NULL
+page     VARCHAR(60) NOT NULL
+views    INT         NOT NULL
+visitors INT         NOT NULL
+PRIMARY KEY (day, page)</code></pre>
+        <h3>an_salt</h3>
+        <pre><code>day  DATE     NOT NULL PRIMARY KEY
+salt CHAR(64) NOT NULL</code></pre>
+        <h3>an_api</h3>
+        <pre><code>day      DATE        NOT NULL
+method   VARCHAR(7)  NOT NULL
+action   VARCHAR(40) NOT NULL
+calls    INT         NOT NULL DEFAULT 0
+errors   INT         NOT NULL DEFAULT 0
+total_ms BIGINT      NOT NULL DEFAULT 0
+max_ms   INT         NOT NULL DEFAULT 0
+PRIMARY KEY (day, method, action)</code></pre>
         <p class="group">Other</p>
         <h3>subscribe_attempts</h3>
         <pre><code>id            INT AUTO_INCREMENT PRIMARY KEY
@@ -1649,7 +1705,7 @@ KEY idx_contact (contact_value, created_at)</code></pre>
     </section>
 
     <section class="todo">
-        <p class="note">9 operator endpoints are not listed here.</p>
+        <p class="note">10 operator endpoints are not listed here.</p>
     </section>
 
     <footer>
@@ -1714,6 +1770,29 @@ KEY idx_contact (contact_value, created_at)</code></pre>
         });
         noMatch.hidden = shown !== 0;
     });
+})();
+</script>
+
+<script>
+// Anonymous page-view count (see /privacy.html): no cookies, nothing stored on
+// this device. Skipped for Do Not Track, Global Privacy Control, automated
+// browsers, and any device opted out from the stats page.
+(function () {
+    try {
+        var n = navigator, de = document.documentElement;
+        if (!n.sendBeacon || n.webdriver || n.globalPrivacyControl || n.doNotTrack === '1') return;
+        try { if (localStorage.getItem('an_optout') === '1') return; } catch (e) {}
+        var mq = function (q) { return !!(window.matchMedia && matchMedia(q).matches); };
+        var s = Math.min(screen.width, screen.height), t = de.getAttribute('data-theme');
+        n.sendBeacon('/api.php?action=an_hit', JSON.stringify({
+            p: location.pathname,
+            r: document.referrer,
+            d: mq('(pointer: coarse)') ? (s < 600 ? 'mobile' : 'tablet') : 'desktop',
+            i: mq('(display-mode: standalone)') || n.standalone === true,
+            t: t === 'light' || t === 'dark' ? t : (mq('(prefers-color-scheme: dark)') ? 'dark' : 'light'),
+            l: n.language
+        }));
+    } catch (e) {}
 })();
 </script>
 

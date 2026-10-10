@@ -309,6 +309,63 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS xc_pin_attempts (
     KEY idx_ip (ip, created_at)
 )");
 
+// Analytics: one row per page view, sent by the beacon at the bottom of every
+// page. No IP and no cookie — vid is a hash of IP + user agent + a salt that is
+// replaced every UTC day, so it counts unique visitors within a day and cannot
+// follow anyone across days. ts is UTC, truncated to the hour. Rows older than
+// 90 days are rolled up into an_daily and deleted.
+$pdo->exec("CREATE TABLE IF NOT EXISTS an_hits (
+    id        BIGINT AUTO_INCREMENT PRIMARY KEY,
+    ts        DATETIME     NOT NULL,
+    page      VARCHAR(60)  NOT NULL,
+    vid       CHAR(16)     NOT NULL,
+    referrer  VARCHAR(100) DEFAULT NULL,
+    device    VARCHAR(8)   DEFAULT NULL,
+    browser   VARCHAR(16)  DEFAULT NULL,
+    os        VARCHAR(16)  DEFAULT NULL,
+    installed TINYINT(1)   NOT NULL DEFAULT 0,
+    theme     VARCHAR(5)   DEFAULT NULL,
+    lang      VARCHAR(15)  DEFAULT NULL,
+    city      VARCHAR(80)  DEFAULT NULL,
+    region    VARCHAR(80)  DEFAULT NULL,
+    country   CHAR(2)      DEFAULT NULL,
+    lat       DECIMAL(5,2) DEFAULT NULL,
+    lon       DECIMAL(5,2) DEFAULT NULL,
+    KEY idx_ts (ts),
+    KEY idx_vid (vid, ts)
+)");
+
+// Per-page daily totals for days that have aged out of an_hits. page '*' is the
+// whole site, since unique visitors do not add up across pages.
+$pdo->exec("CREATE TABLE IF NOT EXISTS an_daily (
+    day      DATE        NOT NULL,
+    page     VARCHAR(60) NOT NULL,
+    views    INT         NOT NULL,
+    visitors INT         NOT NULL,
+    PRIMARY KEY (day, page)
+)");
+
+// Today's visitor-hash salt. Only one row is ever kept: once a day's salt is
+// gone, that day's vids cannot be recomputed from an IP.
+$pdo->exec("CREATE TABLE IF NOT EXISTS an_salt (
+    day  DATE     NOT NULL PRIMARY KEY,
+    salt CHAR(64) NOT NULL
+)");
+
+// One row per endpoint per UTC day: how often it is called, how often it fails
+// (status 400+ or a fatal error), and how long it takes. Written by the
+// shutdown hook below the dispatch, so no branch has to remember to log.
+$pdo->exec("CREATE TABLE IF NOT EXISTS an_api (
+    day      DATE        NOT NULL,
+    method   VARCHAR(7)  NOT NULL,
+    action   VARCHAR(40) NOT NULL,
+    calls    INT         NOT NULL DEFAULT 0,
+    errors   INT         NOT NULL DEFAULT 0,
+    total_ms BIGINT      NOT NULL DEFAULT 0,
+    max_ms   INT         NOT NULL DEFAULT 0,
+    PRIMARY KEY (day, method, action)
+)");
+
 // ── HELPERS ────────────────────────────────────────────────────────────────
 function authUser(PDO $pdo): ?array {
     $token = $_SERVER['HTTP_X_AUTH_TOKEN'] ?? '';
@@ -442,6 +499,29 @@ function requestUpdateEmail(array $requester, array $owner, array $tool, string 
 
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
+
+// Count every request into an_api once it has finished, however it finished:
+// every branch ends in exit, which still runs shutdown functions, and so does
+// an uncaught exception — which is exactly the failure worth seeing. Unknown
+// actions are pooled under one name so junk URLs cannot grow the table. The
+// beacon and the dashboard are left out; an_hits already counts the beacon.
+$an_unknown = false;
+register_shutdown_function(function () use ($pdo, $method, $action) {
+    global $an_unknown;
+    if ($action === 'an_hit' || $action === 'an_stats') return;
+    try {
+        $err    = error_get_last();
+        $fatal  = $err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true);
+        $status = $fatal ? 500 : (int)http_response_code();
+        $ms     = (int)round((microtime(true) - $_SERVER['REQUEST_TIME_FLOAT']) * 1000);
+        $name   = ($an_unknown || !preg_match('/^[A-Za-z0-9_]{1,40}$/', $action)) ? '(unknown)' : $action;
+        $pdo->prepare("INSERT INTO an_api (day, method, action, calls, errors, total_ms, max_ms)
+                       VALUES (?, ?, ?, 1, ?, ?, ?)
+                       ON DUPLICATE KEY UPDATE calls = calls + 1, errors = errors + VALUES(errors),
+                           total_ms = total_ms + VALUES(total_ms), max_ms = GREATEST(max_ms, VALUES(max_ms))")
+            ->execute([gmdate('Y-m-d'), substr($method, 0, 7), $name, $status >= 400 ? 1 : 0, $ms, $ms]);
+    } catch (Throwable $e) {}
+});
 
 // ══════════════════════════════════════════════════════════════
 // MEETING TIMER
@@ -4267,6 +4347,349 @@ if ($method === 'DELETE' && $action === 'xc_meet') {
     exit;
 }
 
+// ══════════════════════════════════════════════════════════════
+// ANALYTICS
+// ══════════════════════════════════════════════════════════════
+
+// The page a beacon names, as a file stem ('cribbage', 'docs/index'), or null
+// if there is no such page. Checking the file keeps junk paths out of the
+// table, and stats.html is never counted.
+function anPage(string $path): ?string {
+    $p = strtolower(trim($path, '/'));
+    if ($p === '' || str_ends_with($path, '/')) $p = ltrim($p . '/index', '/');
+    $p = preg_replace('/\.html$/', '', $p);
+    if (!preg_match('/^[a-z0-9-]+(\/[a-z0-9-]+)?$/', $p) || $p === 'stats') return null;
+    return is_file(__DIR__ . "/$p.html") ? $p : null;
+}
+
+// Referrer reduced to its host. A full URL can carry a search query or a
+// token, so only the domain is kept. Navigation within the site is 'internal'.
+function anReferrer(string $ref): ?string {
+    $host = strtolower((string)parse_url($ref, PHP_URL_HOST));
+    if ($host === '') return null;
+    $host = preg_replace('/^www\./', '', $host);
+    $self = preg_replace('/^www\./', '', strtolower(explode(':', (string)($_SERVER['HTTP_HOST'] ?? ''))[0]));
+    return $host === $self ? 'internal' : substr($host, 0, 100);
+}
+
+function anIsBot(string $ua): bool {
+    return (bool)preg_match('/bot|crawl|spider|slurp|facebookexternalhit|preview|headless|lighthouse|pingdom|monitor|curl|wget|python|java\/|httpclient|okhttp|scrapy|phantom|selenium|puppeteer|playwright/i', $ua);
+}
+
+// Family names only. The full user agent string is close to a fingerprint.
+function anBrowser(string $ua): string {
+    if (preg_match('/FBAN|FBAV|Instagram|Line\//', $ua)) return 'In-app';
+    if (str_contains($ua, 'Edg/'))           return 'Edge';
+    if (preg_match('/OPR\/|Opera/', $ua))   return 'Opera';
+    if (str_contains($ua, 'SamsungBrowser')) return 'Samsung';
+    if (preg_match('/Firefox\/|FxiOS/', $ua)) return 'Firefox';
+    if (preg_match('/Chrome\/|CriOS/', $ua)) return 'Chrome';
+    if (str_contains($ua, 'Safari/'))        return 'Safari';
+    return 'Other';
+}
+
+function anOs(string $ua): string {
+    if (preg_match('/iPhone|iPad|iPod/', $ua)) return 'iOS';
+    if (str_contains($ua, 'Android'))  return 'Android';
+    if (str_contains($ua, 'Windows'))  return 'Windows';
+    if (str_contains($ua, 'CrOS'))     return 'ChromeOS';
+    if (str_contains($ua, 'Mac OS X')) return 'macOS';
+    if (str_contains($ua, 'Linux'))    return 'Linux';
+    return 'Other';
+}
+
+// Today's salt, created on the first hit of the UTC day. Creating it deletes
+// yesterday's, which is what makes yesterday's visitor hashes irreversible.
+function anSalt(PDO $pdo): string {
+    $day = gmdate('Y-m-d');
+    $st  = $pdo->prepare("SELECT salt FROM an_salt WHERE day = ?");
+    $st->execute([$day]);
+    $salt = $st->fetchColumn();
+    if ($salt) return $salt;
+    $pdo->prepare("INSERT IGNORE INTO an_salt (day, salt) VALUES (?, ?)")->execute([$day, bin2hex(random_bytes(32))]);
+    $pdo->prepare("DELETE FROM an_salt WHERE day <> ?")->execute([$day]);
+    $st->execute([$day]);
+    return (string)$st->fetchColumn();
+}
+
+// Fold page views older than 90 days into an_daily, then delete them. Whole
+// UTC days only, so a day is never half rolled up.
+function anRollup(PDO $pdo): void {
+    $cut = gmdate('Y-m-d', time() - 90 * 86400);
+    $pdo->prepare("INSERT IGNORE INTO an_daily (day, page, views, visitors)
+                   SELECT DATE(ts), page, COUNT(*), COUNT(DISTINCT vid) FROM an_hits
+                   WHERE ts < ? GROUP BY DATE(ts), page")->execute([$cut]);
+    $pdo->prepare("INSERT IGNORE INTO an_daily (day, page, views, visitors)
+                   SELECT DATE(ts), '*', COUNT(*), COUNT(DISTINCT vid) FROM an_hits
+                   WHERE ts < ? GROUP BY DATE(ts)")->execute([$cut]);
+    $pdo->prepare("DELETE FROM an_hits WHERE ts < ?")->execute([$cut]);
+}
+
+// Path to the GeoLite2 City database. It is not in the repo — MaxMind's licence
+// forbids redistributing it, and the repo is public — so it is uploaded by hand.
+// The default is one level above the web root, where it cannot be downloaded.
+function anGeoDbPath(): string {
+    return $_ENV['GEOIP_DB'] ?? dirname(__DIR__) . '/GeoLite2-City.mmdb';
+}
+
+// IP → { city, region, country, lat, lon }, or null. A minimal reader for
+// MaxMind's .mmdb format, written out here rather than pulled in as a library
+// because the site has no package manager. It seeks through the file instead
+// of loading it: the City database is ~60 MB and one lookup touches a few KB.
+// Spec: https://maxmind.github.io/MaxMind-DB/
+function anGeoLookup(string $ip): ?array {
+    $packed = @inet_pton($ip);
+    $path   = anGeoDbPath();
+    if ($packed === false || !is_file($path)) return null;
+    $fh = @fopen($path, 'rb');
+    if (!$fh) return null;
+    try {
+        // Metadata sits after a marker near the end of the file.
+        $size = fstat($fh)['size'];
+        $tail = min($size, 128 * 1024);
+        fseek($fh, $size - $tail);
+        $buf  = fread($fh, $tail);
+        $at   = strrpos($buf, "\xAB\xCD\xEFMaxMind.com");
+        if ($at === false) return null;
+        $metaStart = $size - $tail + $at + 14;
+        [$meta] = anMmdbDecode($fh, $metaStart, $metaStart);
+        $nodes = (int)$meta['node_count'];
+        $rec   = (int)$meta['record_size'];
+        if (!in_array($rec, [24, 28, 32], true)) return null;
+        $dataStart = $nodes * ($rec / 4) + 16;
+
+        // An IPv4 address in an IPv6 tree lives under ::/96.
+        $bits = strlen($packed) * 8;
+        $node = 0;
+        if ($bits === 32 && (int)$meta['ip_version'] === 6) {
+            for ($i = 0; $i < 96 && $node < $nodes; $i++) $node = anMmdbRecord($fh, $node, 0, $rec);
+        }
+        for ($i = 0; $i < $bits && $node < $nodes; $i++) {
+            $bit  = (ord($packed[$i >> 3]) >> (7 - ($i & 7))) & 1;
+            $node = anMmdbRecord($fh, $node, $bit, $rec);
+        }
+        if ($node <= $nodes) return null; // == node_count means "no data"
+        [$r] = anMmdbDecode($fh, $dataStart + ($node - $nodes - 16), $dataStart);
+        if (!is_array($r)) return null;
+
+        $lat = $r['location']['latitude']  ?? null;
+        $lon = $r['location']['longitude'] ?? null;
+        return [
+            'city'    => $r['city']['names']['en'] ?? null,
+            'region'  => $r['subdivisions'][0]['names']['en'] ?? null,
+            'country' => $r['country']['iso_code'] ?? ($r['registered_country']['iso_code'] ?? null),
+            'lat'     => $lat === null ? null : round((float)$lat, 2),
+            'lon'     => $lon === null ? null : round((float)$lon, 2),
+        ];
+    } catch (Throwable $e) {
+        return null;
+    } finally {
+        fclose($fh);
+    }
+}
+
+// One record (left = 0, right = 1) of a search-tree node.
+function anMmdbRecord($fh, int $node, int $bit, int $rec): int {
+    fseek($fh, $node * ($rec / 4));
+    $b = fread($fh, $rec / 4);
+    if ($rec === 24) {
+        $o = $bit * 3;
+        return (ord($b[$o]) << 16) | (ord($b[$o + 1]) << 8) | ord($b[$o + 2]);
+    }
+    if ($rec === 32) return unpack('N', substr($b, $bit * 4, 4))[1];
+    // 28-bit: the middle byte's two nibbles extend the left and right records.
+    if ($bit === 0) return ((ord($b[3]) & 0xF0) << 20) | (ord($b[0]) << 16) | (ord($b[1]) << 8) | ord($b[2]);
+    return ((ord($b[3]) & 0x0F) << 24) | (ord($b[4]) << 16) | (ord($b[5]) << 8) | ord($b[6]);
+}
+
+// Decode the value at $off; returns [value, offset after it]. Pointers are
+// relative to $base: the data section, or the metadata for the metadata map.
+function anMmdbDecode($fh, int $off, int $base): array {
+    fseek($fh, $off);
+    $ctrl = ord(fread($fh, 1)); $off++;
+    $type = $ctrl >> 5;
+    if ($type === 1) { // pointer
+        $ss = ($ctrl >> 3) & 3;
+        $v  = 0;
+        foreach (str_split(fread($fh, $ss + 1)) as $c) $v = ($v << 8) | ord($c);
+        $p  = match ($ss) {
+            0 => (($ctrl & 7) << 8) | $v,
+            1 => ((($ctrl & 7) << 16) | $v) + 2048,
+            2 => ((($ctrl & 7) << 24) | $v) + 526336,
+            3 => $v,
+        };
+        [$val] = anMmdbDecode($fh, $base + $p, $base);
+        return [$val, $off + $ss + 1];
+    }
+    if ($type === 0) { $type = 7 + ord(fread($fh, 1)); $off++; }
+    $len = $ctrl & 0x1F;
+    if ($len >= 29) {
+        $n = $len - 28;
+        $v = 0;
+        foreach (str_split(fread($fh, $n)) as $c) $v = ($v << 8) | ord($c);
+        $off += $n;
+        $len  = [29 => 29, 30 => 285, 31 => 65821][$len] + $v;
+    }
+    switch ($type) {
+        case 2:  // utf-8 string
+        case 4:  // bytes
+            return [$len ? fread($fh, $len) : '', $off + $len];
+        case 3:  // double
+            return [unpack('E', fread($fh, 8))[1], $off + 8];
+        case 15: // float
+            return [unpack('G', fread($fh, 4))[1], $off + 4];
+        case 5: case 6: case 9: case 10: // unsigned; 64/128-bit may overflow, and nothing read here uses them
+        case 8:  // int32
+            $v = 0;
+            if ($len) foreach (str_split(fread($fh, $len)) as $c) $v = ($v << 8) | ord($c);
+            if ($type === 8 && $len === 4 && $v >= 0x80000000) $v -= 0x100000000;
+            return [$v, $off + $len];
+        case 14: // boolean — the value is the size field
+            return [$len !== 0, $off];
+        case 7:  // map
+            $m = [];
+            for ($i = 0; $i < $len; $i++) {
+                [$k, $off] = anMmdbDecode($fh, $off, $base);
+                [$v, $off] = anMmdbDecode($fh, $off, $base);
+                $m[$k] = $v;
+            }
+            return [$m, $off];
+        case 11: // array
+            $a = [];
+            for ($i = 0; $i < $len; $i++) [$a[], $off] = anMmdbDecode($fh, $off, $base);
+            return [$a, $off];
+    }
+    throw new RuntimeException("mmdb: unsupported type $type");
+}
+
+// POST ?action=an_hit  body: { p, r, d, i, t, l }
+// The page-view beacon every page sends on load: path, referrer, device class,
+// installed-as-app, theme and language. Open by necessity, and it always
+// answers 204 so a caller cannot tell whether a hit was kept. The server adds
+// browser and OS families and the city, which is looked up from the IP; the IP
+// itself is never stored.
+if ($method === 'POST' && $action === 'an_hit') {
+    // Kept only from a browser user agent, for a page that exists, and under
+    // 120 views an hour from one visitor and 5,000 from everyone — enough for
+    // real use, and a ceiling on how fast a script can grow the table.
+    http_response_code(204);
+    $b  = json_decode((string)file_get_contents('php://input', false, null, 0, 2048), true);
+    $ua = substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 512);
+    if (!is_array($b) || $ua === '' || anIsBot($ua)) exit;
+    $page = anPage((string)($b['p'] ?? ''));
+    if ($page === null) exit;
+
+    $ip   = (string)($_SERVER['REMOTE_ADDR'] ?? '');
+    $vid  = substr(hash('sha256', anSalt($pdo) . "|$ip|$ua"), 0, 16);
+    $hour = gmdate('Y-m-d H:00:00');
+    $st = $pdo->prepare("SELECT COUNT(*) FROM an_hits WHERE vid = ? AND ts = ?");
+    $st->execute([$vid, $hour]);
+    if ((int)$st->fetchColumn() >= 120) exit;
+    $st = $pdo->prepare("SELECT COUNT(*) FROM an_hits WHERE ts = ?");
+    $st->execute([$hour]);
+    if ((int)$st->fetchColumn() >= 5000) exit;
+
+    $device = in_array($b['d'] ?? '', ['mobile', 'tablet', 'desktop'], true) ? $b['d'] : null;
+    $os     = anOs($ua);
+    // iPadOS asks for desktop sites with a Mac user agent; a touch-first "Mac" is an iPad.
+    if ($os === 'macOS' && ($device === 'mobile' || $device === 'tablet')) $os = 'iOS';
+    $theme  = in_array($b['t'] ?? '', ['light', 'dark'], true) ? $b['t'] : null;
+    $lang   = is_string($b['l'] ?? null) && preg_match('/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8}){0,2}$/', $b['l']) ? substr($b['l'], 0, 15) : null;
+    $geo    = anGeoLookup($ip) ?? [];
+
+    $pdo->prepare("INSERT INTO an_hits (ts, page, vid, referrer, device, browser, os, installed, theme, lang,
+                                        city, region, country, lat, lon)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+        ->execute([$hour, $page, $vid, anReferrer((string)($b['r'] ?? '')), $device, anBrowser($ua), $os,
+                   empty($b['i']) ? 0 : 1, $theme, $lang,
+                   isset($geo['city'])   ? mb_substr($geo['city'], 0, 80)   : null,
+                   isset($geo['region']) ? mb_substr($geo['region'], 0, 80) : null,
+                   $geo['country'] ?? null, $geo['lat'] ?? null, $geo['lon'] ?? null]);
+
+    if (mt_rand(1, 200) === 1) anRollup($pdo);
+    exit;
+}
+
+// GET ?action=an_stats&days=30&tz=-300  header: X-Admin-Secret
+// Everything stats.html shows, for the last `days` days (1–90, today included)
+// in the caller's timezone, given as minutes east of UTC. "Visitors" counts
+// each visitor once per day, because the hash that identifies them changes
+// daily — so over a range it is visitor-days, not people. `history` is the
+// whole-site daily series for all time, in UTC days, including days already
+// rolled up out of an_hits.
+if ($method === 'GET' && $action === 'an_stats') {
+    $admin_secret = $_ENV['ADMIN_SECRET'] ?? '';
+    if (!$admin_secret || !hash_equals($admin_secret, $_SERVER['HTTP_X_ADMIN_SECRET'] ?? '')) {
+        http_response_code(401); echo json_encode(['error' => 'Unauthorized']); exit;
+    }
+    $days = max(1, min(90, intval($_GET['days'] ?? 30)));
+    $tz   = max(-840, min(840, intval($_GET['tz'] ?? 0)));
+    $firstDay = gmdate('Y-m-d', time() + $tz * 60 - ($days - 1) * 86400);
+    $from     = gmdate('Y-m-d H:i:s', strtotime("$firstDay 00:00:00 UTC") - $tz * 60);
+    $local    = "DATE(ts + INTERVAL $tz MINUTE)";
+    $visitors = "COUNT(DISTINCT vid, $local)";
+
+    $q = function (string $sql) use ($pdo, $from) {
+        $st = $pdo->prepare($sql);
+        $st->execute([$from]);
+        return $st->fetchAll();
+    };
+    $ints = fn(array $rows) => array_map(fn($r) => array_map(
+        fn($v) => is_string($v) && preg_match('/^-?\d+$/', $v) ? (int)$v : $v, $r), $rows);
+    $top = fn(string $col, int $limit) => $ints($q(
+        "SELECT $col AS name, COUNT(*) AS views, $visitors AS visitors FROM an_hits
+         WHERE ts >= ? GROUP BY $col ORDER BY views DESC LIMIT $limit"));
+
+    $totals = $q("SELECT COUNT(*) AS views, $visitors AS visitors FROM an_hits WHERE ts >= ?")[0];
+    $cities = $q("SELECT city, region, country, lat, lon, COUNT(*) AS views, $visitors AS visitors FROM an_hits
+                  WHERE ts >= ? AND country IS NOT NULL
+                  GROUP BY city, region, country, lat, lon ORDER BY views DESC LIMIT 300");
+    $st = $pdo->prepare("SELECT method, action, SUM(calls) AS calls, SUM(errors) AS errors,
+                                ROUND(SUM(total_ms) / SUM(calls)) AS avg_ms, MAX(max_ms) AS max_ms
+                         FROM an_api WHERE day >= ? GROUP BY method, action ORDER BY calls DESC");
+    $st->execute([substr($from, 0, 10)]);
+    $api = $st->fetchAll();
+    $history = $pdo->query("SELECT day, views, visitors FROM an_daily WHERE page = '*'
+                            UNION ALL
+                            SELECT DATE(ts), COUNT(*), COUNT(DISTINCT vid) FROM an_hits GROUP BY DATE(ts)
+                            ORDER BY day")->fetchAll();
+    $geo = anGeoDbPath();
+
+    echo json_encode([
+        'success'   => true,
+        'days'      => $days,
+        'from'      => $firstDay,
+        'geoip'     => is_file($geo) ? gmdate('Y-m-d', filemtime($geo)) : null,
+        'totals'    => ['views' => (int)$totals['views'], 'visitors' => (int)$totals['visitors']],
+        'daily'     => $ints($q("SELECT $local AS day, COUNT(*) AS views, COUNT(DISTINCT vid) AS visitors
+                                 FROM an_hits WHERE ts >= ? GROUP BY day ORDER BY day")),
+        'hours'     => $ints($q("SELECT HOUR(ts + INTERVAL $tz MINUTE) AS hour, COUNT(*) AS views
+                                 FROM an_hits WHERE ts >= ? GROUP BY hour ORDER BY hour")),
+        'pages'     => $top('page', 100),
+        'referrers' => $top('referrer', 25),
+        'devices'   => $top('device', 5),
+        'browsers'  => $top('browser', 10),
+        'os'        => $top('os', 10),
+        'installed' => $top('installed', 2),
+        'themes'    => $top('theme', 3),
+        'langs'     => $top('lang', 15),
+        'countries' => $top('country', 50),
+        'cities'    => array_map(fn($r) => [
+            'city'     => $r['city'],
+            'region'   => $r['region'],
+            'country'  => $r['country'],
+            'lat'      => $r['lat'] === null ? null : (float)$r['lat'],
+            'lon'      => $r['lon'] === null ? null : (float)$r['lon'],
+            'views'    => (int)$r['views'],
+            'visitors' => (int)$r['visitors'],
+        ], $cities),
+        'api'       => $ints($api),
+        'history'   => $ints($history),
+    ]);
+    exit;
+}
+
 // =============================================================
+$an_unknown = true;
 http_response_code(404);
 echo json_encode(['error' => 'Unknown action.']);

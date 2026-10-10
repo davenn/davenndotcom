@@ -2,3 +2,5 @@
 uploads/
 generate-icons.js
 .vscode/settings.json
+# MaxMind GeoLite2 — licensed, never committed to this public repo
+*.mmdb

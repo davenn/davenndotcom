@@ -232,6 +232,12 @@
 
     <p>Its caching rule is split by kind. Pages are fetched from the network first and fall back to the cached copy only when offline, so an installed app is never stuck on a stale version of itself. Fonts, icons and other static files are served from cache first, since they change rarely and loading them twice helps nobody. Calls to the API are never intercepted at all — cached data that looks live is worse than no data.</p>
 
+    <h2>Counting visits</h2>
+
+    <p>Which apps actually get used is measured in-house rather than by an analytics service. Each page sends one small, anonymous page-view count back to the same API when it loads, and the API adds a coarse location by looking the visitor's address up in a geolocation database kept on the server itself. The address is used for that lookup and then dropped. Nothing about a visit leaves the site.</p>
+
+    <p>Unique visitors are counted without cookies: a one-way code is derived from each request using a random value that is thrown away every day, so a visitor can be counted once per day but never followed from one day to the next. The same API also keeps a running tally of every request it serves, per operation, with failure counts and timings, which is how a slow or failing endpoint shows up before anyone reports it.</p>
+
     <h2>Shipping a change</h2>
 
     <p>Pushing to the main branch is the deploy. Continuous integration checks the PHP for syntax errors, refuses to publish if anything fails to parse, and then uploads only the files that actually changed.</p>
@@ -289,6 +295,29 @@
         icon.textContent = t === 'dark' ? '🌙' : '☀️';
         try { localStorage.setItem('docs_theme', t); } catch (e) {}
     });
+})();
+</script>
+
+<script>
+// Anonymous page-view count (see /privacy.html): no cookies, nothing stored on
+// this device. Skipped for Do Not Track, Global Privacy Control, automated
+// browsers, and any device opted out from the stats page.
+(function () {
+    try {
+        var n = navigator, de = document.documentElement;
+        if (!n.sendBeacon || n.webdriver || n.globalPrivacyControl || n.doNotTrack === '1') return;
+        try { if (localStorage.getItem('an_optout') === '1') return; } catch (e) {}
+        var mq = function (q) { return !!(window.matchMedia && matchMedia(q).matches); };
+        var s = Math.min(screen.width, screen.height), t = de.getAttribute('data-theme');
+        n.sendBeacon('/api.php?action=an_hit', JSON.stringify({
+            p: location.pathname,
+            r: document.referrer,
+            d: mq('(pointer: coarse)') ? (s < 600 ? 'mobile' : 'tablet') : 'desktop',
+            i: mq('(display-mode: standalone)') || n.standalone === true,
+            t: t === 'light' || t === 'dark' ? t : (mq('(prefers-color-scheme: dark)') ? 'dark' : 'light'),
+            l: n.language
+        }));
+    } catch (e) {}
 })();
 </script>
 

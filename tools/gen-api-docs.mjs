@@ -53,6 +53,7 @@ const PREFIX_GROUPS = [
   ['cp_', 'Confidence Pool'],
   ['fb_', 'Face Breaker'],
   ['xc_', 'WildcatsXC'],
+  ['an_', 'Analytics'],
 ];
 
 const EXPLICIT_GROUPS = {
@@ -78,14 +79,14 @@ const EXPLICIT_GROUPS = {
 const GROUP_ORDER = [
   'Meeting Cost Timer', 'Track Timer', 'Toolshare', 'Flight Tracker',
   'Glucose', 'Confidence Pool', 'WildcatsXC', 'Daily Tasks', 'Face Breaker',
-  'Reaction Test', 'Update Notifications',
+  'Reaction Test', 'Update Notifications', 'Analytics',
 ];
 
 // Table prefixes, for the schema section.
 const TABLE_GROUPS = [
   ['tb_', 'Toolshare'], ['ft_', 'Flight Tracker'], ['bg_', 'Glucose'],
   ['dt_', 'Daily Tasks'], ['cp_', 'Confidence Pool'], ['fb_', 'Face Breaker'],
-  ['xc_', 'WildcatsXC'],
+  ['xc_', 'WildcatsXC'], ['an_', 'Analytics'],
 ];
 
 const EXPLICIT_TABLES = {
@@ -663,6 +664,29 @@ function renderHtml() {
         });
         noMatch.hidden = shown !== 0;
     });
+})();
+</script>
+
+<script>
+// Anonymous page-view count (see /privacy.html): no cookies, nothing stored on
+// this device. Skipped for Do Not Track, Global Privacy Control, automated
+// browsers, and any device opted out from the stats page.
+(function () {
+    try {
+        var n = navigator, de = document.documentElement;
+        if (!n.sendBeacon || n.webdriver || n.globalPrivacyControl || n.doNotTrack === '1') return;
+        try { if (localStorage.getItem('an_optout') === '1') return; } catch (e) {}
+        var mq = function (q) { return !!(window.matchMedia && matchMedia(q).matches); };
+        var s = Math.min(screen.width, screen.height), t = de.getAttribute('data-theme');
+        n.sendBeacon('/api.php?action=an_hit', JSON.stringify({
+            p: location.pathname,
+            r: document.referrer,
+            d: mq('(pointer: coarse)') ? (s < 600 ? 'mobile' : 'tablet') : 'desktop',
+            i: mq('(display-mode: standalone)') || n.standalone === true,
+            t: t === 'light' || t === 'dark' ? t : (mq('(prefers-color-scheme: dark)') ? 'dark' : 'light'),
+            l: n.language
+        }));
+    } catch (e) {}
 })();
 </script>
 
