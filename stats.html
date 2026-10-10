@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Stats — davenn.com</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#111110">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+    // Stamp the theme before first paint so there is no flash of the wrong one.
+    (function () {
+        var t;
+        try { t = localStorage.getItem('stats_theme'); } catch (e) {}
+        if (t !== 'light' && t !== 'dark') {
+            t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', t);
+    })();
+</script>
+<style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root, [data-theme="light"] {
+        color-scheme: light;
+        --page: #fafafa; --surface: #ffffff; --surface-2: #f4f4f1; --border: #e4e4e0;
+        --text-primary: #1d1f24; --text-secondary: #52514e; --text-muted: #8a8f98;
+        --grid: #ecece8; --land: #e9e8e3; --land-edge: #d6d4cc;
+        --series: #2a78d6; --series-soft: rgba(42,120,214,0.14);
+    }
+    [data-theme="dark"] {
+        color-scheme: dark;
+        --page: #0a0a0a; --surface: #131313; --surface-2: #1a1a1a; --border: #2a2a2a;
+        --text-primary: #ecebe8; --text-secondary: #c3c2b7; --text-muted: #8a8f98;
+        --grid: #222; --land: #1f1f1e; --land-edge: #333331;
+        --series: #3987e5; --series-soft: rgba(57,135,229,0.2);
+    }
+    :root {
+        /* Status hues are fixed, never themed, and always paired with a word. */
+        --bad: #d93025; --warn: #c98500;
+        --nav-bg: #111110; --nav-border: rgba(255,255,255,0.08);
+        --font-ui: system-ui, -apple-system, 'Segoe UI', sans-serif;
+        --font-mono: 'DM Mono', ui-monospace, monospace;
+        --nav-h: 52px;
+    }
+
+    body {
+        font-family: var(--font-ui); background: var(--page); color: var(--text-primary);
+        -webkit-font-smoothing: antialiased;
+        padding-top: calc(var(--nav-h) + env(safe-area-inset-top));
+    }
+
+    nav {
+        position: fixed; top: 0; left: 0; right: 0;
+        height: calc(var(--nav-h) + env(safe-area-inset-top));
+        padding: env(safe-area-inset-top) 1.25rem 0;
+        background: var(--nav-bg); border-bottom: 1px solid var(--nav-border);
+        display: flex; align-items: center; justify-content: space-between; z-index: 200;
+    }
+    .nav-logo { font-family: var(--font-mono); font-size: 13px; color: rgba(255,255,255,0.4); text-decoration: none; }
+    .nav-logo strong { color: #fff; }
+    .nav-right { display: flex; align-items: center; gap: 1.2rem; }
+    .nav-back { font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.45); text-decoration: none; letter-spacing: 0.05em; text-transform: uppercase; }
+    .nav-back:hover { color: #fff; }
+    .theme-toggle { width: 44px; height: 24px; cursor: pointer; background: none; border: none; padding: 0; flex: none; }
+    .theme-toggle-track { width: 44px; height: 24px; border-radius: 12px; background: #333; border: 1px solid #555; display: flex; align-items: center; padding: 0 3px; }
+    [data-theme="light"] .theme-toggle-track { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); }
+    .theme-toggle-thumb { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; transition: transform 0.2s; }
+    [data-theme="light"] .theme-toggle-thumb { transform: translateX(20px); background: #fff; }
+    [data-theme="dark"]  .theme-toggle-thumb { transform: translateX(0);    background: #666; }
+
+    main { max-width: 1080px; margin: 0 auto; padding: 28px 16px 80px; }
+    h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; }
+    .sub { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+    /* ── Controls ── */
+    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 20px 0 18px; }
+    .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--surface); }
+    .seg button {
+        font: 500 12px var(--font-mono); padding: 7px 12px; border: none; background: none;
+        color: var(--text-secondary); cursor: pointer; border-right: 1px solid var(--border);
+    }
+    .seg button:last-child { border-right: none; }
+    .seg button[aria-pressed="true"] { background: var(--text-primary); color: var(--surface); }
+    .btn {
+        font: 500 12px var(--font-mono); padding: 7px 12px; border: 1px solid var(--border); border-radius: 6px;
+        background: var(--surface); color: var(--text-secondary); cursor: pointer;
+    }
+    .btn:hover { color: var(--text-primary); border-color: var(--text-muted); }
+    .spacer { flex: 1; }
+    label.check { font: 12px var(--font-mono); color: var(--text-secondary); display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+
+    .notice { font-size: 13px; line-height: 1.55; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); margin-bottom: 16px; }
+    .notice strong { color: var(--text-primary); }
+
+    /* ── Tiles ── */
+    .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 12px; }
+    .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; min-width: 0; }
+    .tile-label { font: 11px var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+    .tile-value { font-size: 1.8rem; font-weight: 650; letter-spacing: -0.02em; margin-top: 6px; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tile-note { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+    /* ── Cards ── */
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; min-width: 0; }
+    .card.wide { grid-column: 1 / -1; }
+    .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+    .card h2 { font-size: 14px; font-weight: 600; }
+    .card .hint { font: 11px var(--font-mono); color: var(--text-muted); }
+    .chart { position: relative; width: 100%; }
+    .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+    .axis text { font: 10px var(--font-mono); fill: var(--text-muted); }
+    .axis line { stroke: var(--grid); }
+    .bar { fill: var(--series); }
+    .bar-hit { fill: transparent; cursor: default; }
+    .bar-hit:hover + .bar, .bar.on { opacity: 0.75; }
+    .empty { font-size: 13px; color: var(--text-muted); padding: 18px 0; text-align: center; }
+
+    /* ── Ranked tables: value + an inline magnitude bar ── */
+    table.rank { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.rank th { font: 500 10.5px var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); text-align: right; padding: 0 0 6px 10px; }
+    table.rank th:first-child { text-align: left; padding-left: 0; }
+    table.rank td { padding: 5px 0 5px 10px; text-align: right; font-variant-numeric: tabular-nums; color: var(--text-secondary); border-top: 1px solid var(--border); white-space: nowrap; }
+    table.rank td:first-child { text-align: left; padding-left: 0; color: var(--text-primary); white-space: normal; width: 100%; position: relative; }
+    .rank-name { position: relative; z-index: 1; overflow-wrap: anywhere; }
+    .rank-bar { position: absolute; left: 0; top: 3px; bottom: 3px; background: var(--series-soft); border-radius: 0 4px 4px 0; }
+    .rank-sub { color: var(--text-muted); font-size: 12px; }
+    .scroll { max-height: 360px; overflow-y: auto; }
+    .status-bad { color: var(--bad); font-weight: 600; }
+
+    /* ── Map ── */
+    .map svg { display: block; width: 100%; height: auto; background: var(--surface-2); border-radius: 6px; overflow: hidden; }
+    .map .land { fill: var(--land); stroke: var(--land-edge); stroke-width: 1; vector-effect: non-scaling-stroke; }
+    .map .dot { fill: var(--series); fill-opacity: 0.55; stroke: var(--surface); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+    .map .dot:hover { fill-opacity: 0.9; }
+    .map .home { fill: none; stroke: var(--text-primary); stroke-width: 2; vector-effect: non-scaling-stroke; }
+
+    .bands { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+    .band { background: var(--surface-2); border-radius: 6px; padding: 8px 10px; }
+    .band-v { font-size: 1.1rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+    .band-l { font: 11px var(--font-mono); color: var(--text-muted); }
+
+    /* ── Tooltip ── */
+    #tip {
+        position: fixed; z-index: 300; pointer-events: none; display: none;
+        background: var(--surface); color: var(--text-primary); border: 1px solid var(--border);
+        border-radius: 6px; padding: 7px 10px; font-size: 12px; line-height: 1.45;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12); max-width: 260px;
+    }
+    #tip strong { font-variant-numeric: tabular-nums; }
+    #tip .muted { color: var(--text-muted); }
+
+    /* ── Sign-in ── */
+    .signin { max-width: 380px; margin: 60px auto; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 22px; }
+    .signin h2 { font-size: 16px; margin-bottom: 6px; }
+    .signin p { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 14px; }
+    .signin input[type="password"] {
+        width: 100%; font: 14px var(--font-mono); padding: 9px 11px; border-radius: 6px;
+        border: 1px solid var(--border); background: var(--page); color: var(--text-primary); margin-bottom: 10px;
+    }
+    .signin .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .err { color: var(--bad); font-size: 13px; margin-top: 10px; min-height: 1em; }
+
+    footer { margin-top: 28px; font: 11px var(--font-mono); color: var(--text-muted); line-height: 1.7; }
+    footer a { color: var(--text-muted); }
+
+    @media (max-width: 760px) {
+        .tiles { grid-template-columns: repeat(2, 1fr); }
+        .grid { grid-template-columns: minmax(0, 1fr); }
+        .bands { grid-template-columns: repeat(2, 1fr); }
+        .spacer { display: none; }
+    }
+</style>
+</head>
+<body>
+
+<nav>
+    <a class="nav-logo" href="/"><strong>davenn</strong>dotcom</a>
+    <div class="nav-right">
+        <button class="theme-toggle" id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
+            <div class="theme-toggle-track"><div class="theme-toggle-thumb" id="toggle-icon">🌙</div></div>
+        </button>
+        <a class="nav-back" href="/">← Back</a>
+    </div>
+</nav>
+
+<main>
+    <h1>Stats</h1>
+    <p class="sub">Page views across davenn.com. Anonymous: no cookies, no stored IPs.</p>
+
+    <form class="signin" id="signin" hidden>
+        <h2>Sign in</h2>
+        <p>Enter the admin secret to see the numbers.</p>
+        <input type="password" id="secret" autocomplete="current-password" placeholder="Admin secret" required>
+        <div class="row">
+            <label class="check"><input type="checkbox" id="remember"> Remember on this device</label>
+            <button class="btn" type="submit">Open</button>
+        </div>
+        <div class="err" id="signin-err"></div>
+    </form>
+
+    <div id="dash" hidden>
+        <div class="toolbar">
+            <div class="seg" id="range" role="group" aria-label="Date range">
+                <button type="button" data-days="1">Today</button>
+                <button type="button" data-days="7">7 days</button>
+                <button type="button" data-days="30">30 days</button>
+                <button type="button" data-days="90">90 days</button>
+            </div>
+            <button class="btn" type="button" id="refresh">Refresh</button>
+            <div class="spacer"></div>
+            <label class="check" title="Stops this browser's visits from being counted"><input type="checkbox" id="optout"> Don't count this device</label>
+            <button class="btn" type="button" id="signout">Sign out</button>
+        </div>
+
+        <div id="notices"></div>
+
+        <div class="tiles">
+            <div class="tile"><div class="tile-label">Page views</div><div class="tile-value" id="t-views">–</div><div class="tile-note" id="t-views-n"></div></div>
+            <div class="tile"><div class="tile-label">Visitors</div><div class="tile-value" id="t-visitors">–</div><div class="tile-note">unique per day, summed</div></div>
+            <div class="tile"><div class="tile-label">Views / visitor</div><div class="tile-value" id="t-ratio">–</div><div class="tile-note">per day</div></div>
+            <div class="tile"><div class="tile-label">Top app</div><div class="tile-value" id="t-top">–</div><div class="tile-note" id="t-top-n"></div></div>
+        </div>
+
+        <div class="grid">
+            <section class="card wide">
+                <div class="card-head"><h2>Page views by day</h2><span class="hint">your timezone</span></div>
+                <div class="chart" id="c-daily"></div>
+            </section>
+
+            <section class="card wide">
+                <div class="card-head"><h2>Where visitors are</h2>
+                    <div class="seg" id="mapview" role="group" aria-label="Map area">
+                        <button type="button" data-view="us">US</button>
+                        <button type="button" data-view="world">World</button>
+                    </div>
+                </div>
+                <div class="map chart" id="c-map"></div>
+                <div class="bands" id="bands" hidden></div>
+                <p class="sub" id="home-line" style="margin-top:10px"></p>
+            </section>
+
+            <section class="card">
+                <div class="card-head"><h2>Apps</h2><span class="hint">views · visitors</span></div>
+                <div class="scroll" id="r-pages"></div>
+            </section>
+            <section class="card">
+                <div class="card-head"><h2>Cities</h2><span class="hint" id="cities-hint">views · visitors</span></div>
+                <div class="scroll" id="r-cities"></div>
+            </section>
+
+            <section class="card">
+                <div class="card-head"><h2>Time of day</h2><span class="hint">your timezone</span></div>
+                <div class="chart" id="c-hours"></div>
+            </section>
+            <section class="card">
+                <div class="card-head"><h2>Referrers</h2><span class="hint">views</span></div>
+                <div class="scroll" id="r-referrers"></div>
+            </section>
+
+            <section class="card"><div class="card-head"><h2>Countries</h2></div><div class="scroll" id="r-countries"></div></section>
+            <section class="card"><div class="card-head"><h2>Devices</h2></div><div id="r-devices"></div><div style="margin-top:14px" id="r-installed"></div></section>
+            <section class="card"><div class="card-head"><h2>Browsers</h2></div><div id="r-browsers"></div></section>
+            <section class="card"><div class="card-head"><h2>Operating systems</h2></div><div id="r-os"></div></section>
+            <section class="card"><div class="card-head"><h2>Languages</h2></div><div class="scroll" id="r-langs"></div></section>
+            <section class="card"><div class="card-head"><h2>Theme</h2><span class="hint">app setting, else the OS</span></div><div id="r-themes"></div></section>
+
+            <section class="card wide">
+                <div class="card-head"><h2>API usage</h2><span class="hint">UTC days · every request to api.php</span></div>
+                <div class="scroll" id="r-api" style="max-height:440px"></div>
+            </section>
+
+            <section class="card wide">
+                <div class="card-head"><h2>All time</h2><span class="hint">page views per UTC day</span></div>
+                <div class="chart" id="c-history"></div>
+            </section>
+        </div>
+
+        <footer>
+            City locations are approximate, from the visitor's IP at the time of the visit; the IP is not kept.
+            This product includes GeoLite2 data created by MaxMind, available from
+            <a href="https://www.maxmind.com" rel="noopener">https://www.maxmind.com</a>.
+        </footer>
+    </div>
+</main>
+
+<div id="tip" role="tooltip"></div>
+
+<script>
+(function () {
+    'use strict';
+
+    // ── Theme ──
+    var toggle = document.getElementById('theme-toggle');
+    var icon = document.getElementById('toggle-icon');
+    icon.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '🌙' : '☀️';
+    toggle.addEventListener('click', function () {
+        var t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+        icon.textContent = t === 'dark' ? '🌙' : '☀️';
+        try { localStorage.setItem('stats_theme', t); } catch (e) {}
+    });
+
+    // ── Storage helpers: every read and write can throw in a private window ──
+    function get(store, k) { try { return window[store].getItem(k); } catch (e) { return null; } }
+    function set(store, k, v) { try { v === null ? window[store].removeItem(k) : window[store].setItem(k, v); } catch (e) {} }
+
+    var API = '/api.php';
+    var SVGNS = 'http://www.w3.org/2000/svg';
+    // Natural Earth 1:110m land (public domain), quarter-degree precision.
+    var LAND = 'M-238 320l-1 2-2 2-8-1-9 1-5-2-2-1 9 0 8 1 3-2 3-1 4 1zM-637 318l-8 1-5-2-2-1 0-1-3-1 3-1 7 1 4 1 3 1 1 2zM-181 312l5 2 2 2 1 2 0 2-7 1-6 1-8 1-8 1-9 0-6-1 1-2 9-1 3-2 3-1 1-2 3-1 2-2 2 0 6-1 6 1zM-485 294l5 1 5-1-2 1-4 1-5 0-4-1 0-2 5 1zM-502 294l6 1-2 0-6 0-5-1 3-1 4 1zM-396 288l4 0 5 0 2 2-3 0-5 0-5 0-5 0-4-1-2-1 2-1 5 0 6 1zM-274 284l1 2-1 1-1 2-5 0-4 1-6 0 2-2-4 1-5 0-3-1 0-1 4-2 3 0 5 0 1-2 0-2 0-3 2-2 4 0 2 1 1 1 2 2 1 2 1 2zM-720 339l4-2 7 1 2-1 1 0 1 0 1-1 1 0 5 2 6-2 12 0 4 0 2 1 6 1 11 1 9 2 16 0 11-1 17 1 10 1 10-1 12-1 0-2-15 0-13-1-4-1-10-1 0-2 2-2 1-1 0-2-7-1-3-1-6-2 9 1 10-1 5 1 8-1 6-1 3-2-1-1-5-1-6-2-8 0-8 0-7-1-3-1-5-1-3-2-1-4 2 0 3 1 7 0 6-1 3 2 7 0 5-1 5-1 5-2 6 0-1-2-1-1 1-1 5-1 3 1 6-1 4-1 6 0 6 0 5-1 4-1 5-1 3 0 3 1 6-1 5 1 6 0 5-1 5 1 6 0 6 0 6 0 6 0 5 0 4-1 5-1 5 1 5-1 4-1 3 1 1 2 3 1 4-1 5 1 5 1 5 1 5 0 6-1 6 0 5 1 5 0 3-2-3-1-2-1-5-1-2-1-1-2-2-3 3 1 6 0 5 0 4 1 5 1 1 1 6 0 5 0 5-1 5 0 4 1 6-1 3-3 3 2 5 1 5-1 3 2 5 0 5 1 5 0 3-1 2-1 4 1 5 0 4 1 3 1 5-1 5 0 4-1 5-1 5 0 5-1 4-1 3-1 0-2 0-1-1-2-2-2-1-1-1-2 0-1 0-2 2-1 2-2 0-1 0-2-1-2 2-1 2-2 3-1 3-1 3-2 1-1 2-1 3-1 4-1 2-1 3-1 3 0 3-1 3-1 3-1 2 1-1 1-4 2-2 0-3 0-3 0-3 1-3 1-2 1-1 2 1 1 2 2-3 1-4 0-2 1-3 2-2 1-1 2 2 1 2 2 3 1 3 1 2 1 1 2 1 2 2 1 1 1 0 4 2 2 0 1 1 2 0 2-3 1-2 2-5 0-2 2-2 1-6 2-6 0-5 1-5 1-3 2-7 0-7 0-6 0-7 0 1 1 6 1 5 1 2 2-4 1-7-1-6 2 0 1 0 2 5 1 0 2 6 1 8 1 7 1 6 1 7 1 10 1 10 1 7 1 7 2 4 1 2 2 5-2 7-1 7-1 8-1 7-1 10 0 10 0 8 1 2-1 6-2 10 0 8-1 7 0 9-1 9-1 6-1-3-1-2-1 0-2-7 0-9 1-8 0-1-2 1-3 2-1 5 0 7-1 5-2 5-1 3-1 6-1 5-1 3 0 6 0 6-1 5 0 5-1 4-1 6-1 3-2 4-1 1-2-4-1 2-1 2-1 4-1 5-1 4-1 3-2 2-2 3-1 5 0 2 2 4 0 0-2 3-1 4 0 1 2 5 0 5-1 5 0 4 0 2 2 4-2 5 0 4-1 5-1 4-1 4 0 4-1 2-1 3 1 4-1 3 2 2 1 5 0 2-2 4-1 5 0 2 2 3-2 4 0 5 0 4 0 4 0 5 0 2 2 2 1 5-1 4 0 5 0 4 0 4-1 5 0 3-1 4-1 4 0 3-1 2-3 2-1 5 1 1 1 4 1 4 0 3 1 3 1 4-1 1-2 4 0 4-2 4 0 4-1 4-1 3-1 3-1 4 1 3-2 3-1 4 0 3 0 1-2 3-1 3-1 4 0 4-1 4 1 3 0 4 1 0 2 4 1 2 1 5 1 2 1 4 1 4 0 3-1 3-1 4 0 4 1 4 0 4 1 4 0 3 4 0 1-1 2-4 1-3 1 1 2 4 0 0 1-2 2-2 1 3 2 4 0 5-1 2-1 2-2 2-1 2-1 1-2 2-1 3-1 5 0 3-1 5 0 2-2 1-1 2-2 4-1 4 0 2-2 2-1 3 0 4 0 4 0 4-1 4 1 3-1 2-3 1 1 2 2 4 1 4 0 3-1 4 1 4 0 3-1 3 1 3 1 4-1 4 0 4-1 4 1 3-1 2-2 2-1 5-3 3 1 3 1 3 1 5 3 4 0 3 0 5-1 4 0 3-1 3-1 4-1 3 0 4 0 2 2 2 1 5 0 3 1 4 1 5 0 4 0 4-1 2-2 4 0 3 0 5 1 3-1 4 0 4 1 3 0 4-1 4 0 4 0 5 0 3-1 4 0 1-2 0-2 3 1 0 2 2 2 1 1 4 1 4 0 6 0 3-1 5 0 4 0 5 0 5 1 3 1-1 1 3 2 4 1 4 1 6 0 5 1 4 0 5 1 2-2 4 1 3 2 3 1 5 0 5 0 2 2 4 1 3 1 5 1 4 0 5 0 4 0 5 0 5 1 4 1 4 1 3 1-1 1-2 2-2 2-1 1-2 2-5 0-2 2-6 1-1 1-3 2-3 1-2 1-1 2 0 2 0 1 2 2 1 1 2 2 7 0 2 2-7 1-6 0-8 1-3 2-1 2-2 1-2 2 5 1 3 2 3 1 5 2 5 1 6 1 10 1 2 2 11 1 1 0 3 2 11-1 9 1-1433 1zM-271 215l5 3 6 1-2 2-4 0-2-1-1 1-4 1-4 0-3-1-4-1-5-2-4-2-6-5 4 1 5 3 6 1 2-2 1-2 4-2 2 1 2 1 2 3zM-234 204l3 2-1 2-6 1-1-2-4 2-2-2 5-2 3 1 3-2zM281 199l-6 0 0-2 0-2 1-1 2 2 4 0 0 1-1 2zM582 163l3 2 3-1 3-1 2 0 0 5-1 2 0 3-2-1-3 3 0-1-3 0-2-3-1-3-2-3 0-2 3 0zM692 164l1 1 3-1 1 1 0 2-1 2-3 3-2 1 1 2-3 0-3 2-1 3-3 4-3 1-2 2-3-1-3-1-4 0-1-2 2-3 5-4 3 0 3-2 3-2 3-2 1-3 2-1 0-2 3-2 1 2zM698 145l3 4 0-3 2 1 1 3 3 2 3 0 2-2 2 1-1 3-1 3-3 0-1 1 0 2-2 2-2 3-3 2-1-1-1-1 2-3-1-2-5-2 0-1 3-2 1-3 0-2-2-3 0-1-2-2-3-3-1-3 1 0 2 2 3 1 1 4zM668 89l-1 1-2-1-3-2-3-2-2-3-1-2 2 0 2 2 2 1 1 1 3 3 2 2zM713 69l2 2-1 2-2 0-2 0-1-2 2-1 1 0 1-1zM-720 66l1437 1-2 1-1-1 2-1 2 0-1438-2 1 0-1 2zM671 66l-1 0-1-1 0-1 2 2zM668 60l1 3-1-1-1 1 0-1 0-3 1 1zM200 54l1 5 1 2 0 2-1 1-2-2 0 1 0 3 0 1-1 1 0 4-2 4-2 6-2 8-2 5-2 5-3 1-3 1-3-1-3-1-1-2 0-4-2-3 0-3 1-3 2 0 0-2 2-3 0-2-1-2-1-3 0-3 1-3 1-2 2 0 2-1 1-1 2 0 3-2 3-3 1-2-1-1 2 0 2-3 0-2 2-2 1 2 1 2 1 2zM574 55l2 3 2-1 2 1 1 2 0 2 1 3 1 2 1 1 1 3-1 2 2 3 4 2 3 2 2 2 0 1 2 2 2 4 1-1 2 2 1 0 1 4 2 2 2 2 3 3 2 3 0 3-1 2 2 3 0 4-1 2-1 3 0 3 0 3-2 3-3 2-2 3-1 2-1 4-2 2-1 3 0 2 0 2-2 1-5 0-3 2-2 1-3 2-3-2-2 0 0-2-2 0-4 3-3-1-2 0-3-1-3-1-3-2-1-3-1-2-2-2-4-1 2-1-1-3-2 2-4 1 2-2 1-2 2-2-1-3-3 3-3 1-1 4-3-2 0-2-3-3-2-2 1-1-5-2-3 0-4-2-7 0-5 2-5 1-3 0-5 2-3 1-1 2-1 2-4 0-2 0-4-1-3 1-2 0-3 2-1 0-2 1-2 1-3 0-3 0-4-2-2-1 0-3 2 0 1-1 0-1 0-3 0-3-2-4-1-2 0-2-1-3-1-1-1-2-1-3-2-3-1-2 2 2-1-4 2 2 1 1 0-2-2-3 0-1-1-1 0-3 1-1 0-2 0-2 2-3 0 3 2-3 3-1 2-2 3-1 2-1 1 1 3-2 2 0 1-1 1 0 2 0 4-1 3-2 1-2 2-2 0-2 0-2 3-3 2 3 1-1-1-2 1-2 2 1 1-3 2-2 1-1 2-1 0-1 2 0 0-1 1 0 2-1 3 2 2 2 3 1 2 0 0-2 2-4 1-1 0-1 1-2 3-1 2 0 3-1 0-2-3-1 2 0 3 1 2 1 4 1 1 0 2 1 3-1 1 0 1-1 2 2-1 3-2 1-1 0 0 2-1 2-1 2 0 1 3 2 3 1 2 2 3 2 1 0 2 1 1 1 4 2 2-2 1-2 1-1 1-3 1-3-1-2 1-1-1-2 1-3 0-1 0-1 1-2 0-3 1-1 1-1 1 2 0 2 1 1 1 1 1 2 0 3 0 1zM648 42l2 1-3 0-2-2 3 1zM483 41l-2 0-5-3 4-1 2 2 1 1 0 1zM643 39l-1 1-3-1 0-2 2 1 2 0 0 1zM647 38l-1 1-3-3-1-3 2 0 1 3 2 2zM498 41l-4 0 0-1 2-3 4-1 0-1 4-1 3 0 1-1 1 1-1 1-4 1-4 2-2 3zM472 32l1 1 3 0 1 2-5 1-3 0-2 0 1-2 3 0 1-2zM492 32l-1 3-6 1-5-1 0-1 3-1 2 1 3 0 4-2zM640 33l0 1-3-2-3-1-1-1 0-1 2 1 4 2 1 1zM630 29l-1 1-1-1-2-2 0-1 3 2 1 1zM434 27l8 1 1-2 7 2 2 2 6 1 5 2-5 2-4-2-4 1-4-1-4-1-4-1-3 0-2 0-7-2-1-1-4-1 3-3 5 0 3 1 2 1 0 1zM539 25l-2 3-1-3 1-2 1-1 1 1 0 2zM624 27l-2 1-1-2-2-2-1-3 1-1 0 1 1 1 2 3 2 1 0 1zM608 22l-2 0-1 1-2 1-2 1-2 0-3-1-3-1 1-1 3 0 2 0 1-2 1 0 0 2 2 0 1-2 3-1-1-2 3 0 0 2-1 3zM509 14l-2 1-2-1-1-1 4 0 1 1zM522 12l1 3-3-1-3-1-3 1-2 0 1-3 4 0 5 1zM613 18l-2 1 0-2-1-2-2-1-2-2-3-1 1-1 2 1 1 1 2 1 2 2 1 1 1 2zM537 5l1 6 4 2 3-4 5-2 3 0 4 1 3 2 4 0 7 3 7 2 3 2 2 3 1 2 7 2 1 2-4 1 1 3 3 2 3 4 2 0 0 2 3 1-1 0 4 2 0 1-3 1-1-1-3-1-4 0-3-3-3-2-2-4-5-1-3 1-3 1 1 3-3 1-3 0-4-1-3-3-4-1-1 2-6 0 2-4 3-1-1-4-2-3-8-4-3 0-6-4-2 2-1 0-1-1 0-2-3-2 4-1 3 0 0-1-6 0-2-3-3 0-2-2 5-1 3-2 6 2 1 2zM501 -6l-3 4-3 1-4-1-7 0-3 1-1 3 4 4 2-2 7-2 0 2-2 0-1 2-4 2 4 5-1 1 4 5 0 2-2 2-2-2 2-3-4 1-1-1 0-1-2-3 0-3-3 1 1 4 0 6-3 1-2-1 2-4-1-4-2 0-1-3 2-2 0-4 2-6 1-1 4-3 3 1 5 0 4 0 4-3 1 1zM515 -5l0 4-3 0 0 2 2 2-2 1-1-3-1-5 0-3 2-2 0 2 2 1 1 1zM423 23l-4 0-4-3-5-3-1-3-3-3-2-3-3-5-4-4-1-3-2-3-3-3-2-3-3-2-4-5-1-2 3 0 6 1 3 4 4 3 2 1 4 5 4 0 3 2 2 4 3 2-1 3 2 1 1 0 1 3 2 2 2 1 2 2-1 5 0 6zM471 -7l5 3-5 1-1 3 0 3-4 3 0 4-1 6-1-1-5 1-1-2-3 0-2-2-5 2-1-2-3 0-3 0-1-6-2-1-2-3 0-4 0-3 3-3 3 1 3 0 0-4 2-1 5 0 3-4 2-2 1-2 4-2 3-3 2-3 2 0 2 2 0 2 2 1 4 1-1 2-2 0 0 2-2 1-3 4 3 4-1 2zM506 -34l0 3 0 2-1 4-2-4-2 2 2 3-1 2-5-3-1-3 1-1-3-2-1 1-2 0-3 2 0-1 1-3 3-1 2-2 1 2 3-1 1-2 3 0 0-3 3 2 0 2 1 1zM325 -25l-4 1-2-3 0-6 2-6 2 2 2 3 2 4 0 4-2 1zM-244 -40l-3 0-1 0 1-1 0-2 3-1 0 1 0 3zM496 -41l-2 1-1 3-1 1-2-3 0-1 1-1 1-3 2 0-1 3 3-4 0 4zM474 -37l-5 4 2-3 3-3 2-3 2-3 1 3-3 2-2 3zM488 -48l2 2 2 0 0 1-1 2-3 1 0-2 0-2 0-2zM502 -49l1 5-3-1 0 1 1 3-2 0 0-2-1-1-1-2 3 0 0-1-3-3 4 0 1 1zM486 -52l-1 3-2-2-2-3 4 0 1 2zM485 -74l3 1 1-1 0 1 0 2 1 3-1 3-2 1-1 3 1 4 2 0 2 0 5 2-1 2 2 1-1 2-3-2-1-2-1 1-3-2-3 0-2 0 0-2 1-1-1-1-1 1-2-2 0-2 0-3 1 1 1-6 1-4 2 0zM-262 -73l-1 1-3 0-3 0 0-1 1-1 3 0 2 0 1 1zM-308 -71l-1 0-2 0-2-2 0-1 2 0 1 0 2 0 3 1 0 1-3 1zM-290 -79l3 0 1-1 3 0 2 2 1-1 1 2 2 0 0 1 2 0 2 2-2 1-2-1-1 0-2 0-1 1-1 0-1-1-1 1-2 3-1-1 0-1-2-1-2 0-3 0-2 1-2-1 1-2 3 1 3 0 2-1-2-1 0-2-3-1 1-1 3 1zM441 -75l-3 2-3-1 0-3 1-2 5-1 2 0 1 1-2 2-1 2zM-622 -76l-1 0-1 0 0-1 0-2 1-1-1-1 1 0 1 1 1 0 1 1 1 1-2 1-1 1zM-624 -83l-2 1 0-1-1 0 0-1 1 0 1 0 1 1zM-627 -85l0 1-2 0 0-1 2 0zM-631 -85l-2 0 0-1 1-1 1 2zM-637 -88l-1 0-1 0 0-1 1 0 1 0 0 1zM-319 -91l2 1 4 0 1 1 3 2 3 2 1 0 3 1-1 1 3 0 3 2 0 1-3 0-3 1-2-1-6 1 3-3-2-1-3 0-1-1-1-2-2 0-4-1-1-1-5-1-2-1 2-1-4 0-3 2-2 0 0 1-2 1-2-1 2-1 1-1 2-1 2-1 3 0 1-1 3 1 4 0 3 1zM-310 -95l-1 0-1-2-2-1 1-3 1 0 2 4 0 2zM485 -91l-2 3-2-3-1-3 3-4 3-3 2 1-1 2-2 7zM-311 -106l-5 0 0-1 2 0 3 0 0 1zM-308 -106l-1 2 0-2-2-2 3 2zM539 -137l0 2-2 2-2-1-2 1-1 2-3-1 0-2 3-2 2 0 2-1 3 0zM138 -143l-2 2 0 1-4 2-2-1-1-1 2-1 1-1 3 1 3-2zM95 -143l2 2 3-1 3 1 2 0 0 1-6 0-5-1 1-2zM62 -153l-1 3 0 1-1 3-3-2-2 0-5-2 0-3 5 1 4-1 3 0zM37 -165l2 3 0 5-2 0-2 1-1-1 0-5-1-2 2 0 2-1zM564 -149l-2 4 1 2-2 2-5 2-7 1-6 4-3-1 0-3-7 0-4 2-5 0 4 3-3 7-2 2-2-2 1-3-3-1-1-3 3-1 3-3 4-2 2-3 8-1 5 1 4-7 3 2 5-4 3-2 2-5 0-4 1-3 4-1 3 6 0 3-4 4 0 4zM38 -169l-1 3-2 0-1-3 1-2 3-1 0 3zM576 -177l2 1 3-2 1 5-6 1-3 4-7-3-2 5-4 0-1-4 2-3 5-1 1-5 1-3 5 4 3 1zM-255 -186l3 0 4 0-2 2-1 0-6-2-1-1 2-1 1 2zM-247 -196l-2 0-5-2-4-1 1-1 6 1 4 2 0 1zM-494 -194l-2 1-7-2-1-2-3-1-1-1-4-1-2-2 1-1 4 1 2 0 4 1 1 1 2 2 4 2 2 2zM-225 -203l-2 4 2-2 3 1-1 2 3 1 2-1 4 1-1 3 3-1 0 2 1 3-1 3-2 1-3-1 1-4-1 0-5 3-2 0 3-2-4-1-4 1-8 0-1-2 3-1-2-1 3-3 5-6 2-2 4-2 1 1 0 1-3 2zM-531 -216l4 0-1 4 3 3-1 0-3-2-1-1-2-2-1-1 0-2 2 1zM575 -203l4 7-6-1-3 6 4 4 0 2-3-2-3 3 0-3 0-4 0-4 1-3 0-6-3-4 1-5 3-2-1-2 2 0 1 2 1 4 0 4 2 4zM-27 -209l-7 2-6 0 3-4-2-5 6-3 3-2 3 0 4 3-2 3 1 2-3 4zM51 -222l-3 3-4-2 0-2 5-1 2 2zM-612 -228l-4 1-2-1-1-2 4-1 2-1 3 0 1 2-3 2zM-12 -235l-4 5 4-1 4 0-1 4-3 3 4 0 4 6 2 0 3 5 1 1 5 1-1 3-2 1 2 2-4 2-5 0-7 1-2-1-2 2-4 0-3 1-2-1 6-4 3-1-6 0-1-2 4-1-2-2 1-3 6 0 0-2-3-2-4-1-1-1 1-2-1-1-2 2-1-4-2-2 2-4 3-4 3 1 5-1zM-662 -240l-3 1-2-1-3-1 4-1 3 1 1 1zM-317 -249l-2 2-1 0-1-1 1-2 2 1 1 0zM-328 -251l-4 2-3 0-1-1 3-2 5 0 0 1zM-687 -255l3 1 2-1 3 1 4 1-3 1-3-1-2-1-3 1-1-1 0-1zM-341 -263l1 2 2 0 2 1 5 1 4 1 1 2 3 0 3 1-4 1-6-1-2-1-4 2-6 2-1-3-6 1 4-2 0-3 1-4 3 0zM-58 -266l-1 3 5 2-6 4-11 2-4 1-5-1-11-1 4-2-9-2 7 0 0-2-8 0 2-3 6-1 7 3 6-2 5 1 6-2 7 0zM-303 -269l-5 1-1-2 2-3 3 0 4 1 0 2-1 0-2 1zM-720 -276l10 3 10 4 0 3 3 1-1-3 11 0 7 4-4 2-6 0 0 4-2 1-4 0-3-2-5-1-1-1-4-1-4 0-3-1 1-1-5 1 2 1-2 2 1440 0-5 2-5 0 3 2 3 3 1 1 1 2-1 1-8-1-11 3-3 0-6 3-6 3-2 1-5-2-11 3-2-2-3 2-6 0-1 2-5 4 0 2 5 1-1 5-3 1-2 3 1 2-7 2-1 4-6 1-1 4-6 4-1-3-2-6-2-9 2-5 3-2 0-2 6-1 8-5 6-4 8-4 3-5-5 0-2 3-11 5-3-5-10 1-10 7 3 2-9 1-6 1 0-3-6-1-5 2-12 0-13 1-13 8-15 9 6 1 2 2 4 1 2-2 5 0 5 5 1 3-4 4 0 5-2 6-6 6-1 3-6 4-5 5-3 2-5 3-2 0-3-2-5 3-1 1-1 0-2 1-1 2 0 2-2 1-1 1-1 1-3 1-2 1 0 2 1 1 2 2 4 4 1 3 0 4-2 3-3 0-3 2-4 0-1-2 1-3-2-4 3-1-2-3-2-1-1 1-1 0-1-1-1 0 1-2 1-1 1-3-1 0-2-1-2-1-6 1-2 2-5 1 2-1 0-2 3-3-2-2-4 2-4 2-3 3-4 0-2 2 2 3 4 0 0 2 3 1 4-2 4 1 2 0 1 2-6 1-1 3-4 2-2 2 4 3 1 3 3 4 3 3 0 3-3 1 1 2 2 2 0 3-1 3-2 0-3 5-4 5-3 5-6 3-5 4-5 0-2 2-2-1-2 2-6 2-4 0-1 5-2 0-1-3 0-2-5-1-2 1-5 3-3 4-1 3 3 4 3 5 4 3 3 3 1 7 0 7-4 3-4 3-3 3-5 4-2-3 1-3-3-2-3-1-2-2-2-4-3-2-4 0 1-3-4 0 0 5-2 6-1 3 0 3 2 0 2 4 1 3 2 3 2 0 3 2 3 3 2 3 0 2-1 2 1 1 0 3 1 1 2 3 0 2-3 0-4-3-4-3-1-2-2-3-1-3-1-2 0-3-1-2-1-1-1-2-2-3-2-2-1 3 0-2 0-3 1-4 0-3 1-3-1-2 0-4-2-3-1-4-1-5-1-4-3 2-5 3-2 0-2-1 1-5-1-4-3-4 1-2-3 0-3-4-1-2 0-2-1-2-1-2-4 0 0 1-1 3-2-1 0 1-1-1-2 0 0 1-3 0-5 1 0 3-2 2-6 3-4 5-3 2-4 3 0 2-2 1-4 1-2 0-1 3 1 6 0 3-2 4 0 7-2 0-1 3 1 1-4 1-1 3-2 1-4-4-1-5-2-4-1-2-3-4-1-5 0-2-4-6-2-8-1-5 0-5 0-3-6 2-3-1-5-4 2-2-2-1-4-4-3-1-1-3-4-3-7 1-6 0-6 1-8-2-4 0-4-1-2-5-2-1-3 1-4 2-5-1-4-3-4-1-3-4-3-6-2 1-2-1-2 1-2 0 1 2-1 1 2 3 1 3 2 1 1 2 3 1 0 2-1 1 1 2 1 1 1 1 0 1 0-3 1-2 1 0 1 1 0 2 0 2 0 2 1 0 0 1 3-1 4 0 2 1 3-3 3-3 2-2 1-2 1 1 0 1-1 1 1 3 1 3 3 1 3 1 2 1 2 2 1 1 1 1 0 1-1 2-1 1-2 2-1 2-2 0-1 1 0 2 0 3-2 0-3 2 0 2-1 0-2 0-2 1 0 2-2 1-2 0-3 1-2 0-2 1-1 2 0 2-4 1-7 2-3 3-2 0-1 0-3 2-2 0-3 1-1 0-1 1-1 0-1 1-2 0-1 1-3-1-1-2 0-2-1-1 0-3-2-2 1 0 0-2 0-1 0-1 0-2-2-1 0-2-2-1-2-4-1-3-3-3-2 0-2-4-1-3 0-2-2-5-2-1-2-1-1-2 0-1-1-2-1-1-2-3-2-4-2-2-2 0 0-2 0-2 1-1 0-1-1 2-1 3-1 2-1 0-2-1-1-2-3-5-1 0 2 4 2 4 3 6 2 3 1 2 4 4-1 1 0 3 5 3 0 1 2 4-1 1 0 4 2 5 1 1 3 1 2 5 1 3 2 2 6 4 2 2 2 3 1 1 2 1 1 1 0 2-2 1 2 1 1 1 1 2 1 1 2 0 4-1 5 0 3-2 2 0 2-1 2 0 1 0 2 0 2-1 2-1 1 0 1 1-1 2 0 2-1 2-1 4-2 5-2 5-4 6-3 4-5 6-4 3-6 4-3 3-5 5-1 2-1 1-2 1-1 2-2 0-1 3-1 2-1 2-1 2-2 5 0 2 3 1 0 1-1 3 0 1 0 2 1 2 2 4 1 1 1 2 0 4 0 4 0 6 1 2-1 3-2 2-2 3-4 1-4 2-5 5-1 0-3 3-2 1 0 3 2 3 0 2 1 2 0-1 0 4-1 2 1 1 0 1-2 2-3 1-5 2-2 2 1 2 1 0-1 2-1 3 0 3-1 2-3 2-1 1-1 2-2 2-2 3-4 4-3 2-3 2-4 1-2 1-1 1-2-1-2 1-5-1-2 1-2-1-4 2-3 1-3 1-2 0-1-1-2 0-1-2 0 1-1-2 0-2-1-3 1 0 0-3-3-4-2-3-3-6-3-3-1-3-1-4-1-2-1-7 0-4-1-3-2-1-2-4-2-4-1-3-3-4 0-3 0-2 0-4 1-3 1-2 1-4 1-1 2-3 2-2 0-3 0-2-1-2-2-2 0-2 0-1 1-2-1-4-1-2-2-3 0-1 0-1-1-3-4-4-4-4-2-3-3-5 0-1 1-1 1-3 1-3-1-1 2-4 0-3-1-3-2-1-1-1-1-1 0-1-4 1-2 0-1 1-3 0-3-3-1-2-3-3-3 0-3 0-4 0-3 1-6 3-2 1-4 1-3-1-2 0-3-1-3 0-4 1-3 1-4 2-1 0-1 0-4-2-4-3-3-3-3-2-1 0-3-2-2-2 0-2-1-3-2-2-1-2-1 0-1-1-1-2 0-1-2 0-2-2-1 0-1-1 0-1-1-1-1-1 0-3 0-1-2-3-1-2 1-1 2-2 1-3 0-2 1-2 0-3 0-4-1-2 1-2-1-2-2-2 0-2 0-2 2-1 1-2 0-1 1-3 2-2 2-1 1-2 0-3 1-2 3-1 2-5 3-1 3-1 3-2 2-1 4-4-1-5 1-3 1-2 2-3 4-2 3-1 3-5 1-2 3 0 3 2 3-1 5 1 1 0 4-2 4-1 3-1 4-1 7-1 6 0 2 0 4-1 4 0 2 0 3 0 4-1 3 0 0 2 3-1-2 2 0 2 2 1-1 4-2 2 0 2 2 0 1 2 2 0 5 2 1-1 4 1 5 2 2 3 3 1 6 2 4 2 2-1 2-2-1-3 2-2 2-2 3 0 6 0 1 2 1 0 2 1 4 0 1 2 5 0 4 1 4 1 2 1 3-2 1-1 4 0 3 0 1 2 1-1 3 1 3 0 2-1 1-1 1-2 1-3 0-1 1 0 1-4 2-2 0-1 0-3 1-1-2-2 2-2-3 1-3-1-3 2-6 1-3-3-5 0 0 2-3 0-4-2-4 0-3-4-3-2 2-3-2-2 4-4 6 0 2-3 8 1 4-3 5-1 7 0 7 3 5 1 5 0 3 0 5-2 1-2-1-3-2-1-3-1-1-1-5-3-5-2-3-2 3-1 3-3-2-2 6-1-1-1-3 1-3 0-3 1-4 0-3 2 0 2 2 1 4 0-1 2-4 0-5 3-3-1 1-2-4-1 1-1 3-1-1-1-6-1 0-2-4 1-1 2-4 3 1 1-2 1-2-1-1 5-2 2-1 3 1 2 0 2 4 1-1 1-5 0-1 1-4 2-1-1 0-1-2 0-2-1-5 1 3 3-2 0-3 0-2-2 0 1 0 2 2 2-1 1 2 2 2 1 0 2-4-1 2 2-3 1 2 3-3 0-3-1-2-4-1-2-1-2-2-2 0-2-1 0 0-1-2-1-1-2 1-3 0-1-1-1-1-1-2-1-4-1-2-2-4-1-3-3 1 0-2-2 0-1-3-1-1 2-1-2 0-1 1 0-3-1-4 1 1 2-1 2 1 2 4 2 2 3 5 3 3 0 1 1-1 1 3 1 3 1 4 3-1 2-2-2-4-1-1 3 3 1-1 2-1 1-3 3-1 0 0-1 1-2 0-1-1-2-1-2-2-1-1-1-3-1-1-2-3 0-4-2-3-2-3-3-1-4-2 0-3-1-2 0-3 2-1 0-4 2-8-1-6 2 0 2 0 2-4 3-5 1 0 1-3 3-1 3 1 2-2 2-1 2-3 1-3 3-5 0-3 0-3 2-2 1-1 0-2-1-1-3-4 0-1 1-3-1-2 1 1-4 0-2-2 0-1-2 0-3 2-1 0-2 1-2 0-2-1-1 0-2 0-2-2-2 6-3 5 1 5 0 5 0 3 0 6 0 2-2 1-8-4-4-3-2-6-2 0-3 5-1 7 1-2-4 4 2 9-4 2-3 3-1 3 0 2-1 4-6 5-2 4 0 0-1 4 0 0 1 3-2-1-2 0-2-2-2 0-4 1-1 1-1 4-1 1-1 3-1 0 2-1 1 0 2 3 0-1 2-2-1-2 3 1 2 0 2 4 1 0 1 4-1 2-1 5 2 1 1 3-1 6-2 5-1 4 0 1 1 4 0 1-1 5-2-1-3 0-3 2-3 4-1 3 3 3 0 1-3 1-3-2 1-2-1-1-3 5-1 5 0 5 0 4 0 4-2-4-2-7 0-7 2-7 1-2-3-4-1 1-4-2-3 2-3 4-2 9-5 3 0-1-2-5-2-7 1-4 3 0 2-6 4-8 3-3 6 3 2 4 3-4 4-4 1-1 7-2 4-5-1-3 3-4 1-2-4-3-5-3-5-3-3-7 5-6 1-5-2-2-5-1-9 4-2 10-4 8-4 7-6 10-7 7-3 11-5 9-2 6 0 6-3 7 0 8-1 12 3-5 1 4 3 5-2 6 3 11 1 15 4 3 2 1 3-5 2-6 1-18-3-3 0 6 3 1 6 5 2 3 1 1-2-3-2 3-2 9 3 4-1-3-3 9-4 4 0 4 2 2-3-3-2 2-3-3-2 11 1 2 2-5 1 0 2 3 1 7-1 1-2 8-2 14-3 3 0-4 2 5 1 3-2 7 0 6-2 5 3 4-3-4-2 2-1 12 1 6 1 14 5 3-2-4-3-5-1 1-2-2-3 0-1 7-4 3-3 3-1 10 1 1 2-4 3 3 2 1 2-1 6 5 2-2 3-8 6 5 0 1-1 5-1 1-2 3-2-2-2 2-3-5 0-1-3 4-4-6-3 8-2-1-3 2 0 2 2-2 4 4 0-1-2 6-2 9 0 7 2-4-3 0-5 7 0 10 0 8-1-3-2 5-2 4-1 8-2 11 0 1-1 10-1 4 1 9-2 7 0 1-1 4-2 9-2 7 2-5 0 9 1 1 2 4-1 11 0 9 2 4 2-1 2-5 1-10 2-3 1 5 1 5 1 4-1 2 3 2-1 6-1 13 1 1 2 17 0 0-3 9 1 6 0 6 2 2 2-2 2 5 3 6 2 4-4 6 1 7-1 8 2 3-2 6 1-2-4 5-1 36 2 3 3 11 3 16-1 8 1 3 1 0 3 5 1 5-1 7 0 8 1 7 0 7 3 5-1-3-3 2-1 13 1 8-1 11 2-1434 2zM196 -165l2 3 2 0 2 1-4 0 0 3-1 2-2 1 1 2 1 3 4 1 2 2 6 0 6-1 1-1-1-3 1-4-4-1 1-3-2 0 1-4 3 1 4-1-3-2-1-2-3 1-1 2-1-2 0-1 1-2-1-1-5-2-1-3-3-1 0-1 4 0 0-3 4-1 3 1 1-4-1-2-4 0-3-1-5 2-4 0-1 3-4 0-4 5 3 3 0 3 4 5 2 2zM-383 -276l-2 1-5-1-4 0-5-2 3-1 3-2 4 2 3 0 1 1 2 2zM-720 -286l1440 3-4 0-1-1-1435-2zM-720 -286l1 0 3 0 6 1-1 0-4 1-5 1 0-3zM-362 -278l0 4 5-3 5 3-1 3 4 2 4-3 3-3 0-5 6 1 6 0 5 2 0 2-3 2 3 3-1 2-7 2-6 1-4-1-1 2-4 3-1 2-5 3-6 0-3 2 0 2-5 1-5 3-4 4-2 4 0 4 6 1 2 4 2 3 5-1 8 2 4 1 3 2 5 1 4 2 7 0 4 0-1 4 1 4 3 4 6 4 3-1 3-4-2-7-3-2 6-2 5-2 2-3 0-3-3-3-5-3 5-4-2-4-1-6 2-1 7 1 4 0 4-1 3 2 5 2 2 1 7 1 0 3 1 5 4 1 2 2 6-2 4-4 3-2 3 3 5 5 4 5-1 3 5 2 4 2 6 1 3 1 1 4 3 0 2 2 0 4-3 2-3 1-6 2-5 3-7 1-8-1-6 0-5 0-3 3-5 2-6 5-4 4 3-1 6-5 9-4 6 0 3 2-3 3 1 4 1 3 5 2 7-1 4-4 0 3 3 1-5 3-9 2-4 2-4 3-3 0-1-4 7-3-6 0-5 0 1 2-4 2-4 1-4 1-3 3 0 1 0 2 1 2 2 0-1-2 1 1 0 1-3 1-1 0-3 1-2 0-3 0-3 1 6 0 1 0-5 1-3 0-1 1 1 0-1 3-3 3 0-1-1 0-1-1 1 2 1 1 0 1-2 2-2 3 1-3-2-1 0-4-1 2 1 3-3-1 3 1 0 4 1 0 1 2 0 4-2 3-5 1-2 2-2 1-2 1-1 1-4 3-2 2-2 2-1 3 1 3 1 3 2 3 0 2 2 4 0 3-1 2-1 2-1 1-2-1 0-2-2 0-2-4-2-3 0-2 0-2-1-2-3-4-1 0-4 1-1 0-2-2-3-1-4 1-4-1-3 1-1 0 0 1 0 2 1 1-1 0-1 0-2 1-3-1-3-2-3 1-3-1-2 0-4 1-3 3-4 2-3 2 0 1-1 3 1 2 0 2-1 3-1 3 0 5 0 2 0 2 1 2 1 3 3 3 1 3 1 2 5 1 1 1 4-1 3 0 3-1 2-1 3-1 1-2 0-4 1-1 3-1 4-1 3 0 3 0 1 1 0 2-3 2 0 2 0 1 0 2-1 3-1-1-1 0 0 1 1 0 0 1-1 1 0 1 0 1 0 1 0 2-1 1-1 0-1 1 2 1 1 0 1 0 2-1 0 1 1 0 1 0 2 0 2-1 1 0 1 0 1 0 1 0 2 1 1 0 1 0 1 1 1 1 1 1 0 1 0 2-1 1 0 2 0 1 0 2 0 1-1 1 0 1 0 1 0 2 0 1 1 2 2 2 2 2 1 1 0 1 2 0 1 1 2 0 2-1 2-1 2-1 2 0 2 0 2 1 1 1 2 1 2 0 3-2 1-1 0-1 1-3 2-2 3 0 0-1 3 0 3-2 2-1 2-2 1 0 1 2 0 1 0 1-3 0 2 2-1 2-1 3 1 3 2-1 1-2-1-2-1-3 5-2 0-1 1-2 2 3 2 0 3 2 0 2 4 0 4-1 2 2 3 1 3-2 0-1 5 0 4 0-3 1 1 2 4 1 3 1 0 4 2 0 2 1 3 1 2 3 0 2 2 0 2 2 1 1 5 1 1-1 3 0 4 1 2 0 2 1 5 4 0 1 2 0 1 2 2 7 2 1 0 3-3 3 1 1 8 1 0 4 3-3 5 2 6 2 2 3 0 2 4-1 8 2 6-1 6 4 5 4 3 1 4 1 1 1 1 5 1 2-2 7-2 3-5 5-3 5-3 3-1 0-1 3 0 8-1 6 0 2-1 2-1 5-4 6-1 4-3 1-1 3-4 0-7 1-2 2-5 1-5 4-3 4-1 2 1 3-1 4-1 2-2 2-5 7-3 3-3 2-2 4-2 2-2 3-5 2-3-1-2 0-4-1-2 0-3-2 0 2 5 3 0 3 2 2 0 2-4 5-6 2-8 1-4-1 1 3-1 3 0 2-2 1-4 1-4-2-1 1 0 4 3 1 2-1 1 2-4 1-3 3 0 4-1 2-4 0-3 2-1 3 4 3 3 1-1 4-5 2-2 4-4 2-2 2 2 4 2 2-1 0-4 0-2 1-3 2-1 3-2 0-4-1-5-3-5-2-1-2 1-3-2-2 0-7 1-4 4-3-6-1 4-4 2-7 4 2 2-8-3-2-1 5-2 0 1-6 1-7 2-3-1-4 0-4 1-1 3-6 3-6 1-6-1-6 2-4-1-5 2-4 1-8 1-8 2-9-1-7 0-6-5-2 0-2-8-4-7-4-3-2-2-4 1-1-3-5-4-7-4-8-2-2-1-3-3-3-3-1 1-2-2-4 2-3 3-2 2-3-1-2-1 2-3-2 1-1-1-4 2 0 0-3 2-2 0-2 2-1 3-2-1-1 2 0-1-2 1-2 2 0 2-2 1-2-1-1 1-3-1-3 1-1-1-4-2-2-1-1-1-2 1-1-1-1 0-1-2-1-2 0-1 2-2 1-1 0 0 1 2 2-1 0-1 1-2 0 0-2-1 0-1 0-1-1-2-1-1 0-1 0 0 1-1-1-2-1-1-1 1 0-1-1-1-1-1-1-2 0 0-2-1 0 0 1 0 1-1-1-2-1 0-1 0-1 0-1-1-1 1 0-1-2-2-1-1-2-2-1-2-2 1 0 1 0-1-1-1-1-1 1-2 0-1 0-2-1-2 0-1-1-2-1-3 0-2-1-2-1-4-4-3-2-3-1-2 0-3 2-2 0-3-1-3 0-4-2-3-1-4-2-4-2-1-1-2 0-4-1-2-2-4-2-2-3-1-2 1 0 0-1 1-1 0-2-1-1-1-2-1-2-4-4-4-3-2-3-3-1-1-1 1-3-2-1-3-2-1-2-2-1-2-2-2-2 0-1-2-3-2-3 0-2-2-1-2 0-2-1-1 1 1 2 0 3 2 2 3 3 0 1 1 0 0 1 1 0 1 3 1 1 1 1 3 2 1 4 1 2 1 2 0 2 2 0 2 2 1 2-1 2-1 0-1-3-3-2-3-2-2-1 0-3 0-2-2-1-3-2-1-1-3-1-2-2 2 0 1-1 0-2-3-3-2-1-2-3-1-2-2-4-2-3 0-2-3-2-2-1 0-1-2 0-2-1-3-1-1 0-1-3-4-4-3-5 0-1-2-1-3-4 0-3-3-2 1-4 0-3-1-3 1-4 1-7 0-5-2-4-1-2 1-1 6 2 2 4 1-1-1-4-1-3-1 0-8-4-3-2-7-1-2-4 1-2-6-2 0-3-5-3 0-2-2-2-4-1-1-3-5-4-2-3-4-1-7 0-4-1-8-4-4-1-7-1-6 0-8-2-4-2-5 1 1 3-2 0-5 1-3 2-5 0 0-2 1-4 5-1-1-1-6 2-2 3-6 3 3 2-4 2-4 2-4 1-1 2-6 2-2 2-4 2-3-1-4 2-4 1-3 1-7 1-1 0 5-2 4-1 4-3 5 0 2-2 5-2 1-1 3-1 1-3 2-3-5 2-1-1-2 1-3-2-1 2-1-2-4 1-3 0 0-2 1-2-3-1-5 1-4-2-2-1 0-2-3-2 1-2 3-3 2-2 3 0 3 1 3-2 3 0 3-1-1-2-2-1 3-1-3 0-4 1-1 1-3-1-6 0-6-1-1-1-5-3 5-1 9-2 3 0 0 2 8 0-3-3-5-1-3-2-4-2-5-1 2-3 7 0 5-1 1-2 4-2 4-1 8-2 4 1 6-2 6 0 3 2 1-1 7 1 0 1 6 0 4 0 9 1 7 1 3 0 6-1 6 2 4 0 8 1 6 2 4 0 3-1 5-2 6 1 6-2 7-1 3 2 3-1 0-2 3 0 7 4 5-3 1 3 5 0 1-1 5 0 6 1 10 2 5 1 4-1 5 2-5 2 7 1 11 0 3-1 4 2 5-2-4-1 2-2 5 0 3 0 4 1 4 2 4 0 7 1 6 0 6 0 0-3 3 0 7 1-1 4 3-3 3 0 2-4-4-3-5-1 0-5 5-3 5 1 4 2 6 4-4 2 8 1zM-457 -292l-2 1 9-1 6 2 4-2 4 1 3 4 2-1-3-4 4-1 4 1 4 1 3 4 1 3 7 2 7 2 0 2-7 0 3 2-2 1-7-1-7-1-4 1-8 1-12 1-5 0-2-2-6-1-3 0-5-3 2 0 6-1 6 0 5 0-7-1-9 0-6 0-2-2 10-1-7 0-7-1 4-3 3-2 10-2 4 1zM-418 -294l-4 3-6-3 2 0 5-1 3 1zM-305 -292l0 1-4 0-5-1-4 1-1 0-5-2 1-2 2 0 9 0 7 3zM-346 -293l3 3 4-3 10-2 7 4-1 3 8-1 4-2 9 2 5 2 1 2 7-1 4 2 10 2 3 2 4 3-7 2 9 3 7 1 5 3 7 1-2 2-7 5-5-2-6-4-5 1-1 2 5 3 5 1 2 1 2 4-1 3-5-1-10-3 6 3 4 3 0 1-11-1-8-3-5-2 1-1-6-2-5-2 0 1-12 1-3-1 2-3 8 0 8-1-1-1 1-2 5-4-1-2-1-1-6-2-8-2 2-1-4-2-4 0-3-2-2 2-7 0-15-1-8-1-7-1-3-1 4-2-6 0-1-4 3-4 4-1 11-1-3 2zM-401 -295l4 0 7 0 2 1-4 2 6 2-1 3-6 2-4 0-3-2-10-3 0-1 8 0-4-2 5-2zM574 -293l-6 0-8 0-1 0 4-2 5 0 6 1 0 1zM-373 -291l-4 3-5 0-2-4 0-2 2-1 4-2 8 1 8 1-6 3-5 1zM-482 -286l-10 2-2-1-10-2 2-2 3-3 3-3-4-2 14-1 6 1 10 0 4 1 4 2-5 1-10 3-5 3 0 1zM603 -300l-5 1-6 0-8-2 1-1 8 1 10 1zM-374 -300l-3 2-5-1-5-1 2-2 6-1 3 2 2 1zM580 -302l-3 3-15 0-6 1-8-3 2-3 5-1 11 1 14 2zM-394 -307l3 2 0 2-2 3-6 0-5 0 1-3-7 1 0-3 4 0 6-2 6 1 0-1zM-433 -305l2 2 3-1 4 0 1 2-2 2-14 1-10 1-6 0 0-1 8-2-18 1-6-1 6-4 3-1 12 1 7 3 7 0-6-4 4-1 4 0 1 2zM230 -283l-2 0-13 0-1-2-8-1 0-2 4-1 0-2 8-4-4 0 10-4-1-1 8-2 14-3 13-1 7-1 8-1 2 2-2 1-14 2-13 2-12 4-6 4-6 4 0 3 8 3zM-379 -308l5 1 8 0 3 1-1 2 5 1 2 1 6 0 5 0 7-1 8 0 6 0 5 2 1 1-3 1-6 1-5 0-11 0-9 0-6 0-11-1-1-3-1-2-4-1-8-1-4-1 1-2 8 1zM-465 -311l0 3-3 2-4 0-8 2-6 0-5 0 6-3 9-3 6 0 5-1zM-375 -310l-2 0-8 0-1-1 8 0 3 0 0 1zM-441 -311l-7 1-6-1 3-1 6-1 6 1-2 1zM99 -311l-9 1-7-1 3-1-3-1 9-1 1 2 6 1zM-439 -314l-5 0-6 0 4-1 2 0 5 1zM-383 -312l-6 1-3-1-2-2-1-1 6 0 2 0 5 1-1 2zM-400 -313l1 1-6 0-7-1-9-1 4-1-5-1 0-1 8 0 11 2 3 2zM420 -313l-22 1 7-5 3 0 3 0 10 2-1 2zM73 -319l13 3-10 2-2 3-4 0-2 4-4 0-9-3 4-1-6-1-8-3-3-4 11-1 2 1 6 0 1-1 6 0 5 1zM102 -322l8 2-6 2-12 0-12 0 0-1-6 0-5-2 13-1 6 1 4-2 10 1zM205 -322l-6 0-3 1-1 0-5 1-4-1 2-1-9 0 8-1 6 0 1 1 2-1 4-1 6 1-1 1zM400 -316l-9 1-11-1-7-2-3-3-5 0 10-3 9-1 8 2 9 4-1 3zM-348 -319l5 2-6 1-7 3-7 0-9 0-4-2 0-1 3-2-7 1-4-2-3-2 3-1 3-2 4 0-2-1 9 0 5 2 7 1 7 1 3 2zM-274 -332l11 0 8 0 8 1-1 2-9 1-10 1-4 1 9 0-9 2-7 2-7 3-8 0-3 1-12 1 6 0-3 1 3 2-3 1-7 1-1 2-6 1 1 1 6 0 0 1-10 2-11-1-11 1-6-1-8 0 0-2 7-1-2-3 2 0 11 2-5-3-7 0 3-2 7-1 2-1-6-2-2-2 11 0 3 1 7-2-9 0-14 0-7-1-4-2-4-1-1-2 6 0 4 0 8-1 6-2 5 1 4 1 3-2 6-1 7-1 12 0 2 1 12-1 8 0 9 1zM-108 -334l25 3-8 2-15 0-22 0 2 1 15-1 12 2 7-1 4 1-5 2 11-1 19-2 12 1 2 2-16 3-2 1-13 0 9 0-5 3-3 3 0 4 5 3-6 0-7 1 8 3 1 3-5 0 6 4-9 0 4 2-1 1-6 1-5 0 5 2 0 2-8-1-2 1 5 1 5 2 2 3-7 1-3-1-5-3 1 3-4 2 10 0 6 0-11 4-11 3-12 2-4 0-4 1-6 4-8 3-3 0-5 1-6 1-4 3 0 2-2 3-6 3 1 3-1 4-3 4-5 0-6-3-8 0-4-3-3-4-7-5-2-2 0-4-6-3 2-3-3-2 4-4 6-2 2-2 1-3-5 2-2 0-4 1-5-1 0-3 2-2 3 0 8 1-6-3-4-1-4 0-3-1 4-3-2-2-3-3-5-4-5-1 0-2-11-2-9-1-10 0-10 1-5-2-7-2 11-1 8-1-17-1-9-1 0-2 16-2 14-2 2-1-11-1 3-2 14-3 6 0-2-2 10-1 12-1 12 0 5 1 10-2 10 2 6 0 8 1-10-2 1-2 13-2 14 0 6-1 14-1 32 1z';
+    // viewBoxes in the land path's units: x = lon × 4, y = −lat × 4.
+    var VIEWS = { world: [-720, -336, 1440, 568], us: [-504, -200, 244, 104] };
+
+    var state = {
+        secret: get('sessionStorage', 'stats_secret') || get('localStorage', 'stats_secret'),
+        days: parseInt(get('localStorage', 'stats_days'), 10) || 30,
+        view: get('localStorage', 'stats_view') === 'world' ? 'world' : 'us',
+        home: null,
+        data: null
+    };
+    try { state.home = JSON.parse(get('localStorage', 'stats_home') || 'null'); } catch (e) {}
+
+    var $ = function (id) { return document.getElementById(id); };
+    var fmt = function (n) { return Number(n || 0).toLocaleString(); };
+
+    function el(tag, attrs, text) {
+        var svg = /^(svg|g|rect|path|line|text|circle|title)$/.test(tag);
+        var n = svg ? document.createElementNS(SVGNS, tag) : document.createElement(tag);
+        for (var k in attrs || {}) n.setAttribute(k, attrs[k]);
+        if (text !== undefined && text !== null) n.textContent = text;
+        return n;
+    }
+    function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); return n; }
+
+    // ── Tooltip (built with textContent; values lead, labels follow) ──
+    var tip = $('tip');
+    function showTip(e, lines) {
+        clear(tip);
+        lines.forEach(function (l, i) {
+            var row = el('div');
+            if (l.strong !== undefined) row.appendChild(el('strong', null, l.strong));
+            if (l.text) row.appendChild(document.createTextNode((l.strong !== undefined ? ' ' : '') + l.text));
+            if (l.muted) row.className = 'muted';
+            tip.appendChild(row);
+        });
+        tip.style.display = 'block';
+        var x = e.clientX + 14, y = e.clientY + 14, r = tip.getBoundingClientRect();
+        if (x + r.width > innerWidth - 8) x = e.clientX - r.width - 14;
+        if (y + r.height > innerHeight - 8) y = e.clientY - r.height - 14;
+        tip.style.left = Math.max(8, x) + 'px';
+        tip.style.top = Math.max(8, y) + 'px';
+    }
+    function hideTip() { tip.style.display = 'none'; }
+
+    // ── Names ──
+    var regionNames = window.Intl && Intl.DisplayNames ? new Intl.DisplayNames(['en'], { type: 'region' }) : null;
+    var langNames = window.Intl && Intl.DisplayNames ? new Intl.DisplayNames(['en'], { type: 'language' }) : null;
+    function country(c) { try { return regionNames ? regionNames.of(c) : c; } catch (e) { return c; } }
+    function lang(l) { try { return langNames ? langNames.of(l) : l; } catch (e) { return l; } }
+    var PAGE_NAMES = {
+        index: 'Home', notify: 'Get updates', 'docs/index': 'Docs', 'docs/api': 'Docs · API',
+        'docs/architecture': 'Docs · Architecture', 'docs/glucose-api': 'Docs · Glucose API',
+        meetingtimer: 'Meeting Cost Timer', tracktimer: 'Track Timer', toolshare: 'Toolshare',
+        flighttracker: 'Flight Tracker', glucose: 'Glucose', bgcast: 'Glucose · Cast',
+        nflpool: 'Confidence Pool', wildcatsxc: 'WildcatsXC', dailytasks: 'Daily Tasks',
+        facebreaker: 'Face Breaker', reactiontest: 'Reaction Test', pomodoro: 'Pomodoro',
+        'pomodoro-cast': 'Pomodoro · Cast', signspotter: 'Sign Spotter', cribbage: 'Cribbage',
+        privacy: 'Privacy', terms: 'Terms'
+    };
+    function pageName(p) { return PAGE_NAMES[p] || p; }
+
+    // ── Distance from home (great circle, miles) ──
+    function miles(lat, lon) {
+        if (!state.home || lat === null || lon === null) return null;
+        var R = 3958.8, rad = Math.PI / 180;
+        var dLat = (lat - state.home.lat) * rad, dLon = (lon - state.home.lon) * rad;
+        var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(state.home.lat * rad) * Math.cos(lat * rad) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+    }
+
+    // ── Bar chart: one series, thin bars, rounded data end, hover per bar ──
+    function barChart(host, rows, opts) {
+        clear(host);
+        if (!rows.length || !rows.some(function (r) { return r.value > 0; })) {
+            host.appendChild(el('div', { class: 'empty' }, 'No page views in this range.'));
+            return;
+        }
+        var W = Math.max(280, host.clientWidth || 600), H = opts.height || 180;
+        var m = { t: 8, r: 4, b: 22, l: 36 };
+        var iw = W - m.l - m.r, ih = H - m.t - m.b;
+        var max = Math.max.apply(null, rows.map(function (r) { return r.value; }));
+        var step = niceStep(max), top = Math.ceil(max / step) * step || 1;
+        var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': opts.label });
+        var ax = el('g', { class: 'axis' });
+        for (var v = 0; v <= top; v += step) {
+            var y = m.t + ih - (v / top) * ih;
+            ax.appendChild(el('line', { x1: m.l, x2: W - m.r, y1: y, y2: y }));
+            ax.appendChild(el('text', { x: m.l - 6, y: y + 3, 'text-anchor': 'end' }, fmt(v)));
+        }
+        var bw = iw / rows.length, gap = Math.min(2, bw * 0.25), w = Math.max(1, bw - gap);
+        var every = Math.ceil(rows.length / Math.max(1, Math.floor(iw / (opts.labelPx || 52))));
+        rows.forEach(function (r, i) {
+            var x = m.l + i * bw + gap / 2;
+            if (i % every === 0) ax.appendChild(el('text', { x: x + w / 2, y: H - 6, 'text-anchor': 'middle' }, r.label));
+        });
+        svg.appendChild(ax);
+        rows.forEach(function (r, i) {
+            var x = m.l + i * bw + gap / 2, h = (r.value / top) * ih, y = m.t + ih - h;
+            var hit = el('rect', { class: 'bar-hit', x: m.l + i * bw, y: m.t, width: bw, height: ih });
+            var rad = Math.min(4, w / 2, h);
+            var bar = el('path', { class: 'bar', d: h > 0 ? roundTop(x, y, w, h, rad) : '' });
+            hit.addEventListener('pointermove', function (e) { bar.classList.add('on'); showTip(e, r.tip); });
+            hit.addEventListener('pointerleave', function () { bar.classList.remove('on'); hideTip(); });
+            svg.appendChild(hit);
+            svg.appendChild(bar);
+        });
+        host.appendChild(svg);
+    }
+    function roundTop(x, y, w, h, r) {
+        return 'M' + x + ',' + (y + h) + 'V' + (y + r) + 'Q' + x + ',' + y + ' ' + (x + r) + ',' + y +
+               'H' + (x + w - r) + 'Q' + (x + w) + ',' + y + ' ' + (x + w) + ',' + (y + r) + 'V' + (y + h) + 'Z';
+    }
+    function niceStep(max) {
+        if (max <= 4) return 1;
+        var raw = max / 4, p = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / p;
+        return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p;
+    }
+
+    // ── Ranked table ──
+    // cols: [{ key, label, fmt? }]; the first column carries the magnitude bar.
+    function rankTable(host, rows, cols, opts) {
+        clear(host);
+        opts = opts || {};
+        if (!rows.length) { host.appendChild(el('div', { class: 'empty' }, opts.empty || 'Nothing yet.')); return; }
+        var barKey = opts.barKey || 'views';
+        var max = Math.max.apply(null, rows.map(function (r) { return r[barKey] || 0; })) || 1;
+        var t = el('table', { class: 'rank' }), head = el('tr');
+        cols.forEach(function (c) { head.appendChild(el('th', null, c.label)); });
+        t.appendChild(el('thead')).appendChild(head);
+        var body = el('tbody');
+        rows.forEach(function (r) {
+            var tr = el('tr');
+            cols.forEach(function (c, i) {
+                var td = el('td');
+                if (i === 0) {
+                    td.appendChild(el('span', { class: 'rank-bar', style: 'width:' + Math.max(1, (r[barKey] || 0) / max * 100) + '%' }));
+                    var name = el('span', { class: 'rank-name' }, c.fmt ? c.fmt(r) : r[c.key]);
+                    if (r._sub) name.appendChild(el('span', { class: 'rank-sub' }, ' ' + r._sub));
+                    td.appendChild(name);
+                } else {
+                    var v = c.fmt ? c.fmt(r) : fmt(r[c.key]);
+                    td.textContent = v;
+                    if (c.cls && c.cls(r)) td.className = c.cls(r);
+                }
+                tr.appendChild(td);
+            });
+            body.appendChild(tr);
+        });
+        t.appendChild(body);
+        host.appendChild(t);
+    }
+    var VV = function (nameLabel, namer) {
+        return [
+            { key: 'name', label: nameLabel, fmt: function (r) { return namer ? namer(r.name) : (r.name === null ? '(unknown)' : r.name); } },
+            { key: 'views', label: 'Views' },
+            { key: 'visitors', label: 'Visitors' }
+        ];
+    };
+
+    // ── Map ──
+    function drawMap() {
+        var host = $('c-map'), d = state.data;
+        clear(host);
+        var vb = VIEWS[state.view];
+        var svg = el('svg', { viewBox: vb.join(' '), role: 'img', 'aria-label': 'Map of visitor cities' });
+        svg.appendChild(el('path', { class: 'land', d: LAND }));
+        host.appendChild(svg);
+        // Marks are sized in screen pixels, so convert through the current scale.
+        var unit = vb[2] / Math.max(1, svg.getBoundingClientRect().width || host.clientWidth || 800);
+        var pts = (d.cities || []).filter(function (c) { return c.lat !== null && c.lon !== null; });
+        var max = Math.max.apply(null, pts.map(function (c) { return c.views; }).concat([1]));
+        pts.slice().sort(function (a, b) { return b.views - a.views; }).forEach(function (c) {
+            var r = (4 + 14 * Math.sqrt(c.views / max)) * unit;
+            var dot = el('circle', { class: 'dot', cx: c.lon * 4, cy: -c.lat * 4, r: r });
+            var mi = miles(c.lat, c.lon);
+            var lines = [
+                { text: placeName(c) },
+                { strong: fmt(c.views), text: c.views === 1 ? 'view' : 'views' },
+                { strong: fmt(c.visitors), text: c.visitors === 1 ? 'visitor' : 'visitors' }
+            ];
+            if (mi !== null) lines.push({ text: fmt(Math.round(mi)) + ' mi from home', muted: true });
+            dot.addEventListener('pointermove', function (e) { showTip(e, lines); });
+            dot.addEventListener('pointerleave', hideTip);
+            svg.appendChild(dot);
+        });
+        if (state.home) {
+            var hr = 6 * unit;
+            svg.appendChild(el('circle', { class: 'home', cx: state.home.lon * 4, cy: -state.home.lat * 4, r: hr }));
+        }
+        if (!pts.length) {
+            host.appendChild(el('div', { class: 'empty' }, d.geoip ? 'No located visits in this range.' : 'City lookup is off — see the note above.'));
+        }
+        drawBands(pts);
+    }
+    function placeName(c) {
+        var parts = [c.city, c.region, c.country === 'US' ? 'US' : country(c.country)].filter(Boolean);
+        return c.city ? parts.join(', ') : (c.country ? country(c.country) + ' (city unknown)' : '(unknown)');
+    }
+
+    // Distance bands: the "how far away" view, only once a home is set.
+    function drawBands(pts) {
+        var host = $('bands'), line = $('home-line');
+        clear(host); clear(line);
+        var btn = el('button', { class: 'btn', type: 'button' }, state.home ? 'Move home here' : 'Set home to my location');
+        btn.addEventListener('click', setHome);
+        if (!state.home) {
+            host.hidden = true;
+            line.appendChild(document.createTextNode('Set a home point to see how far away visitors are. It stays in this browser. '));
+            line.appendChild(btn);
+            return;
+        }
+        var bands = [[25, 'within 25 mi'], [100, '25–100 mi'], [500, '100–500 mi'], [Infinity, 'over 500 mi']];
+        var counts = [0, 0, 0, 0], total = 0;
+        pts.forEach(function (c) {
+            var mi = miles(c.lat, c.lon);
+            for (var i = 0; i < bands.length; i++) if (mi < bands[i][0]) { counts[i] += c.visitors; break; }
+            total += c.visitors;
+        });
+        bands.forEach(function (b, i) {
+            var box = el('div', { class: 'band' });
+            box.appendChild(el('div', { class: 'band-v' }, total ? Math.round(counts[i] / total * 100) + '%' : '–'));
+            box.appendChild(el('div', { class: 'band-l' }, b[1] + ' · ' + fmt(counts[i])));
+            host.appendChild(box);
+        });
+        host.hidden = false;
+        line.appendChild(document.createTextNode('Share of located visitors by distance from home (the ring on the map). '));
+        line.appendChild(btn);
+        var clr = el('button', { class: 'btn', type: 'button', style: 'margin-left:6px' }, 'Clear');
+        clr.addEventListener('click', function () { state.home = null; set('localStorage', 'stats_home', null); render(); });
+        line.appendChild(clr);
+    }
+    function setHome() {
+        if (!navigator.geolocation) { alert('This browser cannot share its location.'); return; }
+        navigator.geolocation.getCurrentPosition(function (p) {
+            state.home = { lat: Math.round(p.coords.latitude * 100) / 100, lon: Math.round(p.coords.longitude * 100) / 100 };
+            set('localStorage', 'stats_home', JSON.stringify(state.home));
+            render();
+        }, function () { alert('Location was not shared.'); }, { maximumAge: 600000, timeout: 15000 });
+    }
+
+    // ── Render everything from state.data ──
+    function render() {
+        var d = state.data;
+        if (!d) return;
+
+        // Notices
+        var notes = clear($('notices'));
+        if (!d.geoip) {
+            var n = el('div', { class: 'notice' });
+            n.appendChild(el('strong', null, 'City lookup is off. '));
+            n.appendChild(document.createTextNode('The GeoLite2 City database is not on the server, so visits are counted without a location. See docs/apps/stats.md in the repo to install it.'));
+            notes.appendChild(n);
+        } else {
+            var age = Math.floor((Date.now() - Date.parse(d.geoip + 'T00:00:00Z')) / 86400000);
+            if (age > 45) {
+                var o = el('div', { class: 'notice' });
+                o.appendChild(el('strong', null, 'City data is ' + age + ' days old. '));
+                o.appendChild(document.createTextNode('MaxMind updates GeoLite2 weekly and its licence asks for updates within 30 days. Upload a fresh copy.'));
+                notes.appendChild(o);
+            }
+        }
+
+        // Tiles
+        $('t-views').textContent = fmt(d.totals.views);
+        $('t-views-n').textContent = d.days === 1 ? 'today' : 'last ' + d.days + ' days';
+        $('t-visitors').textContent = fmt(d.totals.visitors);
+        $('t-ratio').textContent = d.totals.visitors ? (d.totals.views / d.totals.visitors).toFixed(1) : '–';
+        var top = d.pages[0];
+        $('t-top').textContent = top ? pageName(top.name) : '–';
+        $('t-top').title = top ? pageName(top.name) : '';
+        $('t-top-n').textContent = top ? fmt(top.views) + ' views' : '';
+
+        // Daily, with empty days filled in
+        var byDay = {};
+        d.daily.forEach(function (r) { byDay[r.day] = r; });
+        var days = [], start = Date.parse(d.from + 'T00:00:00Z');
+        for (var i = 0; i < d.days; i++) {
+            var key = new Date(start + i * 86400000).toISOString().slice(0, 10);
+            var r = byDay[key] || { views: 0, visitors: 0 };
+            var dt = new Date(key + 'T12:00:00Z');
+            var label = dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+            days.push({ label: label, value: r.views, tip: [
+                { text: dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }), muted: true },
+                { strong: fmt(r.views), text: 'views' }, { strong: fmt(r.visitors), text: 'visitors' }] });
+        }
+        if (d.days === 1) {
+            // A single bar says nothing; show today's hours instead.
+            $('c-daily').previousElementSibling.firstChild.textContent = 'Page views today by hour';
+            barChart($('c-daily'), hourRows(d.hours, true), { label: 'Page views today by hour' });
+        } else {
+            $('c-daily').previousElementSibling.firstChild.textContent = 'Page views by day';
+            barChart($('c-daily'), days, { label: 'Page views by day' });
+        }
+
+        barChart($('c-hours'), hourRows(d.hours, false), { label: 'Page views by hour of day', height: 150 });
+
+        drawMap();
+
+        rankTable($('r-pages'), d.pages, VV('App', pageName), { empty: 'No page views yet.' });
+
+        var cityRows = d.cities.map(function (c) {
+            var mi = miles(c.lat, c.lon);
+            return { name: placeName(c), views: c.views, visitors: c.visitors, miles: mi };
+        });
+        var cityCols = [{ key: 'name', label: 'City' }, { key: 'views', label: 'Views' }, { key: 'visitors', label: 'Visitors' }];
+        if (state.home) cityCols.push({ key: 'miles', label: 'Miles', fmt: function (r) { return r.miles === null ? '–' : fmt(Math.round(r.miles)); } });
+        $('cities-hint').textContent = state.home ? 'views · visitors · miles from home' : 'views · visitors';
+        rankTable($('r-cities'), cityRows, cityCols, { empty: d.geoip ? 'No located visits yet.' : 'City lookup is off.' });
+
+        rankTable($('r-referrers'), d.referrers.map(function (r) {
+            return { name: r.name === null ? 'Direct / none' : r.name === 'internal' ? 'Within davenn.com' : r.name, views: r.views, visitors: r.visitors };
+        }), VV('Source'), { empty: 'No visits yet.' });
+        rankTable($('r-countries'), d.countries, VV('Country', function (c) { return c === null ? '(unknown)' : country(c); }));
+        rankTable($('r-devices'), d.devices, VV('Device', function (v) { return v === null ? '(unknown)' : v[0].toUpperCase() + v.slice(1); }));
+        rankTable($('r-installed'), d.installed, VV('Opened as', function (v) { return v ? 'Installed app' : 'Browser tab'; }));
+        rankTable($('r-browsers'), d.browsers, VV('Browser'));
+        rankTable($('r-os'), d.os, VV('OS'));
+        rankTable($('r-langs'), d.langs, VV('Language', function (v) { return v === null ? '(unknown)' : lang(v) + ' (' + v + ')'; }));
+        rankTable($('r-themes'), d.themes, VV('Theme', function (v) { return v === null ? '(unknown)' : v[0].toUpperCase() + v.slice(1); }));
+
+        rankTable($('r-api'), d.api.map(function (r) {
+            return { name: r.action, _sub: r.method, calls: r.calls, errors: r.errors, avg_ms: r.avg_ms, max_ms: r.max_ms };
+        }), [
+            { key: 'name', label: 'Endpoint' },
+            { key: 'calls', label: 'Calls' },
+            { key: 'errors', label: 'Errors', fmt: function (r) { return r.errors ? fmt(r.errors) + ' failed (' + Math.round(r.errors / r.calls * 100) + '%)' : '0'; },
+              cls: function (r) { return r.errors ? 'status-bad' : ''; } },
+            { key: 'avg_ms', label: 'Avg ms' },
+            { key: 'max_ms', label: 'Max ms' }
+        ], { barKey: 'calls', empty: 'No API calls recorded in this range.' });
+
+        // All time, empty days filled in
+        var hist = d.history, hrows = [];
+        if (hist.length) {
+            var byH = {};
+            hist.forEach(function (r) { byH[r.day] = r; });
+            var s = Date.parse(hist[0].day + 'T00:00:00Z'), e = Date.parse(hist[hist.length - 1].day + 'T00:00:00Z');
+            for (var t = s; t <= e; t += 86400000) {
+                var k = new Date(t).toISOString().slice(0, 10), h = byH[k] || { views: 0, visitors: 0 };
+                var dd = new Date(k + 'T12:00:00Z');
+                hrows.push({ label: dd.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit', timeZone: 'UTC' }), value: h.views,
+                    tip: [{ text: dd.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' }), muted: true },
+                          { strong: fmt(h.views), text: 'views' }, { strong: fmt(h.visitors), text: 'visitors' }] });
+            }
+        }
+        barChart($('c-history'), hrows, { label: 'Page views per day, all time', height: 140, labelPx: 90 });
+    }
+
+    function hourRows(hours, today) {
+        var by = {};
+        hours.forEach(function (h) { by[h.hour] = h.views; });
+        var rows = [];
+        for (var h = 0; h < 24; h++) {
+            var label = (h % 12 || 12) + (h < 12 ? 'a' : 'p');
+            rows.push({ label: label, value: by[h] || 0, tip: [
+                { text: label.replace('a', ' am').replace('p', ' pm') + (today ? ' today' : ''), muted: true },
+                { strong: fmt(by[h] || 0), text: 'views' }] });
+        }
+        return rows;
+    }
+
+    // ── Loading ──
+    function load() {
+        var tz = -new Date().getTimezoneOffset();
+        $('refresh').disabled = true;
+        fetch(API + '?action=an_stats&days=' + state.days + '&tz=' + tz, { headers: { 'X-Admin-Secret': state.secret || '' } })
+            .then(function (res) {
+                if (res.status === 401) { signOut('That secret was not accepted.'); return null; }
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            })
+            .then(function (d) {
+                if (!d) return;
+                state.data = d;
+                $('signin').hidden = true;
+                $('dash').hidden = false;
+                render();
+            })
+            .catch(function (e) {
+                var notes = clear($('notices')), n = el('div', { class: 'notice' });
+                n.appendChild(el('strong', null, 'Could not load stats. '));
+                n.appendChild(document.createTextNode(String(e.message || e)));
+                notes.appendChild(n);
+            })
+            .finally(function () { $('refresh').disabled = false; });
+    }
+
+    function signOut(msg) {
+        state.secret = null;
+        set('sessionStorage', 'stats_secret', null);
+        set('localStorage', 'stats_secret', null);
+        $('dash').hidden = true;
+        $('signin').hidden = false;
+        $('signin-err').textContent = msg || '';
+        $('secret').focus();
+    }
+
+    $('signin').addEventListener('submit', function (e) {
+        e.preventDefault();
+        state.secret = $('secret').value.trim();
+        set('sessionStorage', 'stats_secret', state.secret);
+        if ($('remember').checked) set('localStorage', 'stats_secret', state.secret);
+        $('signin-err').textContent = '';
+        load();
+    });
+    $('signout').addEventListener('click', function () { signOut(''); });
+    $('refresh').addEventListener('click', load);
+
+    function pressed(group, attr, value) {
+        Array.prototype.forEach.call($(group).querySelectorAll('button'), function (b) {
+            b.setAttribute('aria-pressed', String(b.getAttribute(attr) === String(value)));
+        });
+    }
+    $('range').addEventListener('click', function (e) {
+        var b = e.target.closest('button'); if (!b) return;
+        state.days = parseInt(b.getAttribute('data-days'), 10);
+        set('localStorage', 'stats_days', String(state.days));
+        pressed('range', 'data-days', state.days);
+        load();
+    });
+    $('mapview').addEventListener('click', function (e) {
+        var b = e.target.closest('button'); if (!b) return;
+        state.view = b.getAttribute('data-view');
+        set('localStorage', 'stats_view', state.view);
+        pressed('mapview', 'data-view', state.view);
+        if (state.data) drawMap();
+    });
+
+    // The beacon on every other page reads this flag.
+    $('optout').checked = get('localStorage', 'an_optout') === '1';
+    $('optout').addEventListener('change', function () { set('localStorage', 'an_optout', this.checked ? '1' : null); });
+
+    var resizeTimer;
+    addEventListener('resize', function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 150); });
+
+    if ([1, 7, 30, 90].indexOf(state.days) < 0) state.days = 30;
+    pressed('range', 'data-days', state.days);
+    pressed('mapview', 'data-view', state.view);
+    if (state.secret) load(); else signOut('');
+})();
+</script>
+
+</body>
+</html>

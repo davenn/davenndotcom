@@ -22,6 +22,7 @@ fits together see [`../../CLAUDE.md`](../../CLAUDE.md).
 | Pomodoro | [pomodoro.md](pomodoro.md) | none |
 | Cribbage | [cribbage.md](cribbage.md) | none |
 | Sign Spotter | [signspotter.md](signspotter.md) | none |
+| Stats (unlisted) | [stats.md](stats.md) | page views, API usage, city lookup |
 
 ## Keeping these true
 

@@ -30,6 +30,7 @@ Browser ──► /appname.html  (self-contained: HTML + CSS + JS)
 | `index.html` | Home page — the app grid. "Get updates" links to `notify.html` |
 | `notify.html` | The **only** update-notification signup. It is the opt-in page filed with the A2P campaign (`docs/a2p-campaign.md`), so do not add a second signup form anywhere |
 | `<app>.html` | One file per app; see the inventory below |
+| `stats.html` | Analytics dashboard. **Unlisted** — deliberately not on the home grid |
 | `api.php` | The entire backend. Every app, every endpoint |
 | `manifest-<app>.json` | PWA manifest, one per installable app |
 | `sw.js` | Single service worker shared by all apps |
@@ -60,6 +61,7 @@ Browser ──► /appname.html  (self-contained: HTML + CSS + JS)
 | Sign Spotter | `signspotter.html` | — | local only |
 | Cribbage | `cribbage.html` | — | local only |
 | Legal | `privacy.html`, `terms.html` | — | static |
+| Stats | `stats.html`, plus the beacon on every page | `an_hits` `an_daily` `an_salt` `an_api` | `X-Admin-Secret` to read; beacon open |
 
 ## api.php
 
@@ -73,8 +75,8 @@ before deploying for exactly this reason. Never push PHP you have not linted.
   `$action` comes from `?action=`. Each branch ends by echoing JSON and exiting.
   Add new endpoints in the same shape, grouped with their app's other branches.
 - **Table prefixes** namespace each app: `tb_` Toolshare, `ft_` Flight Tracker,
-  `bg_` glucose, `dt_` Daily Tasks, `cp_` Confidence Pool, `xc_` WildcatsXC. Unprefixed tables
-  (`meetings`, `track_sessions`, `subscribers`, `fb_scores`, `reaction_scores`)
+  `bg_` glucose, `dt_` Daily Tasks, `cp_` Confidence Pool, `xc_` WildcatsXC,
+  `an_` analytics. Unprefixed tables (`meetings`, `track_sessions`, `subscribers`, `fb_scores`, `reaction_scores`)
   predate the convention — leave their names alone.
 - **Schema is self-migrating.** Every request runs the `CREATE TABLE IF NOT
   EXISTS` block at the top of the file. To add a table, add it there. There are
@@ -93,7 +95,8 @@ before deploying for exactly this reason. Never push PHP you have not linted.
     endpoint, checked against `XC_PIN` in `.env` and rate-limited per IP in
     `xc_pin_attempts`. It guards minors' names, so it is never hardcoded
   - `X-Admin-Secret` → operator-only endpoints (ingest, notify, roster, purge)
-  - none → the leaderboard and timer apps write unauthenticated
+  - none → the leaderboard and timer apps write unauthenticated, and so does
+    the page-view beacon `an_hit`
 - **Endpoint comments already exist** above the non-obvious branches and explain
   intent, not mechanics. Read them before changing a branch, and keep the habit.
 
@@ -245,7 +248,7 @@ must be made on the host** — pushing will not update it.
 `DB_HOST` `DB_NAME` `DB_USER` `DB_PASS` · `UPLOAD_DIR` `UPLOAD_URL` ·
 `MAIL_FROM` `MAIL_FROM_NAME` `MAIL_REPLY_TO` `APP_URL` ·
 `TWILIO_ACCOUNT_SID` `TWILIO_AUTH_TOKEN` `TWILIO_FROM_NUMBER` ·
-`ADMIN_SECRET` `BG_READ_TOKEN` `BG_TIMEZONE` · `TEST_PHONE` · `XC_PIN`
+`ADMIN_SECRET` `BG_READ_TOKEN` `BG_TIMEZONE` · `TEST_PHONE` · `XC_PIN` · `GEOIP_DB`
 
 `TEST_PHONE` is the one number `?action=resetTestPhone` may delete from
 `subscribers`, in stored form (`+1` and ten digits). The repo is public, so it
@@ -253,6 +256,11 @@ lives only in the server `.env`. Unset, the endpoint does nothing.
 
 `XC_PIN` is the WildcatsXC team PIN, for the same reason only in the server
 `.env`. Unset, every WildcatsXC endpoint answers 503 — locked, not open.
+
+`GEOIP_DB` is optional: the path to MaxMind's `GeoLite2-City.mmdb`. Unset, it
+defaults to one level above the web root. The file is licensed, never
+committed (`*.mmdb` is gitignored) and uploaded by hand; without it, page views
+are stored with no location. See `docs/apps/stats.md`.
 
 `ANTHROPIC_API_KEY` is read by `api.php` but is **not** in the local `.env` —
 it exists only in the server copy. Vision features will fail when testing
@@ -278,6 +286,20 @@ against a local env file.
   owner accepted that on these terms, so keep it that way — and never add
   anything that works around a block, captcha or paywall. Like ESPN, it can
   break without notice.
+
+## Analytics
+
+Every page ends with an inline beacon that posts one anonymous page view to
+`?action=an_hit`; `stats.html` reads it back through `an_stats`. **A new page
+needs the beacon pasted before `</body>`** (copy it from any app), or it will
+not be counted. `docs/api.html` gets it from the generator template.
+
+It stores no IP, no cookie and no full user agent or referrer. Visitors are a
+daily-salted hash, and city comes from a local GeoLite2 lookup. Keep it that
+way: anything that would identify a person across days, or send visitor data
+to a third party, contradicts `privacy.html`. Separately, a shutdown hook
+counts every `api.php` request into `an_api`, so new endpoints are tracked
+without doing anything. Details are in `docs/apps/stats.md`.
 
 ## Rules of thumb
 

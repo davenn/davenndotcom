@@ -61,7 +61,7 @@
     <div class="content">
         <div class="page-eyebrow">Legal</div>
         <h1>Privacy Policy</h1>
-        <div class="updated">Last updated September 2026</div>
+        <div class="updated">Last updated October 2026</div>
 
         <p>davenn.com is a small collection of independent utilities. This page explains what information the site collects, why, and how you can have it removed.</p>
 
@@ -83,7 +83,12 @@
             <li><strong>Glucose</strong> — continuous glucose readings uploaded from a linked CGM account, along with any notes or events added in the app. This is health information; it is stored on our server and the dashboard requires an access token to read.</li>
         </ul>
         <p>Passwords are never stored in plain text. Tool photos you upload to Toolshare are stored on our hosting server and are visible to friends you've connected with in the app. Confidence Pool sheet photos are not stored at all.</p>
-        <p>Apps not listed here — including Cribbage, Sign Spotter, and Pomodoro — don't send anything to our server at all.</p>
+        <p>Apps not listed here — including Cribbage, Sign Spotter, and Pomodoro — don't send anything to our server beyond the anonymous page-view count described below.</p>
+
+        <h2>Page-view counts</h2>
+        <p>Every page on davenn.com sends one anonymous page-view count to our own server when it loads, so we can see which apps get used. It records the page, the hour, the website that linked you here (the domain only, never the full address), whether you're on a phone, tablet or computer, your browser and operating system family (for example "Safari" and "iOS"), whether the app was opened as an installed app, its light or dark theme, your browser's language, and an approximate location — city, region and country.</p>
+        <p>The location is looked up from your IP address at the moment of the visit, using a database stored on our own server, so your IP address is never sent to anyone else. <strong>Your IP address is not stored.</strong> To count unique visitors without cookies, we keep a one-way scrambled code made from your IP address, your browser, and a random value that is replaced and discarded every day. It can't be turned back into an IP address, and it can't link your visits from one day to the next. Individual page views are deleted after 90 days and only daily totals are kept.</p>
+        <p>No cookies are set and nothing is stored on your device. The count is skipped entirely if your browser sends a Do Not Track or Global Privacy Control signal. Location data is GeoLite2 data created by MaxMind, available from <a href="https://www.maxmind.com">https://www.maxmind.com</a>.</p>
 
         <h2>Third-party services we use</h2>
         <ul>
@@ -92,7 +97,7 @@
             <li><strong>ESPN</strong> — the Confidence Pool reads live NFL scores from ESPN's public scoreboard, and team logos load in your browser directly from ESPN's image servers, which means ESPN can see your IP address when you view the scoreboard. No account or pool information is sent to ESPN.</li>
             <li><strong>GoDaddy</strong> — our web host and database provider for davenn.com.</li>
         </ul>
-        <p>We don't use analytics, advertising, or third-party tracking cookies anywhere on this site.</p>
+        <p>We don't use third-party analytics, advertising, or tracking cookies anywhere on this site. The page-view counts above are kept on our own server and never shared.</p>
 
         <h2>Local storage</h2>
         <p>Some apps (Pomodoro, Daily Tasks, Track Timer, and others) save your in-progress session or theme preference in your browser's local storage so it survives a page refresh. This data never leaves your device and isn't something we can see or access.</p>
@@ -104,6 +109,29 @@
         <h2>Contact</h2>
         <p>Questions about this policy or your data? Reach out at <a href="mailto:support@davenn.com">support@davenn.com</a>.</p>
     </div>
+
+<script>
+// Anonymous page-view count (see /privacy.html): no cookies, nothing stored on
+// this device. Skipped for Do Not Track, Global Privacy Control, automated
+// browsers, and any device opted out from the stats page.
+(function () {
+    try {
+        var n = navigator, de = document.documentElement;
+        if (!n.sendBeacon || n.webdriver || n.globalPrivacyControl || n.doNotTrack === '1') return;
+        try { if (localStorage.getItem('an_optout') === '1') return; } catch (e) {}
+        var mq = function (q) { return !!(window.matchMedia && matchMedia(q).matches); };
+        var s = Math.min(screen.width, screen.height), t = de.getAttribute('data-theme');
+        n.sendBeacon('/api.php?action=an_hit', JSON.stringify({
+            p: location.pathname,
+            r: document.referrer,
+            d: mq('(pointer: coarse)') ? (s < 600 ? 'mobile' : 'tablet') : 'desktop',
+            i: mq('(display-mode: standalone)') || n.standalone === true,
+            t: t === 'light' || t === 'dark' ? t : (mq('(prefers-color-scheme: dark)') ? 'dark' : 'light'),
+            l: n.language
+        }));
+    } catch (e) {}
+})();
+</script>
 
 </body>
 </html>
