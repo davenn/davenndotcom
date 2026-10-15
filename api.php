@@ -366,6 +366,39 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS an_api (
     PRIMARY KEY (day, method, action)
 )");
 
+// Claude API token use, one row per UTC day, endpoint and model. Written by
+// anLogAi() after every call, so stats.html can price it. Tokens, not dollars:
+// prices change, and re-pricing history from tokens is always possible.
+$pdo->exec("CREATE TABLE IF NOT EXISTS an_ai (
+    day         DATE        NOT NULL,
+    action      VARCHAR(40) NOT NULL,
+    model       VARCHAR(60) NOT NULL,
+    calls       INT         NOT NULL DEFAULT 0,
+    input       BIGINT      NOT NULL DEFAULT 0,
+    output      BIGINT      NOT NULL DEFAULT 0,
+    cache_write BIGINT      NOT NULL DEFAULT 0,
+    cache_read  BIGINT      NOT NULL DEFAULT 0,
+    PRIMARY KEY (day, action, model)
+)");
+
+// Recurring costs that no API reports (hosting, the domain), entered on the
+// stats page and prorated over whatever range it shows.
+$pdo->exec("CREATE TABLE IF NOT EXISTS an_fixed_costs (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    label      VARCHAR(80)            NOT NULL,
+    amount     DECIMAL(10,2)          NOT NULL,
+    period     ENUM('month','year')   NOT NULL,
+    created_at DATETIME               DEFAULT CURRENT_TIMESTAMP
+)");
+
+// Twilio's usage report for a date range, kept for an hour so a dashboard
+// refresh does not call Twilio every time.
+$pdo->exec("CREATE TABLE IF NOT EXISTS an_cache (
+    k          VARCHAR(80) NOT NULL PRIMARY KEY,
+    v          MEDIUMTEXT  NOT NULL,
+    fetched_at DATETIME    NOT NULL
+)");
+
 // ── HELPERS ────────────────────────────────────────────────────────────────
 function authUser(PDO $pdo): ?array {
     $token = $_SERVER['HTTP_X_AUTH_TOKEN'] ?? '';
@@ -379,6 +412,29 @@ function requireAuth(PDO $pdo): array {
     $user = authUser($pdo);
     if (!$user) { http_response_code(401); echo json_encode(['error' => 'Unauthorized']); exit; }
     return $user;
+}
+
+// Record one Claude API response's token use in an_ai, under the endpoint that
+// made the call. With server-side fallbacks, usage.iterations is the per-attempt
+// truth (a refused attempt and its fallback are billed separately, each at its
+// own model's rates), so it is used when present. Never throws: losing a cost
+// row must not lose the user's result.
+function anLogAi(string $model, array $usage): void {
+    global $pdo, $action;
+    try {
+        $parts = !empty($usage['iterations']) && is_array($usage['iterations']) ? $usage['iterations'] : [$usage];
+        $st = $pdo->prepare("INSERT INTO an_ai (day, action, model, calls, input, output, cache_write, cache_read)
+                             VALUES (?, ?, ?, 1, ?, ?, ?, ?)
+                             ON DUPLICATE KEY UPDATE calls = calls + 1, input = input + VALUES(input),
+                                 output = output + VALUES(output), cache_write = cache_write + VALUES(cache_write),
+                                 cache_read = cache_read + VALUES(cache_read)");
+        foreach ($parts as $u) {
+            if (!is_array($u)) continue;
+            $st->execute([gmdate('Y-m-d'), substr((string)$action, 0, 40), substr((string)($u['model'] ?? $model), 0, 60),
+                          (int)($u['input_tokens'] ?? 0), (int)($u['output_tokens'] ?? 0),
+                          (int)($u['cache_creation_input_tokens'] ?? 0), (int)($u['cache_read_input_tokens'] ?? 0)]);
+        }
+    } catch (Throwable $e) {}
 }
 
 function sendEmail(string $to, string $to_name, string $subject, string $body_html,
@@ -835,6 +891,7 @@ Example (not a tool): {"appropriate":false,"name":"","brand":"","tags":[]}';
     }
 
     $data = json_decode($response, true);
+    anLogAi((string)($data['model'] ?? 'claude-haiku-4-5'), (array)($data['usage'] ?? []));
     $text = trim($data['content'][0]['text'] ?? '');
     // Strip markdown code fences if Claude wrapped the JSON
     $text = preg_replace('/^```(?:json)?\s*/i', '', $text);
@@ -2761,6 +2818,7 @@ For the picks, read carefully and do not guess. A wrong confidence number is wor
     if (!$response || $http_code !== 200) return null;
 
     $data = json_decode($response, true);
+    anLogAi((string)($data['model'] ?? 'claude-opus-5'), (array)($data['usage'] ?? []));
     $text = '';
     foreach ($data['content'] ?? [] as $blk) {
         if (($blk['type'] ?? '') === 'text') { $text = trim($blk['text']); break; }
@@ -3794,7 +3852,11 @@ These times are used to track each runner across a season, so a misread digit do
     // mid-stream, the declined model's partial text stays in the stream ahead
     // of the fallback's complete answer.
     $buf = ''; $raw = ''; $blocks = []; $last_text = null; $stop = null; $stream_err = null;
-    $on_chunk = function ($ch, string $chunk) use (&$buf, &$raw, &$blocks, &$last_text, &$stop, &$stream_err): int {
+    // Token use arrives in two halves: message_start carries the model and the
+    // input side, message_delta the running output count (and, after a
+    // fallback, the per-attempt iterations). Later values win.
+    $usage = []; $served_by = 'claude-opus-5-5';
+    $on_chunk = function ($ch, string $chunk) use (&$buf, &$raw, &$blocks, &$last_text, &$stop, &$stream_err, &$usage, &$served_by): int {
         if (strlen($raw) < 4096) $raw .= $chunk;
         $buf .= $chunk;
         while (($nl = strpos($buf, "\n")) !== false) {
@@ -3804,13 +3866,17 @@ These times are used to track each runner across a season, so a misread digit do
             $ev = json_decode(trim(substr($line, 5)), true);
             if (!is_array($ev)) continue;
             $type = $ev['type'] ?? '';
-            if ($type === 'content_block_start') {
+            if ($type === 'message_start') {
+                $served_by = (string)($ev['message']['model'] ?? $served_by);
+                $usage = array_merge($usage, (array)($ev['message']['usage'] ?? []));
+            } elseif ($type === 'content_block_start') {
                 $blocks[$ev['index']] = '';
                 if (($ev['content_block']['type'] ?? '') === 'text') $last_text = $ev['index'];
             } elseif ($type === 'content_block_delta' && ($ev['delta']['type'] ?? '') === 'text_delta') {
                 $blocks[$ev['index']] = ($blocks[$ev['index']] ?? '') . $ev['delta']['text'];
             } elseif ($type === 'message_delta') {
                 $stop = $ev['delta']['stop_reason'] ?? $stop;
+                $usage = array_merge($usage, (array)($ev['usage'] ?? []));
             } elseif ($type === 'error') {
                 $stream_err = $ev['error']['message'] ?? 'The reader stopped partway.';
             }
@@ -3835,6 +3901,8 @@ These times are used to track each runner across a season, so a misread digit do
     $ok        = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
+    // Billed even when the answer is unusable (a mid-stream refusal, max_tokens).
+    if ($usage) anLogAi($served_by, $usage);
 
     if (!$ok || $http_code !== 200) {
         $body = json_decode($raw, true);
@@ -4562,6 +4630,87 @@ function anMmdbDecode($fh, int $off, int $base): array {
     throw new RuntimeException("mmdb: unsupported type $type");
 }
 
+// List prices per million tokens: [input, output, cache write (5-minute), cache
+// read], from Anthropic's pricing page as of October 2026. Matched by prefix so
+// dated IDs (claude-haiku-4-5-20251001) resolve. A model missing here shows its
+// tokens with no price on the stats page — add a row rather than guessing.
+// These are estimates: the bill itself is only readable with an Admin API key.
+function anAiPrice(string $model): ?array {
+    $prices = [
+        'claude-fable-5-1'  => [10.00, 50.00, 12.50, 0.25],
+        'claude-fable-5'    => [10.00, 50.00, 12.50, 1.00],
+        'claude-opus-5-5'   => [4.00,  20.00, 5.00,  0.20],
+        'claude-opus-5'     => [5.00,  25.00, 6.25,  0.50],
+        'claude-opus-4-8'   => [5.00,  25.00, 6.25,  0.50],
+        'claude-opus-4-7'   => [5.00,  25.00, 6.25,  0.50],
+        'claude-sonnet-5-5' => [2.00,  10.00, 2.50,  0.20],
+        'claude-sonnet-5'   => [2.00,  10.00, 2.50,  0.20],
+        'claude-haiku-5-5'  => [0.10,  0.50,  0.125, 0.01],
+        'claude-haiku-4-5'  => [1.00,  5.00,  1.25,  0.10],
+    ];
+    // Longest prefix first, so claude-opus-5-5 is not priced as claude-opus-5.
+    uksort($prices, fn($a, $b) => strlen($b) - strlen($a));
+    foreach ($prices as $prefix => $p) if (str_starts_with($model, $prefix)) return $p;
+    return null;
+}
+
+// What Twilio actually billed between two dates (inclusive), from its Usage
+// Records API, cached for an hour. Twilio's categories nest (sms contains
+// sms-outbound, totalprice contains everything), so only leaf categories are
+// itemised and whatever they do not cover is reported as "Other"; `all` keeps
+// every non-zero category for anyone checking the arithmetic.
+function anTwilioUsage(PDO $pdo, string $from, string $to): array {
+    $sid   = $_ENV['TWILIO_ACCOUNT_SID'] ?? '';
+    $token = $_ENV['TWILIO_AUTH_TOKEN']  ?? '';
+    if (!$sid || !$token) return ['error' => 'Twilio is not configured on the server.'];
+
+    $key = "twilio:$from:$to";
+    $st  = $pdo->prepare("SELECT v FROM an_cache WHERE k = ? AND fetched_at > UTC_TIMESTAMP() - INTERVAL 1 HOUR");
+    $st->execute([$key]);
+    if ($hit = $st->fetchColumn()) return json_decode($hit, true);
+
+    $ch = curl_init("https://api.twilio.com/2010-04-01/Accounts/{$sid}/Usage/Records.json?"
+                    . http_build_query(['StartDate' => $from, 'EndDate' => $to, 'PageSize' => 1000]));
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_USERPWD => "{$sid}:{$token}", CURLOPT_TIMEOUT => 15]);
+    $res  = curl_exec($ch);
+    $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    $j = is_string($res) ? json_decode($res, true) : null;
+    if ($code !== 200 || !isset($j['usage_records'])) {
+        return ['error' => 'Twilio usage lookup failed (HTTP ' . $code . ')' . (isset($j['message']) ? ': ' . $j['message'] : '.')];
+    }
+
+    $leaves = [
+        'sms-outbound'             => 'Texts sent',
+        'sms-inbound'              => 'Texts received',
+        'mms-outbound'             => 'Picture messages sent',
+        'mms-inbound'              => 'Picture messages received',
+        'sms-messages-carrierfees' => 'Carrier fees, texts',
+        'mms-messages-carrierfees' => 'Carrier fees, picture messages',
+        'phonenumbers'             => 'Phone number',
+        'a2p-registration-fees'    => 'A2P 10DLC registration',
+    ];
+    $total = 0.0; $items = []; $all = [];
+    foreach ($j['usage_records'] as $r) {
+        $price = (float)($r['price'] ?? 0);
+        $cat   = (string)($r['category'] ?? '');
+        if ($cat === 'totalprice') $total = $price;
+        if ($price != 0.0) $all[] = ['category' => $cat, 'description' => (string)($r['description'] ?? ''), 'price' => $price];
+        if (isset($leaves[$cat]) && $price != 0.0) {
+            $items[] = ['label' => $leaves[$cat], 'count' => (int)($r['count'] ?? 0), 'unit' => (string)($r['count_unit'] ?? ''), 'cost' => $price];
+        }
+    }
+    $other = round($total - array_sum(array_column($items, 'cost')), 4);
+    if ($other > 0.005) $items[] = ['label' => 'Other', 'count' => null, 'unit' => '', 'cost' => $other];
+    usort($items, fn($a, $b) => $b['cost'] <=> $a['cost']);
+    usort($all, fn($a, $b) => $b['price'] <=> $a['price']);
+    $out = ['total' => round($total, 4), 'items' => $items, 'all' => $all];
+
+    $pdo->prepare("REPLACE INTO an_cache (k, v, fetched_at) VALUES (?, ?, UTC_TIMESTAMP())")->execute([$key, json_encode($out)]);
+    $pdo->exec("DELETE FROM an_cache WHERE fetched_at < UTC_TIMESTAMP() - INTERVAL 1 DAY");
+    return $out;
+}
+
 // POST ?action=an_hit  body: { p, r, d, i, t, l }
 // The page-view beacon every page sends on load: path, referrer, device class,
 // installed-as-app, theme and language. Open by necessity, and it always
@@ -4655,6 +4804,28 @@ if ($method === 'GET' && $action === 'an_stats') {
                             ORDER BY day")->fetchAll();
     $geo = anGeoDbPath();
 
+    // Costs over the same range. Claude API is estimated from logged tokens at
+    // list price; Twilio is what Twilio reports billing; fixed costs are
+    // prorated by days. An unknown model leaves its cost null, not zero.
+    $st = $pdo->prepare("SELECT action, model, SUM(calls) AS calls, SUM(input) AS input, SUM(output) AS output,
+                                SUM(cache_write) AS cache_write, SUM(cache_read) AS cache_read
+                         FROM an_ai WHERE day >= ? GROUP BY action, model ORDER BY action, model");
+    $st->execute([substr($from, 0, 10)]);
+    $ai = array_map(function ($r) {
+        $p = anAiPrice($r['model']);
+        $t = [(int)$r['input'], (int)$r['output'], (int)$r['cache_write'], (int)$r['cache_read']];
+        return [
+            'action' => $r['action'], 'model' => $r['model'], 'calls' => (int)$r['calls'],
+            'input' => $t[0], 'output' => $t[1], 'cache_write' => $t[2], 'cache_read' => $t[3],
+            'cost' => $p === null ? null : round(($t[0] * $p[0] + $t[1] * $p[1] + $t[2] * $p[2] + $t[3] * $p[3]) / 1e6, 4),
+        ];
+    }, $st->fetchAll());
+    $fixed = array_map(fn($r) => [
+        'id' => (int)$r['id'], 'label' => $r['label'], 'amount' => (float)$r['amount'], 'period' => $r['period'],
+        'cost' => round((float)$r['amount'] * $days / ($r['period'] === 'year' ? 365.25 : 30.4375), 2),
+    ], $pdo->query("SELECT id, label, amount, period FROM an_fixed_costs ORDER BY amount / IF(period = 'year', 12, 1) DESC, id")->fetchAll());
+    $twilio = anTwilioUsage($pdo, $firstDay, gmdate('Y-m-d', time() + $tz * 60));
+
     echo json_encode([
         'success'   => true,
         'days'      => $days,
@@ -4685,7 +4856,44 @@ if ($method === 'GET' && $action === 'an_stats') {
         ], $cities),
         'api'       => $ints($api),
         'history'   => $ints($history),
+        'costs'     => ['ai' => $ai, 'twilio' => $twilio, 'fixed' => $fixed],
     ]);
+    exit;
+}
+
+// POST ?action=an_fixed_cost  header: X-Admin-Secret  body: { id?, label, amount, period }
+// Add a recurring cost for stats.html, or update one when id is given. period
+// is 'month' or 'year'.
+if ($method === 'POST' && $action === 'an_fixed_cost') {
+    $admin_secret = $_ENV['ADMIN_SECRET'] ?? '';
+    if (!$admin_secret || !hash_equals($admin_secret, $_SERVER['HTTP_X_ADMIN_SECRET'] ?? '')) {
+        http_response_code(401); echo json_encode(['error' => 'Unauthorized']); exit;
+    }
+    $b      = json_decode(file_get_contents('php://input'), true) ?: [];
+    $label  = trim((string)($b['label'] ?? ''));
+    $amount = round((float)($b['amount'] ?? 0), 2);
+    $period = ($b['period'] ?? '') === 'year' ? 'year' : 'month';
+    if ($label === '' || mb_strlen($label) > 80 || $amount <= 0 || $amount > 100000) {
+        http_response_code(400); echo json_encode(['error' => 'Give a label and an amount above zero.']); exit;
+    }
+    if (!empty($b['id'])) {
+        $pdo->prepare("UPDATE an_fixed_costs SET label = ?, amount = ?, period = ? WHERE id = ?")
+            ->execute([$label, $amount, $period, (int)$b['id']]);
+    } else {
+        $pdo->prepare("INSERT INTO an_fixed_costs (label, amount, period) VALUES (?, ?, ?)")->execute([$label, $amount, $period]);
+    }
+    echo json_encode(['success' => true]);
+    exit;
+}
+
+// DELETE ?action=an_fixed_cost&id=X  header: X-Admin-Secret
+if ($method === 'DELETE' && $action === 'an_fixed_cost') {
+    $admin_secret = $_ENV['ADMIN_SECRET'] ?? '';
+    if (!$admin_secret || !hash_equals($admin_secret, $_SERVER['HTTP_X_ADMIN_SECRET'] ?? '')) {
+        http_response_code(401); echo json_encode(['error' => 'Unauthorized']); exit;
+    }
+    $pdo->prepare("DELETE FROM an_fixed_costs WHERE id = ?")->execute([intval($_GET['id'] ?? 0)]);
+    echo json_encode(['success' => true]);
     exit;
 }
 

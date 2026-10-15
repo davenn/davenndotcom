@@ -6,7 +6,7 @@ service in the loop. The page is deliberately unlisted on the home grid.
 
 **Files:** [`stats.html`](../../stats.html), plus the beacon at the bottom of
 every other page
-**Tables:** `an_hits` `an_daily` `an_salt` `an_api`
+**Tables:** `an_hits` `an_daily` `an_salt` `an_api` `an_ai` `an_fixed_costs` `an_cache`
 **Auth:** `X-Admin-Secret` to read; the beacon is open
 
 ## The beacon
@@ -69,6 +69,44 @@ has to opt in. Anything that falls through to the final `Unknown action`
 response is pooled as `(unknown)`, so junk URLs cannot grow the table.
 `an_hit` and `an_stats` are left out.
 
+## Costs
+
+The Costs card adds up three sources over the selected range. Each is labelled
+by how much to trust it.
+
+- **Claude API: estimated.** After every call, `anLogAi()` records the response's
+  `usage` (input, output, cache-write and cache-read tokens) into `an_ai`, keyed
+  by UTC day, endpoint and the model that served it. The streamed `xc_scan`
+  call assembles `usage` from `message_start` (model and input) and
+  `message_delta` (output). With server-side fallbacks, `usage.iterations` is
+  the per-attempt truth: a declined attempt and its fallback are billed
+  separately, at each model's rates, so when it is present each iteration is
+  logged under its own model. Logging happens even when the result is
+  unusable, because the tokens are billed regardless.
+  `an_stats` prices the tokens with `anAiPrice()`, a list-price table matched by
+  model prefix. Cache writes are priced at the 5-minute rate (1.25× input),
+  which is the only TTL the site uses. A model missing from the table shows
+  "no price" and puts an asterisk on the totals. Add a row; don't let it read
+  as free. Storing tokens rather than dollars means history can be re-priced.
+  The actual invoice is only readable through Anthropic's Admin API cost report,
+  which needs an admin key the site does not hold.
+- **Twilio: billed.** `anTwilioUsage()` calls Twilio's Usage Records API for the
+  range, with the existing account SID and auth token, and caches the answer in
+  `an_cache` for an hour. Twilio's categories nest (`totalprice` ⊃ `sms` ⊃
+  `sms-outbound`), so the total comes from `totalprice`. Only known leaf
+  categories are itemised, and the remainder is shown as "Other". "Every
+  Twilio category" lists every non-zero category, for checking. Monthly fees
+  (number rental, 10DLC) land on the day Twilio charges them, so short ranges
+  can look lumpy.
+- **Fixed: prorated.** `an_fixed_costs` holds what no API reports, such as
+  hosting and the domain. Rows are added, edited (click the name) and removed
+  on the page through `an_fixed_cost`. Each is prorated by days: monthly ×
+  days / 30.44, yearly × days / 365.25.
+
+"Per 1,000 page views" divides the total by the range's page views. Treat it as
+a rough figure: most of the spend is fixed or driven by a few heavy features,
+not by page views.
+
 ## City lookup: GeoLite2
 
 The location comes from MaxMind's free **GeoLite2 City** database, read by
@@ -123,5 +161,6 @@ and theme, followed by the API table and an all-time daily series.
 
 ## Endpoints
 
-`an_hit` `an_stats` — full detail in [`../api.md`](../api.md). `an_stats` is
-admin-gated, so it is left off the public `docs/api.html`.
+`an_hit` `an_stats` `an_fixed_cost` — full detail in [`../api.md`](../api.md).
+Everything except `an_hit` is admin-gated, so it is left off the public
+`docs/api.html`.

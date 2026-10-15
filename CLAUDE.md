@@ -61,7 +61,7 @@ Browser ──► /appname.html  (self-contained: HTML + CSS + JS)
 | Sign Spotter | `signspotter.html` | — | local only |
 | Cribbage | `cribbage.html` | — | local only |
 | Legal | `privacy.html`, `terms.html` | — | static |
-| Stats | `stats.html`, plus the beacon on every page | `an_hits` `an_daily` `an_salt` `an_api` | `X-Admin-Secret` to read; beacon open |
+| Stats | `stats.html`, plus the beacon on every page | `an_hits` `an_daily` `an_salt` `an_api` `an_ai` `an_fixed_costs` `an_cache` | `X-Admin-Secret` to read; beacon open |
 
 ## api.php
 
@@ -300,6 +300,13 @@ way: anything that would identify a person across days, or send visitor data
 to a third party, contradicts `privacy.html`. Separately, a shutdown hook
 counts every `api.php` request into `an_api`, so new endpoints are tracked
 without doing anything. Details are in `docs/apps/stats.md`.
+
+**Costs.** Every Claude API call logs its token use through `anLogAi()` into
+`an_ai`, and `stats.html` prices it with the table in `anAiPrice()`. **A new
+Claude call needs an `anLogAi()` call after it**, and a new model needs a row in
+`anAiPrice()`, or its cost shows as "no price". Twilio spend is read from
+Twilio's own usage report, and fixed costs (hosting, domain) are entered on the
+page.
 
 ## Rules of thumb
 

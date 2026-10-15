@@ -179,7 +179,7 @@
     <h1>API Reference</h1>
     <p class="lede">Every app on davenn.com is served by a single <code class="inline">api.php</code>. Endpoints are selected by an <code class="inline">action</code> query parameter and always return JSON.</p>
     <div class="base">https://davenn.com/api.php?action=&lt;action&gt;</div>
-    <p class="counts">74 endpoints · 31 tables</p>
+    <p class="counts">74 endpoints · 34 tables</p>
 
     <div class="filter-row">
         <input type="search" id="filter" placeholder="Filter endpoints…" aria-label="Filter endpoints">
@@ -1693,6 +1693,26 @@ errors   INT         NOT NULL DEFAULT 0
 total_ms BIGINT      NOT NULL DEFAULT 0
 max_ms   INT         NOT NULL DEFAULT 0
 PRIMARY KEY (day, method, action)</code></pre>
+        <h3>an_ai</h3>
+        <pre><code>day         DATE        NOT NULL
+action      VARCHAR(40) NOT NULL
+model       VARCHAR(60) NOT NULL
+calls       INT         NOT NULL DEFAULT 0
+input       BIGINT      NOT NULL DEFAULT 0
+output      BIGINT      NOT NULL DEFAULT 0
+cache_write BIGINT      NOT NULL DEFAULT 0
+cache_read  BIGINT      NOT NULL DEFAULT 0
+PRIMARY KEY (day, action, model)</code></pre>
+        <h3>an_fixed_costs</h3>
+        <pre><code>id         INT AUTO_INCREMENT PRIMARY KEY
+label      VARCHAR(80)            NOT NULL
+amount     DECIMAL(10,2)          NOT NULL
+period     ENUM('month','year')   NOT NULL
+created_at DATETIME               DEFAULT CURRENT_TIMESTAMP</code></pre>
+        <h3>an_cache</h3>
+        <pre><code>k          VARCHAR(80) NOT NULL PRIMARY KEY
+v          MEDIUMTEXT  NOT NULL
+fetched_at DATETIME    NOT NULL</code></pre>
         <p class="group">Other</p>
         <h3>subscribe_attempts</h3>
         <pre><code>id            INT AUTO_INCREMENT PRIMARY KEY
@@ -1705,7 +1725,7 @@ KEY idx_contact (contact_value, created_at)</code></pre>
     </section>
 
     <section class="todo">
-        <p class="note">10 operator endpoints are not listed here.</p>
+        <p class="note">12 operator endpoints are not listed here.</p>
     </section>
 
     <footer>
