@@ -113,7 +113,7 @@
     .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
     .axis text { font: 10px var(--font-mono); fill: var(--text-muted); }
     .axis line { stroke: var(--grid); }
-    .bar { fill: var(--series); }
+    .bar { fill: var(--series); pointer-events: none; } /* the hit rect underneath takes the hover */
     .bar-hit { fill: transparent; cursor: default; }
     .bar-hit:hover + .bar, .bar.on { opacity: 0.75; }
     .empty { font-size: 13px; color: var(--text-muted); padding: 18px 0; text-align: center; }
@@ -166,7 +166,26 @@
     footer { margin-top: 28px; font: 11px var(--font-mono); color: var(--text-muted); line-height: 1.7; }
     footer a { color: var(--text-muted); }
 
+    /* ── Costs ── */
+    .cost-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 16px; }
+    .cost-cols h3 { font: 500 11px var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 8px; }
+    .cost-note { font-size: 12px; color: var(--text-muted); line-height: 1.5; margin-top: 8px; }
+    .cost-note.bad { color: var(--bad); }
+    .fixed-form { display: grid; grid-template-columns: minmax(0, 1fr) 84px 76px; gap: 6px; margin-top: 10px; }
+    .fixed-form input, .fixed-form select {
+        font: 13px var(--font-ui); padding: 6px 8px; border-radius: 6px; min-width: 0;
+        border: 1px solid var(--border); background: var(--page); color: var(--text-primary);
+    }
+    .fixed-form .row { grid-column: 1 / -1; display: flex; gap: 6px; }
+    .linkish { font: 11px var(--font-mono); color: var(--text-muted); background: none; border: none; cursor: pointer; padding: 0 0 0 8px; text-decoration: underline; }
+    .linkish:hover { color: var(--text-primary); }
+    tr.editable td:first-child { cursor: pointer; }
+    details.raw { margin-top: 8px; font-size: 12px; color: var(--text-muted); }
+    details.raw summary { cursor: pointer; }
+    details.raw div { display: flex; justify-content: space-between; gap: 10px; padding: 2px 0; }
+
     @media (max-width: 760px) {
+        .cost-cols { grid-template-columns: minmax(0, 1fr); }
         .tiles { grid-template-columns: repeat(2, 1fr); }
         .grid { grid-template-columns: minmax(0, 1fr); }
         .bands { grid-template-columns: repeat(2, 1fr); }
@@ -225,6 +244,37 @@
         </div>
 
         <div class="grid">
+            <section class="card wide">
+                <div class="card-head"><h2>Costs</h2><span class="hint" id="cost-hint"></span></div>
+                <div class="bands" id="cost-bands" style="margin-top:0"></div>
+                <div class="cost-cols">
+                    <div>
+                        <h3>Claude API · estimated</h3>
+                        <div id="r-ai"></div>
+                        <p class="cost-note">From the tokens each call used, at list price. Your Anthropic invoice is the final word.</p>
+                    </div>
+                    <div>
+                        <h3>Twilio · billed</h3>
+                        <div id="r-twilio"></div>
+                        <p class="cost-note" id="twilio-note"></p>
+                    </div>
+                    <div>
+                        <h3>Fixed · prorated</h3>
+                        <div id="r-fixed"></div>
+                        <form class="fixed-form" id="fixed-form">
+                            <input id="fx-label" placeholder="Hosting, domain…" maxlength="80" required aria-label="Cost name">
+                            <input id="fx-amount" type="number" min="0.01" step="0.01" placeholder="$" required aria-label="Amount in dollars">
+                            <select id="fx-period" aria-label="Billed every"><option value="month">/mo</option><option value="year">/yr</option></select>
+                            <div class="row">
+                                <button class="btn" type="submit" id="fx-save">Add</button>
+                                <button class="btn" type="button" id="fx-cancel" hidden>Cancel</button>
+                            </div>
+                        </form>
+                        <p class="cost-note bad" id="fx-err"></p>
+                    </div>
+                </div>
+            </section>
+
             <section class="card wide">
                 <div class="card-head"><h2>Page views by day</h2><span class="hint">your timezone</span></div>
                 <div class="chart" id="c-daily"></div>
@@ -632,6 +682,8 @@
         rankTable($('r-langs'), d.langs, VV('Language', function (v) { return v === null ? '(unknown)' : lang(v) + ' (' + v + ')'; }));
         rankTable($('r-themes'), d.themes, VV('Theme', function (v) { return v === null ? '(unknown)' : v[0].toUpperCase() + v.slice(1); }));
 
+        renderCosts(d);
+
         rankTable($('r-api'), d.api.map(function (r) {
             return { name: r.action, _sub: r.method, calls: r.calls, errors: r.errors, avg_ms: r.avg_ms, max_ms: r.max_ms };
         }), [
@@ -671,6 +723,151 @@
                 { strong: fmt(by[h] || 0), text: 'views' }] });
         }
         return rows;
+    }
+
+    // ── Costs ──
+    var AI_NAMES = {
+        tb_identify_tool: 'Toolshare · identify a tool', cp_scan: 'Confidence Pool · read a sheet',
+        cp_sms: 'Confidence Pool · texted sheet', xc_scan: 'WildcatsXC · read results'
+    };
+    function money(v) {
+        if (v === null || v === undefined) return '–';
+        if (v > 0 && v < 0.01) return '<$0.01';
+        return '$' + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function tokens(n) { return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(n); }
+
+    function renderCosts(d) {
+        var c = d.costs || { ai: [], twilio: {}, fixed: [] };
+
+        // Claude: one row per endpoint, models listed under it.
+        var byAction = {}, unpriced = false;
+        c.ai.forEach(function (r) {
+            var a = byAction[r.action] || (byAction[r.action] = { name: AI_NAMES[r.action] || r.action, models: [], calls: 0, inTok: 0, outTok: 0, cost: 0, unpriced: false });
+            a.calls += r.calls; a.inTok += r.input + r.cache_write + r.cache_read; a.outTok += r.output;
+            if (r.cost === null) { unpriced = true; a.unpriced = true; } else a.cost += r.cost;
+            if (a.models.indexOf(r.model) < 0) a.models.push(r.model);
+        });
+        var aiRows = Object.keys(byAction).map(function (k) { var a = byAction[k]; a._sub = a.models.join(', '); return a; })
+            .sort(function (a, b) { return b.cost - a.cost; });
+        var aiTotal = aiRows.reduce(function (s, r) { return s + r.cost; }, 0);
+        rankTable($('r-ai'), aiRows, [
+            { key: 'name', label: 'Feature' },
+            { key: 'calls', label: 'Calls' },
+            { key: 'tok', label: 'Tokens', fmt: function (r) { return tokens(r.inTok) + ' / ' + tokens(r.outTok); } },
+            { key: 'cost', label: 'Cost', fmt: function (r) { return r.unpriced ? (r.cost ? money(r.cost) + '+?' : 'no price') : money(r.cost); } }
+        ], { barKey: 'cost', empty: 'No Claude API calls in this range.' });
+
+        // Twilio
+        var tw = c.twilio || {}, twTotal = tw.error ? null : (tw.total || 0);
+        rankTable($('r-twilio'), tw.error ? [] : (tw.items || []).map(function (r) {
+            return { name: r.label, count: r.count, unit: r.unit, cost: r.cost };
+        }), [
+            { key: 'name', label: 'Item' },
+            { key: 'count', label: 'Count', fmt: function (r) { return r.count === null ? '' : fmt(r.count); } },
+            { key: 'cost', label: 'Cost', fmt: function (r) { return money(r.cost); } }
+        ], { barKey: 'cost', empty: tw.error ? 'Unavailable.' : 'Nothing billed in this range.' });
+        var note = clear($('twilio-note'));
+        note.className = 'cost-note' + (tw.error ? ' bad' : '');
+        if (tw.error) {
+            note.textContent = tw.error;
+        } else {
+            note.appendChild(document.createTextNode('From Twilio’s usage report, refreshed hourly. Monthly fees land on the day they are charged.'));
+            if ((tw.all || []).length) {
+                var det = el('details', { class: 'raw' });
+                det.appendChild(el('summary', null, 'Every Twilio category'));
+                tw.all.forEach(function (r) {
+                    var row = el('div');
+                    row.appendChild(el('span', null, r.description || r.category));
+                    row.appendChild(el('span', null, money(r.price)));
+                    det.appendChild(row);
+                });
+                note.appendChild(det);
+            }
+        }
+
+        // Fixed
+        var fx = clear($('r-fixed')), fxTotal = c.fixed.reduce(function (s, r) { return s + r.cost; }, 0);
+        if (!c.fixed.length) {
+            fx.appendChild(el('div', { class: 'empty' }, 'Add hosting, the domain and anything else billed on a schedule.'));
+        } else {
+            var t = el('table', { class: 'rank' }), head = el('tr');
+            ['Cost', 'Rate', 'Range'].forEach(function (h) { head.appendChild(el('th', null, h)); });
+            t.appendChild(el('thead')).appendChild(head);
+            var body = el('tbody'), max = Math.max.apply(null, c.fixed.map(function (r) { return r.cost; })) || 1;
+            c.fixed.forEach(function (r) {
+                var tr = el('tr', { class: 'editable', title: 'Click the name to edit' });
+                var td = el('td');
+                td.appendChild(el('span', { class: 'rank-bar', style: 'width:' + Math.max(1, r.cost / max * 100) + '%' }));
+                var name = el('span', { class: 'rank-name' }, r.label);
+                td.appendChild(name);
+                td.addEventListener('click', function () { editFixed(r); });
+                var del = el('button', { class: 'linkish', type: 'button', 'aria-label': 'Remove ' + r.label }, 'remove');
+                del.addEventListener('click', function (e) { e.stopPropagation(); removeFixed(r); });
+                name.appendChild(del);
+                tr.appendChild(td);
+                tr.appendChild(el('td', null, money(r.amount) + (r.period === 'year' ? '/yr' : '/mo')));
+                tr.appendChild(el('td', null, money(r.cost)));
+                body.appendChild(tr);
+            });
+            t.appendChild(body);
+            fx.appendChild(t);
+        }
+
+        // Summary
+        var total = aiTotal + (twTotal || 0) + fxTotal;
+        var bands = clear($('cost-bands'));
+        [[money(total) + (tw.error || unpriced ? '*' : ''), 'total'],
+         [money(aiTotal) + (unpriced ? '*' : ''), 'Claude API'],
+         [twTotal === null ? '–' : money(twTotal), 'Twilio'],
+         [money(fxTotal), 'fixed'],
+         [d.totals.views ? money(total / d.totals.views * 1000) : '–', 'per 1,000 page views']].forEach(function (b) {
+            var box = el('div', { class: 'band' });
+            box.appendChild(el('div', { class: 'band-v' }, b[0]));
+            box.appendChild(el('div', { class: 'band-l' }, b[1]));
+            bands.appendChild(box);
+        });
+        $('cost-bands').style.gridTemplateColumns = innerWidth > 760 ? 'repeat(5, 1fr)' : '';
+        var hint = d.days === 1 ? 'today' : 'last ' + d.days + ' days';
+        if (unpriced) hint += ' · * a model has no price yet';
+        else if (tw.error) hint += ' · * Twilio missing';
+        $('cost-hint').textContent = hint;
+    }
+
+    var editingId = null;
+    function editFixed(r) {
+        editingId = r.id;
+        $('fx-label').value = r.label; $('fx-amount').value = r.amount; $('fx-period').value = r.period;
+        $('fx-save').textContent = 'Save'; $('fx-cancel').hidden = false; $('fx-label').focus();
+    }
+    function resetFixed() {
+        editingId = null; $('fixed-form').reset();
+        $('fx-save').textContent = 'Add'; $('fx-cancel').hidden = true; $('fx-err').textContent = '';
+    }
+    function fixedCall(method, url, body) {
+        var opts = { method: method, headers: { 'X-Admin-Secret': state.secret || '', 'Content-Type': 'application/json' } };
+        if (body) opts.body = JSON.stringify(body);
+        return fetch(url, opts).then(function (res) {
+            return res.json().catch(function () { return {}; }).then(function (j) {
+                if (!res.ok) throw new Error(j.error || ('HTTP ' + res.status));
+                return j;
+            });
+        });
+    }
+    $('fixed-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var body = { label: $('fx-label').value.trim(), amount: parseFloat($('fx-amount').value), period: $('fx-period').value };
+        if (editingId) body.id = editingId;
+        fixedCall('POST', API + '?action=an_fixed_cost', body)
+            .then(function () { resetFixed(); load(); })
+            .catch(function (err) { $('fx-err').textContent = err.message; });
+    });
+    $('fx-cancel').addEventListener('click', resetFixed);
+    function removeFixed(r) {
+        if (!confirm('Remove "' + r.label + '"?')) return;
+        fixedCall('DELETE', API + '?action=an_fixed_cost&id=' + r.id)
+            .then(function () { if (editingId === r.id) resetFixed(); load(); })
+            .catch(function (err) { $('fx-err').textContent = err.message; });
     }
 
     // ── Loading ──
