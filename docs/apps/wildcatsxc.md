@@ -458,6 +458,10 @@ The box's open state is remembered per device
 (`localStorage['wildcatsxc_vmeet_open']`); the runner list inside stays open
 across redraws for the visit.
 
+`scoreMeet()` picks each school's seven and hands them, in finishing order,
+to `scoreFinish()`, which does the scoring itself and is shared with the Live
+tab below.
+
 ### Weekly top-5 chart
 
 Each squad section on Conference and Section opens with **every school's
@@ -495,6 +499,40 @@ top-5 average by week** (`weeklyTop5()`, `drawGroupChart()`).
 - **Courses differ within a week.** Schools racing different meets the same
   week ran different courses; the caption says to read the trend rather than
   any single week. The chart does not adjust for it.
+
+## Live tab
+
+Scores a race while it is being run, from a phone at the finish line. Start
+the clock with the gun, then tap a school's button as each of its runners
+crosses: the tap takes the next place, and the clock's time if it is running.
+
+- **Schools** are added per race, with suggestions from every saved school
+  plus the Conference and Section lists. A typed name that normalises to a
+  known one (`schoolKey()`) takes the known spelling. The coach's school starts
+  in and its button carries the orange border.
+- **Place** defaults to the next one. Typing an earlier place slots a missed
+  runner in there and pushes everyone behind back one. A slotted-in runner
+  gets **no time**, since the clock reads when the tap happened, not when they
+  crossed.
+- **Fixing:** Undo last removes the most recent *tap* (by an id sequence, not
+  the last place, so it undoes a slot-in too). Each finisher's school can be
+  changed and any finisher removed in the finish order list.
+- **Scoring** is `scoreFinish()`, the same code the virtual meet uses. While
+  the race is on it is **provisional**: every team places, because early on no
+  team has five in and strict scoring would show nothing. Teams with five
+  ranked first by score, then teams still short, by how many are in. **Final**
+  (a switch) applies the meet rule: a team under five takes no places, places
+  close up, and the team is named as not scored. Either way a team's 8th
+  runner on takes no place, and the 6th and 7th displace without scoring.
+- **Nothing goes to the server.** The race lives in
+  `localStorage['wildcatsxc_live']`: schools, wall-clock start and stop, and
+  the finishers. The clock is drawn from `Date.now() - start`, not counted, so
+  it survives a reload, a locked screen or a dead signal at the course. While
+  it runs, the app asks for a screen wake lock where the browser has one.
+  Stop then Start resumes; **New race** clears the clock and finishers but
+  keeps the schools.
+- It does not save into a meet: live taps carry no names. The official
+  results come in through PDF, MileSplit or paste as before.
 
 ## Screen sizes
 
