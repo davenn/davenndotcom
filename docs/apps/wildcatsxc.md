@@ -506,12 +506,24 @@ Scores a race while it is being run, from a phone at the finish line. Start
 the clock with the gun, then tap a school's button as each of its runners
 crosses: the tap takes the next place, and the clock's time if it is running.
 
+**The board is two columns even on a phone**: school buttons on the left,
+the score on the right (sticky, so it stays in view while scrolling the
+buttons). Above the buttons the last tap is read back ("2 Madison La
+Follette · 4:12.3"), so a coach can see it landed without looking away.
+Tapping Verona then La Follette reads Verona 1, La Follette 2: a team's
+score is its first five places added up, shown from its first runner in,
+with the places underneath ("1+3+4+7+8 (11)", or "· 2 of 5" while short).
+The school setup sits in a fold above the board, open while the race is set
+up and shut once runners finish, unless the coach has opened or shut it.
+
 - **Schools** are added per race, with suggestions from every saved school
   plus the Conference and Section lists. A typed name that normalises to a
-  known one (`schoolKey()`) takes the known spelling. The coach's school starts
+  known one (`schoolKey()`) takes the known spelling, and so does a typed
+  part of exactly one known name, four characters or more ("lafollette"). The coach's school starts
   in and its button carries the orange border.
-- **Place** defaults to the next one. Typing an earlier place slots a missed
-  runner in there and pushes everyone behind back one. A slotted-in runner
+- **Place** is always the next one. A missed runner is slotted in from the
+  finish order card: type the place, then tap their school; everyone behind
+  moves back one, and the box clears after that one tap. A slotted-in runner
   gets **no time**, since the clock reads when the tap happened, not when they
   crossed.
 - **Fixing:** Undo last removes the most recent *tap* (by an id sequence, not
