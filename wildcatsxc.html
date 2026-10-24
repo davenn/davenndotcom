@@ -540,6 +540,7 @@
         .live-place { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 13px; color: var(--text-secondary); }
         .live-place input { width: 84px; font-family: var(--font-mono); }
         .live-setup { margin-top: 12px; }
+        .live-section { margin-top: 10px; font-size: 11px; padding: 7px 10px; }
         .live-setup summary { cursor: pointer; font-size: 13px; color: var(--text-secondary); }
         .live-setup summary span { color: var(--text-muted); }
         .live-board { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
@@ -564,7 +565,7 @@
         .live-note { font-size: 12px; color: var(--text-muted); line-height: 1.45; margin-top: 8px; }
         .live-tap button {
             font-family: var(--font-ui); font-size: 15px; font-weight: 600; line-height: 1.25;
-            padding: 18px 10px; border-radius: 12px; cursor: pointer; touch-action: manipulation;
+            padding: 13px 8px; border-radius: 12px; cursor: pointer; touch-action: manipulation;
             background: var(--page); color: var(--text-primary); border: 1px solid var(--border);
             overflow-wrap: anywhere;
         }
@@ -790,6 +791,7 @@
                     <button class="ghost" type="submit">Add</button>
                 </form>
                 <div class="live-chips" id="live-chips"></div>
+                <button class="ghost live-section" id="live-section" type="button">Add all Section schools</button>
             </details>
         </section>
 
@@ -2809,7 +2811,9 @@ $('t-dist').addEventListener('change', e => { team.dist = +e.target.value; rende
 // placing; Final drops teams under five and closes the places up, as the
 // official result will.
 const LIVE_KEY = 'wildcatsxc_live';
-const liveBlank = () => ({ schools: [ourSchool()], start: null, stop: null, final: false, finish: [], seq: 0 });
+// A race starts with every Section school in: take out the ones not running
+// rather than type in the ones that are.
+const liveBlank = () => ({ schools: [...GROUPS.section.schools], start: null, stop: null, final: false, finish: [], seq: 0 });
 let live = (() => {
     try {
         const v = JSON.parse(load(LIVE_KEY));
@@ -2840,8 +2844,10 @@ function renderLive() {
     $('live-schoollist').innerHTML = [...known].filter(k => !live.schools.includes(k)).sort()
         .map(k => `<option value="${esc(k)}">`).join('');
     $('live-nschools').textContent = '(' + live.schools.length + ')';
-    // Open while the race is being set up; out of the way once runners finish.
-    if (!liveSetupTouched) $('live-setup').open = live.schools.length < 2 || !n;
+    // Folded, so the buttons are on screen from the start; open only when there
+    // is not yet a race to score. The summary's count says who is in.
+    if (!liveSetupTouched) $('live-setup').open = live.schools.length < 2;
+    $('live-section').classList.toggle('hidden', GROUPS.section.schools.every(sc => live.schools.some(x => schoolKey(x) === schoolKey(sc))));
     $('live-chips').innerHTML = live.schools.map(sc =>
         `<button class="live-chip" type="button" data-liveremove="${esc(sc)}" title="Take ${esc(sc)} out of this race">${esc(sc)}</button>`).join('');
 
@@ -2941,6 +2947,13 @@ $('live-add').addEventListener('submit', e => {
     $('live-school').value = '';
     saveLive(); renderLive();
     $('live-school').focus();
+});
+
+// Puts back any Section school taken out, keeping any others added; for a
+// race set up before the Section list became the default, too.
+$('live-section').addEventListener('click', () => {
+    GROUPS.section.schools.forEach(sc => { if (!live.schools.some(x => schoolKey(x) === schoolKey(sc))) live.schools.push(sc); });
+    saveLive(); renderLive();
 });
 
 $('live-chips').addEventListener('click', async e => {
