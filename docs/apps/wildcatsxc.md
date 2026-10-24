@@ -513,8 +513,12 @@ Follette · 4:12.3"), so a coach can see it landed without looking away.
 Tapping Verona then La Follette reads Verona 1, La Follette 2: a team's
 score is its first five places added up, shown from its first runner in,
 with the places underneath ("1+3+4+7+8 (11)", or "· 2 of 5" while short).
-The school setup sits in a fold above the board, open while the race is set
-up and shut once runners finish, unless the coach has opened or shut it.
+A new race starts with **every Section school** in (`GROUPS.section`), so
+the coach takes out the ones not running rather than typing in the rest.
+The school setup sits in a fold above the board, shut so the buttons are on
+screen from the start (open only with fewer than two schools), unless the
+coach has opened or shut it. "Add all Section schools" puts back any taken
+out, and covers a device whose saved race predates the default.
 
 - **Schools** are added per race, with suggestions from every saved school
   plus the Conference and Section lists. A typed name that normalises to a
