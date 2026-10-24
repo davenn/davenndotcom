@@ -546,7 +546,9 @@ out, and covers a device whose saved race predates the default.
   it survives a reload, a locked screen or a dead signal at the course. While
   it runs, the app asks for a screen wake lock where the browser has one.
   Stop then Start resumes; **New race** clears the clock and finishers but
-  keeps the schools.
+  keeps the schools. **Clear scores**, under the scoreboard, clears only the finishers (and Final),
+  leaving the clock running — for a second race off the same gun, or a
+  scoring start gone wrong.
 - It does not save into a meet: live taps carry no names. The official
   results come in through PDF, MileSplit or paste as before.
 

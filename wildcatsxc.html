@@ -562,6 +562,7 @@
         .sb-places .disp { opacity: 0.7; }
         .sb-row.out .sb-name, .sb-row.out .sb-pts { color: var(--text-muted); }
         .live-final { margin: 10px 0 0; font-size: 12px; }
+        .live-clear { display: block; margin-top: 10px; font-size: 11px; padding: 7px 10px; }
         .live-note { font-size: 12px; color: var(--text-muted); line-height: 1.45; margin-top: 8px; }
         .live-tap button {
             font-family: var(--font-ui); font-size: 15px; font-weight: 600; line-height: 1.25;
@@ -810,6 +811,7 @@
                 <div class="card-title"><span>Score</span><span id="live-count"></span></div>
                 <div id="live-scores"></div>
                 <label class="switchrow live-final"><input type="checkbox" id="live-final"> <span>Final: drop teams under 5</span></label>
+                <button class="ghost live-clear" id="live-clear" type="button" title="Clear every finisher; the clock keeps running">Clear scores</button>
             </div>
         </section>
 
@@ -1709,8 +1711,9 @@ $('save').addEventListener('click', async () => {
 // ── Deleting ─────────────────────────────────────────────────────────────
 // One confirm box for every destructive step. Resolves true on Delete.
 let confirmResolve = null;
-function askConfirm(title, body) {
+function askConfirm(title, body, yes = 'Delete') {
     $('confirm-title').textContent = title;
+    $('confirm-yes').textContent = yes;
     $('confirm-body').textContent = body;
     $('confirm').classList.remove('hidden');
     $('confirm-no').focus();
@@ -2859,6 +2862,7 @@ function renderLive() {
     $('live-place-note').textContent = '';
     $('live-count').textContent = n ? n + ' in' : '';
     $('live-undo').disabled = !n;
+    $('live-clear').disabled = !n;
     $('live-final').checked = live.final;
 
     $('live-start').textContent = live.start === null ? 'Start' : (liveRunning() ? 'Running' : 'Resume');
@@ -3010,6 +3014,18 @@ $('live-order').addEventListener('click', e => {
 });
 
 $('live-final').addEventListener('change', e => { live.final = e.target.checked; saveLive(); renderLive(); });
+
+// Clears the board but not the clock: for a second race started off the
+// same gun, or a scoring start gone wrong mid-race. The schools stay too.
+$('live-clear').addEventListener('click', async () => {
+    const n = live.finish.length;
+    if (!n || !await askConfirm('Clear the scores?',
+        `All ${n} finisher${n === 1 ? '' : 's'} are cleared and places start again at 1. The clock keeps running.`, 'Clear')) return;
+    live.finish = [];
+    live.final = false;
+    saveLive(); renderLive();
+    toast('Scores cleared');
+});
 
 $('live-reset').addEventListener('click', async () => {
     if ((live.finish.length || live.start !== null) &&
