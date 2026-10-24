@@ -537,9 +537,31 @@
         }
         .live-chip::after { content: ' ×'; color: var(--text-muted); }
         .live-chip:hover::after { color: var(--crit); }
-        .live-place { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 13px; color: var(--text-secondary); }
+        .live-place { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 13px; color: var(--text-secondary); }
         .live-place input { width: 84px; font-family: var(--font-mono); }
+        .live-setup { margin-top: 12px; }
+        .live-setup summary { cursor: pointer; font-size: 13px; color: var(--text-secondary); }
+        .live-setup summary span { color: var(--text-muted); }
+        .live-board { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+        @media (min-width: 700px) { .live-board { grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; } }
+        .live-right { position: sticky; top: calc(var(--nav-h) + env(safe-area-inset-top) + 8px); }
+        .live-last { font-family: var(--font-mono); font-size: 13px; color: var(--text-secondary); min-height: 1.4em; margin-bottom: 8px; }
+        .live-last strong { color: var(--text-primary); font-size: 16px; }
         .live-tap { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+        .sb-row {
+            display: grid; grid-template-columns: 1.6em minmax(0, 1fr) auto; column-gap: 6px; align-items: baseline;
+            padding: 8px 0 8px 6px; border-top: 1px solid var(--border);
+        }
+        .sb-row:first-child { border-top: none; }
+        .sb-row.ours { box-shadow: inset 3px 0 0 var(--series-1); padding-left: 9px; }
+        .sb-rank { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
+        .sb-name { font-size: 14px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+        .sb-pts { font-family: var(--font-mono); font-size: 22px; line-height: 1; font-variant-numeric: tabular-nums; }
+        .sb-places { grid-column: 2 / -1; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+        .sb-places .disp { opacity: 0.7; }
+        .sb-row.out .sb-name, .sb-row.out .sb-pts { color: var(--text-muted); }
+        .live-final { margin: 10px 0 0; font-size: 12px; }
+        .live-note { font-size: 12px; color: var(--text-muted); line-height: 1.45; margin-top: 8px; }
         .live-tap button {
             font-family: var(--font-ui); font-size: 15px; font-weight: 600; line-height: 1.25;
             padding: 18px 10px; border-radius: 12px; cursor: pointer; touch-action: manipulation;
@@ -550,7 +572,7 @@
         .live-tap button.ours { border-color: var(--series-1); box-shadow: inset 0 0 0 1px var(--series-1); }
         .live-tap button:active { background: var(--surface-2); }
         .live-tap button.flash { background: var(--surface-2); }
-        .livebar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
+        .livebar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; justify-content: space-between; }
         table.live { width: 100%; border-collapse: collapse; font-size: 14px; }
         table.live th {
             font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
@@ -754,40 +776,44 @@
          dead signal at the course costs nothing; saved meets are separate. -->
     <div class="viewpane hidden" id="live-view">
         <section class="card">
-            <div class="card-title"><span>Race clock</span><span id="live-status"></span></div>
             <div class="clockrow">
                 <div class="clock idle" id="live-clock" aria-live="off">0:00.0</div>
                 <button class="primary" id="live-start" type="button">Start</button>
                 <button class="ghost hidden" id="live-stop" type="button">Stop</button>
             </div>
-            <form class="live-add" id="live-add">
-                <input id="live-school" type="text" list="live-schoollist" maxlength="120" autocomplete="off"
-                       aria-label="Add a school" placeholder="Add a school in this race">
-                <datalist id="live-schoollist"></datalist>
-                <button class="ghost" type="submit">Add</button>
-            </form>
-            <div class="live-chips" id="live-chips"></div>
+            <details class="live-setup" id="live-setup">
+                <summary>Schools in this race <span id="live-nschools"></span></summary>
+                <form class="live-add" id="live-add">
+                    <input id="live-school" type="text" list="live-schoollist" maxlength="120" autocomplete="off"
+                           aria-label="Add a school" placeholder="Add a school">
+                    <datalist id="live-schoollist"></datalist>
+                    <button class="ghost" type="submit">Add</button>
+                </form>
+                <div class="live-chips" id="live-chips"></div>
+            </details>
         </section>
 
-        <section class="card">
-            <div class="card-title"><span>Finish</span><span id="live-count"></span></div>
-            <label class="live-place">Place <input id="live-place" type="number" min="1" step="1" inputmode="numeric"> <span id="live-place-note"></span></label>
-            <div class="live-tap" id="live-tap"></div>
-            <div class="livebar">
-                <button class="ghost" id="live-undo" type="button">Undo last</button>
-                <span class="spacer"></span>
-                <button class="danger" id="live-reset" type="button">New race</button>
+        <!-- The board: tap on the left, the score on the right, side by side
+             even on a phone so every tap shows its effect without scrolling. -->
+        <section class="card live-board">
+            <div class="live-left">
+                <div class="live-last" id="live-last" aria-live="polite"></div>
+                <div class="live-tap" id="live-tap"></div>
+                <div class="livebar">
+                    <button class="ghost" id="live-undo" type="button">Undo</button>
+                    <button class="ghost" id="live-reset" type="button">New race</button>
+                </div>
+            </div>
+            <div class="live-right">
+                <div class="card-title"><span>Score</span><span id="live-count"></span></div>
+                <div id="live-scores"></div>
+                <label class="switchrow live-final"><input type="checkbox" id="live-final"> <span>Final: drop teams under 5</span></label>
             </div>
         </section>
 
         <section class="card">
-            <div class="card-title"><span>Team scores</span></div>
-            <label class="switchrow"><input type="checkbox" id="live-final"> <span>Final: drop teams under five</span></label>
-            <div id="live-scores"></div>
-        </section>
-
-        <section class="card">
             <div class="card-title"><span>Finish order</span><span>newest first</span></div>
+            <label class="live-place">Missed a runner? Place <input id="live-place" type="number" min="1" step="1" inputmode="numeric" placeholder="#"> then tap their school. <span id="live-place-note"></span></label>
             <div id="live-order"></div>
         </section>
     </div>
@@ -2796,6 +2822,7 @@ const liveRunning = () => live.start !== null && live.stop === null;
 const liveElapsed = () => live.start === null ? 0 : (live.stop === null ? Date.now() : live.stop) - live.start;
 
 let liveSchoolsAsked = false;
+let liveSetupTouched = false;                     // once the coach opens or shuts setup, leave it as they set it
 function renderLive() {
     // The add-a-school suggestions want every school saved so far; fetch the
     // list once if no other tab has.
@@ -2812,42 +2839,50 @@ function renderLive() {
     const known = new Set([...(team.schools || []).map(s => s.school), ...Object.values(GROUPS).flatMap(g => g.schools)]);
     $('live-schoollist').innerHTML = [...known].filter(k => !live.schools.includes(k)).sort()
         .map(k => `<option value="${esc(k)}">`).join('');
+    $('live-nschools').textContent = '(' + live.schools.length + ')';
+    // Open while the race is being set up; out of the way once runners finish.
+    if (!liveSetupTouched) $('live-setup').open = live.schools.length < 2 || !n;
     $('live-chips').innerHTML = live.schools.map(sc =>
         `<button class="live-chip" type="button" data-liveremove="${esc(sc)}" title="Take ${esc(sc)} out of this race">${esc(sc)}</button>`).join('');
 
     $('live-tap').innerHTML = live.schools.length
         ? live.schools.map(sc => `<button type="button" data-livetap="${esc(sc)}" class="${schoolKey(sc) === ours ? 'ours' : ''}">${esc(sc)}<small>${counts[sc] || 0} in</small></button>`).join('')
         : '<p class="msg">Add the schools in this race above, then tap one as each runner finishes.</p>';
-    $('live-place').value = n + 1;
-    $('live-place').max = n + 1;
+    $('live-place').value = '';
+    $('live-place').max = n;
     $('live-place-note').textContent = '';
-    $('live-count').textContent = n ? n + ' finished' : '';
+    $('live-count').textContent = n ? n + ' in' : '';
     $('live-undo').disabled = !n;
     $('live-final').checked = live.final;
 
     $('live-start').textContent = live.start === null ? 'Start' : (liveRunning() ? 'Running' : 'Resume');
     $('live-start').disabled = liveRunning();
     $('live-stop').classList.toggle('hidden', !liveRunning());
-    $('live-status').textContent = live.start === null ? 'not started' : (liveRunning() ? 'running' : 'stopped');
     tickLive();
 
-    const { teams, finish, short } = scoreFinish(live.finish.map(f => ({ ...f })), live.final);
-    const scoreRows = teams.map(t => {
-        const done = t.places.length >= 5;
-        return `<tr class="${schoolKey(t.school) === ours ? 'ours' : ''}${done ? '' : ' partial'}">
-            <td class="num">${done ? t.rank : '—'}</td>
-            <td>${esc(t.school)}</td>
-            <td class="num">${done ? t.score : t.places.length + ' in'}</td>
-            <td class="pl">${t.places.slice(0, 5).join(' ')}${t.places.slice(5, 7).map(p => ` <span class="disp">(${p})</span>`).join('')}</td></tr>`;
-    }).join('');
-    $('live-scores').innerHTML = !n ? '<p class="msg">Scores appear as runners finish.</p>' : `
-        <table class="live">
-            <thead><tr><th class="num">#</th><th>School</th><th class="num">Score</th><th>Places <small>(6th, 7th)</small></th></tr></thead>
-            <tbody>${scoreRows}</tbody>
-        </table>
-        <p class="msg" style="margin-top:10px;font-size:12px">${live.final
-            ? 'Final scoring: a team scores its first five places; its 6th and 7th take places but score nothing. Teams under five take no places.' + (short.length ? ' Not scored: ' + esc(short.join(', ')) + '.' : '')
-            : 'Provisional: every finisher takes a place, so a team still short of five shows how many are in. Turn on Final when the race is done.'}</p>`;
+    const { teams, finish } = scoreFinish(live.finish.map(f => ({ ...f })), live.final);
+    // The last tap, read back, so the coach can see it landed without looking down the list.
+    const latest = live.finish.reduce((a, f) => (f.id || 0) > ((a && a.id) || 0) ? f : a, null);
+    const at = latest ? live.finish.indexOf(latest) : -1;
+    $('live-last').innerHTML = !latest ? 'Tap a school as each runner finishes.'
+        : `<strong>${at + 1}</strong> ${esc(latest.school)}${latest.ms === null ? '' : ' · ' + tenths(latest.ms)}`;
+
+    // A team's score is its first five places added up, so it shows from the
+    // first runner in: Verona 1st, La Follette 2nd reads Verona 1, La Follette 2.
+    const scoreRows = teams.map(t => `<div class="sb-row${schoolKey(t.school) === ours ? ' ours' : ''}">
+            <span class="sb-rank">${t.places.length >= 5 ? t.rank : ''}</span>
+            <span class="sb-name">${esc(t.school)}</span>
+            <span class="sb-pts">${t.score}</span>
+            <span class="sb-places">${t.places.slice(0, 5).join('+')}${t.places.slice(5, 7).map(p => ` <span class="disp">(${p})</span>`).join('')}${t.places.length < 5 ? ` · ${t.places.length} of 5` : ''}</span>
+        </div>`).join('');
+    const scored = new Set(teams.map(t => t.school));
+    const outRows = Object.keys(counts).filter(sc => !scored.has(sc)).map(sc => `<div class="sb-row out">
+            <span class="sb-rank"></span><span class="sb-name">${esc(sc)}</span><span class="sb-pts">—</span>
+            <span class="sb-places">${counts[sc]} of 5 · not scored</span></div>`).join('');
+    $('live-scores').innerHTML = !n ? '<p class="live-note">Scores appear here as runners finish. Lowest wins; only each team\'s top five count.</p>'
+        : scoreRows + outRows + `<p class="live-note">${live.final
+            ? 'Final: teams under five take no places, and everyone behind them moves up.'
+            : 'Only the top five count. A 6th and 7th (in brackets) push other teams back but add nothing.'}</p>`;
 
     $('live-order').innerHTML = !n ? '<p class="msg">No finishers yet.</p>' : `
         <table class="live">
@@ -2882,6 +2917,8 @@ function tickLive() {
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden && view === 'live') { wakeLock = null; tickLive(); } });
 
+$('live-setup').querySelector('summary').addEventListener('click', () => { liveSetupTouched = true; });
+
 $('live-start').addEventListener('click', () => {
     if (live.start === null) live.start = Date.now();
     else if (live.stop !== null) { live.start += Date.now() - live.stop; live.stop = null; }    // resume
@@ -2893,9 +2930,13 @@ $('live-add').addEventListener('submit', e => {
     e.preventDefault();
     const typed = $('live-school').value.trim();
     if (!typed) return;
-    // Take the stored spelling when it is the same school, so it matches saved meets.
-    const known = [...(team.schools || []).map(s => s.school), ...Object.values(GROUPS).flatMap(g => g.schools)];
-    const name = known.find(k => schoolKey(k) === schoolKey(typed)) || typed;
+    // Take the stored spelling when it is the same school, so it matches saved
+    // meets — or when what was typed is part of exactly one known name, so
+    // "lafollette" finds Madison La Follette.
+    const known = [...new Set([...(team.schools || []).map(s => s.school), ...Object.values(GROUPS).flatMap(g => g.schools)])];
+    const key = schoolKey(typed);
+    const part = key.length >= 4 ? known.filter(k => schoolKey(k).includes(key)) : [];
+    const name = known.find(k => schoolKey(k) === key) || (part.length === 1 ? part[0] : typed);
     if (!live.schools.some(sc => schoolKey(sc) === schoolKey(name))) live.schools.push(name);
     $('live-school').value = '';
     saveLive(); renderLive();
