@@ -506,7 +506,8 @@ Scores a race while it is being run, from a phone at the finish line. Start
 the clock with the gun, then tap a school's button as each of its runners
 crosses: the tap takes the next place, and the clock's time if it is running.
 
-**The board is two columns even on a phone**: school buttons on the left,
+**The board is two columns even on a phone**: school buttons on the left
+(small, two across, so all twelve Section schools fit on one screen),
 the score on the right (sticky, so it stays in view while scrolling the
 buttons). Above the buttons the last tap is read back ("2 Madison La
 Follette · 4:12.3"), so a coach can see it landed without looking away.
