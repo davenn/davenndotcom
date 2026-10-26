@@ -737,6 +737,7 @@
         <button type="button" role="tab" id="tab-team" aria-selected="false">Team</button>
         <button type="button" role="tab" id="tab-conference" aria-selected="false">Conference</button>
         <button type="button" role="tab" id="tab-section" aria-selected="false">Section</button>
+        <button type="button" role="tab" id="tab-state" aria-selected="false">State</button>
         <button type="button" role="tab" id="tab-live" aria-selected="false">Live</button>
     </div>
 
@@ -824,7 +825,7 @@
         </section>
     </div>
 
-    <!-- Conference and Section: one view, two school lists (GROUPS). -->
+    <!-- Conference, Section and State: one view, three school lists (GROUPS). -->
     <div class="viewpane hidden" id="group-view">
         <div class="filters">
             <select id="g-season" aria-label="Season" class="hidden"></select>
@@ -935,7 +936,7 @@ let pin = load(PIN_KEY);
 // saved meet being edited. Rows are flat and carry their race; the overlay
 // groups them for display.
 let review    = null;
-const VIEWS   = ['meets', 'team', 'conference', 'section', 'live'];
+const VIEWS   = ['meets', 'team', 'conference', 'section', 'state', 'live'];
 let view      = VIEWS.includes(load('wildcatsxc_view')) ? load('wildcatsxc_view') : 'meets';
 let appending = false;
 let nextUid   = 1;
@@ -2378,7 +2379,39 @@ const GROUPS = {
     section: { label: 'Section', perSchool: 10, schools: [
         'DeForest', 'Madison East', 'Madison La Follette', 'Madison Memorial', 'Madison West', 'Middleton',
         'Monona Grove', 'Oregon', 'Sun Prairie East', 'Sun Prairie West', 'Verona Area', 'Waunakee'] },
+    // 2026 WIAA Division 1 boys team qualifiers, from the state meet's
+    // qualifier sheet. Teams only: individual qualifiers are left out on
+    // purpose. Boys only, because only the boys qualified a team. Seven per
+    // school, the seven a team runs at state. Names are as the sheet prints
+    // them, except Verona Area, the spelling the rest of the app uses.
+    state: { label: 'State', perSchool: 7, squads: ['Boys'], schools: [
+        'Appleton North', 'Brookfield East', 'De Pere', 'Hamilton', 'Holmen', 'Kenosha Indian Trail',
+        'Kenosha Tremper', 'Kohler', 'Marquette', 'Marshfield', 'Menomonee Falls', 'Menomonie', 'Middleton',
+        'Milwaukee Ronald Reagan', 'Muskego', 'Oconomowoc', 'Stevens Point Area Senior High', 'Verona Area',
+        'West Bend West', 'Whitefish Bay'],
+      // Other spellings of the same school, as results sites and sheets print
+      // them. A school whose results are saved under a spelling not here is
+      // listed as having no results; add the spelling here.
+      aliases: {
+        'Hamilton': ['Sussex Hamilton'],
+        'Kenosha Indian Trail': ['Indian Trail', 'Kenosha Indian Trail Academy', 'Indian Trail High School and Academy'],
+        'Kenosha Tremper': ['Tremper'],
+        'Kohler': ['Kohler/Sheboygan Christian', 'Kohler/Sheboygan Christian/Sheboygan Lutheran'],
+        'Marquette': ['Marquette University', 'Milwaukee Marquette', 'Marquette University High School'],
+        'Milwaukee Ronald Reagan': ['Milwaukee Reagan', 'Reagan', 'Ronald Reagan'],
+        'Stevens Point Area Senior High': ['Stevens Point', 'Stevens Point Area', 'SPASH'],
+        'Verona Area': ['Verona'],
+      } },
 };
+/** A group's schools by every key they match under, each to the name the list shows. */
+function groupKeys(g) {
+    const keys = new Map();
+    g.schools.forEach(n => {
+        keys.set(schoolKey(n), n);
+        ((g.aliases || {})[n] || []).forEach(a => keys.set(schoolKey(a), n));
+    });
+    return keys;
+}
 const groupCache = new Map();                    // tab → that group's results
 const groupState = { season: null, dist: null, pick: null };   // pick: a school singled out on the chart
 const groupCharts = new Map();                                   // squad → its weekly chart data
@@ -2391,7 +2424,7 @@ async function loadGroup(v) {
     try {
         if (!team.schools) team.schools = (await api('?action=xc_schools')).schools;
         if (!groupCache.has(v)) {
-            const want = new Set(g.schools.map(schoolKey));
+            const want = groupKeys(g);
             const names = team.schools.map(s => s.school).filter(n => want.has(schoolKey(n)));
             groupCache.set(v, names.length
                 ? (await api('?action=xc_results&' + names.map(n => 'school[]=' + encodeURIComponent(n)).join('&'))).results
@@ -2427,7 +2460,7 @@ function renderGroup(v) {
     const rows = inSeason.filter(r => r.distance_m === groupState.dist);
     const squad = squadsByRunner(all);
     groupCharts.clear();
-    $('group-body').innerHTML = ['Boys', 'Girls', 'Other']
+    $('group-body').innerHTML = (g.squads || ['Boys', 'Girls', 'Other'])
         .map(sq => groupCard(g, sq, rows.filter(r => squad(r.athlete_id) === sq)))
         .join('');
     groupCharts.forEach((_, sq) => drawGroupChart(sq));
@@ -2505,7 +2538,7 @@ function drawGroupChart(squad) {
 
 function groupCard(g, squad, rows) {
     if (!rows.length) return '';
-    const display = new Map(g.schools.map(n => [schoolKey(n), n]));   // stored spelling → the list's
+    const display = groupKeys(g);                                        // stored spelling → the list's
     const by = new Map();
     rows.forEach(r => {
         if (!by.has(r.athlete_id)) by.set(r.athlete_id, { name: r.name, school: display.get(schoolKey(r.school)) || r.school, grade: 0, best: Infinity, races: 0, total: 0 });
@@ -2799,6 +2832,7 @@ $('tab-meets').addEventListener('click', () => setView('meets'));
 $('tab-team').addEventListener('click', () => setView('team'));
 $('tab-conference').addEventListener('click', () => setView('conference'));
 $('tab-section').addEventListener('click', () => setView('section'));
+$('tab-state').addEventListener('click', () => setView('state'));
 $('tab-live').addEventListener('click', () => setView('live'));
 $('t-school').addEventListener('change', e => { team.school = e.target.value; team.results = null; team.selected.clear(); loadTeam(); });
 $('t-season').addEventListener('change', e => { team.season = e.target.value; renderTeam(); });

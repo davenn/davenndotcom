@@ -356,9 +356,9 @@ squad — so every time is visible before anything is summarised.
   coach of one squad folds the other once, and it stays folded across visits,
   schools and seasons. A convenience only: nothing about it reaches the server.
 
-## Conference and Section tabs
+## Conference, Section and State tabs
 
-Two tabs, one view: each combines a fixed list of schools into one ranked list
+Three tabs, one view: each combines a fixed list of schools into one ranked list
 per squad — **each school's 10 fastest runners by season best, ranked
 together**. Columns: rank and runner (pinned), season best, **average** (the
 mean of every race that runner ran in the chosen season at the chosen
@@ -367,6 +367,18 @@ shows the same time in both. Averages always show the tenth (`tenths()`:
 "16:49.0", not "16:49") so the column lines up; times as printed go through
 `fmtTime()`, which keeps their own precision.
 
+- **State** is the same view over the 2026 WIAA Division 1 boys **team**
+  qualifiers (individual qualifiers are left out on purpose), with three
+  differences set on its `GROUPS` entry: `perSchool: 7`, the seven a team
+  runs at state, so the virtual meet scores state as it is run; `squads:
+  ['Boys']`, since only the boys qualified a team, so a qualifying school's
+  girls are not shown; and `aliases`, other spellings of a school (Sussex
+  Hamilton for Hamilton, SPASH for Stevens Point Area Senior High), because
+  results for schools outside our area come in under whatever a results site
+  calls them. `groupKeys()` resolves list names and aliases alike. A school
+  with no matching results is named under the table ("No results yet
+  for …"); that line doubles as the list of meets still to import, or of
+  spellings to add to `aliases`. Replace the list each season.
 - **The school lists live in `GROUPS`** in `wildcatsxc.html` — the Big Eight
   for Conference, the WIAA sectional for Section. Edit them there when the
   conference or the sectional assignment changes (sectionals change yearly).
