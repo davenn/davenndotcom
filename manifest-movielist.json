@@ -1,0 +1,15 @@
+{
+  "name": "Cali's Movie List",
+  "short_name": "Movie List",
+  "description": "A watch list with tissue ratings, vibes and Rotten Tomatoes scores",
+  "id": "/movielist.html",
+  "scope": "/movielist.html",
+  "start_url": "/movielist.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#111110",
+  "background_color": "#111110",
+  "icons": [
+    { "src": "/icons/movielist.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

@@ -21,6 +21,7 @@ fits together see [`../../CLAUDE.md`](../../CLAUDE.md).
 | Face Breaker | [facebreaker.md](facebreaker.md) | weekly top ten |
 | Pomodoro | [pomodoro.md](pomodoro.md) | none |
 | Cribbage | [cribbage.md](cribbage.md) | none |
+| Cali's Movie List | [movielist.md](movielist.md) | added movies, Claude drafting |
 | Sign Spotter | [signspotter.md](signspotter.md) | none |
 | Stats (unlisted) | [stats.md](stats.md) | page views, API usage, city lookup |
 

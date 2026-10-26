@@ -61,6 +61,7 @@ Browser ──► /appname.html  (self-contained: HTML + CSS + JS)
 | Pomodoro | `pomodoro.html`, `pomodoro-cast.html` | — | local only |
 | Sign Spotter | `signspotter.html` | — | local only |
 | Cribbage | `cribbage.html` | — | local only |
+| Cali's Movie List | `movielist.html` | `ml_movies` `ml_watched` `ml_draft_log` | — (anyone can add, remove or check off; drafts rate-limited per IP) |
 | Legal | `privacy.html`, `terms.html` | — | static |
 | Stats | `stats.html`, plus the beacon on every page | `an_hits` `an_daily` `an_salt` `an_api` `an_ai` `an_fixed_costs` `an_cache` | `X-Admin-Secret` to read; beacon open |
 
@@ -77,7 +78,7 @@ before deploying for exactly this reason. Never push PHP you have not linted.
   Add new endpoints in the same shape, grouped with their app's other branches.
 - **Table prefixes** namespace each app: `tb_` Toolshare, `ft_` Flight Tracker,
   `bg_` glucose, `dt_` Daily Tasks, `cp_` Confidence Pool, `xc_` WildcatsXC,
-  `an_` analytics. Unprefixed tables (`meetings`, `track_sessions`, `subscribers`, `fb_scores`, `reaction_scores`)
+  `ml_` Cali's Movie List, `an_` analytics. Unprefixed tables (`meetings`, `track_sessions`, `subscribers`, `fb_scores`, `reaction_scores`)
   predate the convention — leave their names alone.
 - **Schema is self-migrating.** Every request runs the `CREATE TABLE IF NOT
   EXISTS` block at the top of the file. To add a table, add it there. There are
@@ -96,8 +97,10 @@ before deploying for exactly this reason. Never push PHP you have not linted.
     endpoint, checked against `XC_PIN` in `.env` and rate-limited per IP in
     `xc_pin_attempts`. It guards minors' names, so it is never hardcoded
   - `X-Admin-Secret` → operator-only endpoints (ingest, notify, roster, purge)
-  - none → the leaderboard and timer apps write unauthenticated, and so does
-    the page-view beacon `an_hit`
+  - none → the leaderboard and timer apps write unauthenticated, and so do
+    the page-view beacon `an_hit` and Cali's Movie List (by the owner's
+    choice). `ml_draft` is a paid Claude call, so `mlDraftLimit()` caps it at
+    30 per IP per hour in `ml_draft_log` instead
 - **Endpoint comments already exist** above the non-obvious branches and explain
   intent, not mechanics. Read them before changing a branch, and keep the habit.
 
@@ -271,9 +274,10 @@ against a local env file.
 
 - **Anthropic API** — Toolshare's `tb_identify_tool` (photo → tool details),
   Confidence Pool's `cp_scan` (photo of a filled pick sheet → picks) and
-  WildcatsXC's `xc_scan` (results PDF → runners and times). Uses
-  `claude-opus-5`, `claude-opus-5-5` (WildcatsXC, streamed, with server-side refusal
-  fallbacks) and `claude-haiku-4-5-20251001`.
+  WildcatsXC's `xc_scan` (results PDF → runners and times), and Cali's Movie
+  List's `ml_draft` (title → year, emoji, tissue rating, vibe, tags). Uses
+  `claude-opus-5`, `claude-opus-5-5` (WildcatsXC streamed, and Movie List, both
+  with server-side refusal fallbacks) and `claude-haiku-4-5-20251001`.
 - **Twilio** — outbound SMS for subscriber notifications; inbound webhook at
   `?action=cp_sms` for Confidence Pool pick submission by text.
 - **ESPN** (`site.api.espn.com`, `cdn.espn.com`) — unofficial, unauthenticated

@@ -179,7 +179,7 @@
     <h1>API Reference</h1>
     <p class="lede">Every app on davenn.com is served by a single <code class="inline">api.php</code>. Endpoints are selected by an <code class="inline">action</code> query parameter and always return JSON.</p>
     <div class="base">https://davenn.com/api.php?action=&lt;action&gt;</div>
-    <p class="counts">74 endpoints · 34 tables</p>
+    <p class="counts">79 endpoints · 37 tables</p>
 
     <div class="filter-row">
         <input type="search" id="filter" placeholder="Filter endpoints…" aria-label="Filter endpoints">
@@ -1350,6 +1350,82 @@
         </div>
     </section>
     <section class="grp">
+        <h2 class="tag">Movie List</h2>
+        <div class="op post" id="post-ml_add" data-search="ml_add post movie list saves a movie and returns it in the ml_movies shape. rt takes a full rotten">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=ml_add</span>
+                <span class="op-sum">Saves a movie and returns it in the ml_movies shape. rt takes a full Rotten</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">Saves a movie and returns it in the ml_movies shape. rt takes a full Rotten Tomatoes link or a bare slug and keeps only the slug. poster is an https image link, or a bare TMDB file name that the page expands. critics, audience, rt and poster may all be left empty.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">{title, year, emoji, tissues, vibe, tags, critics, audience, rt, poster}</p>
+            </div>
+        </div>
+        <div class="op post" id="post-ml_delete" data-search="ml_delete post movie list removes a movie that was added from the page, and its watched row. the">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=ml_delete</span>
+                <span class="op-sum">Removes a movie that was added from the page, and its watched row. The</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">Removes a movie that was added from the page, and its watched row. The built-in list in movielist.html is not in this table; it changes by editing the file.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">{id}</p>
+            </div>
+        </div>
+        <div class="op post" id="post-ml_draft" data-search="ml_draft post movie list claude drafts the year, emoji, tissue rating, vibe and tags from a title.">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=ml_draft</span>
+                <span class="op-sum">Claude drafts the year, emoji, tissue rating, vibe and tags from a title.</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">Claude drafts the year, emoji, tissue rating, vibe and tags from a title. Saves nothing itself: the page passes the draft straight on to ml_add. found is false when Claude does not recognize the title, with note saying why, and nothing is added. Rotten Tomatoes scores and the poster are never drafted. Open to anyone, so it is rate-limited per address (mlDraftLimit).</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">{title}</p>
+            </div>
+        </div>
+        <div class="op get" id="get-ml_movies" data-search="ml_movies get movie list everything the page keeps on the server, in one request: every movie added">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=ml_movies</span>
+                <span class="op-sum">Everything the page keeps on the server, in one request: every movie added</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">Everything the page keeps on the server, in one request: every movie added from the page, oldest first, so the page can append them after its built-in list in the order they were added; and watched, keyed by the page's movie id, as {at: epoch ms, tissues: 0-5}.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+            </div>
+        </div>
+        <div class="op post" id="post-ml_watch" data-search="ml_watch post movie list checks a movie off (watched true) or un-checks it (false, which also drops">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=ml_watch</span>
+                <span class="op-sum">Checks a movie off (watched true) or un-checks it (false, which also drops</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">Checks a movie off (watched true) or un-checks it (false, which also drops its tissue count). tissues, 0-5, is how many it took; 0 means not rated. Re-sending watched true for a checked movie only updates tissues and keeps the original watched time. id is not checked against the built-in list, which only the page knows, so it is held to the shape of a page id.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">{id, watched, tissues}</p>
+            </div>
+        </div>
+    </section>
+    <section class="grp">
         <h2 class="tag">Update Notifications</h2>
         <div class="op get" id="get-resetTestPhone" data-search="resettestphone get update notifications removes the operator's own test phone from the list so sign-up can be tested">
             <button class="op-head" type="button" aria-expanded="false">
@@ -1647,6 +1723,29 @@ avg_ms     INT          NOT NULL
 week_key   DATE         NOT NULL
 created_at DATETIME     DEFAULT CURRENT_TIMESTAMP
 INDEX idx_week (week_key, avg_ms)</code></pre>
+        <p class="group">Movie List</p>
+        <h3>ml_movies</h3>
+        <pre><code>id         INT AUTO_INCREMENT PRIMARY KEY
+title      VARCHAR(200) NOT NULL
+year       SMALLINT     NOT NULL DEFAULT 0
+emoji      VARCHAR(16)  NOT NULL DEFAULT ''
+tissues    TINYINT      NOT NULL DEFAULT 3
+vibe       VARCHAR(400) NOT NULL DEFAULT ''
+tags       VARCHAR(200) NOT NULL DEFAULT ''
+critics    TINYINT      DEFAULT NULL
+audience   TINYINT      DEFAULT NULL
+rt         VARCHAR(120) DEFAULT NULL
+poster     VARCHAR(300) DEFAULT NULL
+created_at DATETIME     DEFAULT CURRENT_TIMESTAMP</code></pre>
+        <h3>ml_draft_log</h3>
+        <pre><code>id         INT AUTO_INCREMENT PRIMARY KEY
+ip         VARCHAR(45) NOT NULL
+created_at DATETIME    DEFAULT CURRENT_TIMESTAMP
+KEY idx_ip (ip, created_at)</code></pre>
+        <h3>ml_watched</h3>
+        <pre><code>movie_id   VARCHAR(20) NOT NULL PRIMARY KEY
+tissues    TINYINT     NOT NULL DEFAULT 0
+watched_at DATETIME    DEFAULT CURRENT_TIMESTAMP</code></pre>
         <p class="group">Update Notifications</p>
         <h3>subscribers</h3>
         <pre><code>id            INT AUTO_INCREMENT PRIMARY KEY

@@ -309,6 +309,45 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS xc_pin_attempts (
     KEY idx_ip (ip, created_at)
 )");
 
+// Movies added to Cali's Movie List from the page. The starting list lives in
+// movielist.html itself; these rows are appended after it. tags is
+// comma-separated. critics/audience/rt/poster stay NULL until someone fills
+// them in, since none of them can be drafted reliably.
+$pdo->exec("CREATE TABLE IF NOT EXISTS ml_movies (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    title      VARCHAR(200) NOT NULL,
+    year       SMALLINT     NOT NULL DEFAULT 0,
+    emoji      VARCHAR(16)  NOT NULL DEFAULT '',
+    tissues    TINYINT      NOT NULL DEFAULT 3,
+    vibe       VARCHAR(400) NOT NULL DEFAULT '',
+    tags       VARCHAR(200) NOT NULL DEFAULT '',
+    critics    TINYINT      DEFAULT NULL,
+    audience   TINYINT      DEFAULT NULL,
+    rt         VARCHAR(120) DEFAULT NULL,
+    poster     VARCHAR(300) DEFAULT NULL,
+    created_at DATETIME     DEFAULT CURRENT_TIMESTAMP
+)");
+
+// One row per Movie List draft request, kept for a day. Adding a movie is
+// open to anyone and every draft is a paid Claude call, so this caps how many
+// one address can ask for in an hour.
+$pdo->exec("CREATE TABLE IF NOT EXISTS ml_draft_log (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    ip         VARCHAR(45) NOT NULL,
+    created_at DATETIME    DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_ip (ip, created_at)
+)");
+
+// Which Movie List films Cali has watched, one row each, and how many tissues
+// each took (0 = not rated yet). movie_id is the page's id: a built-in's short
+// id ('dps') or 'ml' + an ml_movies id. There is one list, shared by every
+// device, so there is no user column.
+$pdo->exec("CREATE TABLE IF NOT EXISTS ml_watched (
+    movie_id   VARCHAR(20) NOT NULL PRIMARY KEY,
+    tissues    TINYINT     NOT NULL DEFAULT 0,
+    watched_at DATETIME    DEFAULT CURRENT_TIMESTAMP
+)");
+
 // Analytics: one row per page view, sent by the beacon at the bottom of every
 // page. No IP and no cookie — vid is a hash of IP + user agent + a salt that is
 // replaced every UTC day, so it counts unique visitors within a day and cannot
@@ -4411,6 +4450,280 @@ if ($method === 'DELETE' && $action === 'xc_meet') {
     $st->execute([intval($_GET['id'] ?? 0)]);
     if ($st->rowCount() === 0) { http_response_code(404); echo json_encode(['error' => 'No such meet.']); exit; }
     xcPruneAthletes($pdo);
+    echo json_encode(['success' => true]);
+    exit;
+}
+
+// ══════════════════════════════════════════════════════════════
+// MOVIE LIST
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * Cap on Movie List drafts: 30 per address per hour. Anyone can add a movie
+ * and each draft is a paid Claude call, so this is what bounds the bill. Far
+ * more than one person adding films to a watch list will ever reach.
+ */
+function mlDraftLimit(PDO $pdo): void {
+    $ip = substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45);
+    $pdo->exec("DELETE FROM ml_draft_log WHERE created_at < NOW() - INTERVAL 1 DAY");
+    $st = $pdo->prepare("SELECT COUNT(*) FROM ml_draft_log WHERE ip = ? AND created_at > NOW() - INTERVAL 1 HOUR");
+    $st->execute([$ip]);
+    if ((int)$st->fetchColumn() >= 30) {
+        http_response_code(429); echo json_encode(['error' => 'That is a lot of movies for one hour. Try again later.']); exit;
+    }
+    $pdo->prepare("INSERT INTO ml_draft_log (ip) VALUES (?)")->execute([$ip]);
+}
+
+// An ml_movies row in the shape the page uses for its built-in list.
+function mlRow(array $r): array {
+    return [
+        'id'       => (int)$r['id'],
+        'title'    => $r['title'],
+        'year'     => (int)$r['year'],
+        'emoji'    => $r['emoji'],
+        'tissues'  => (int)$r['tissues'],
+        'vibe'     => $r['vibe'],
+        'tags'     => $r['tags'] === '' ? [] : explode(',', $r['tags']),
+        'critics'  => $r['critics'] === null ? null : (int)$r['critics'],
+        'audience' => $r['audience'] === null ? null : (int)$r['audience'],
+        'rt'       => $r['rt'],
+        'poster'   => $r['poster'],
+    ];
+}
+
+/**
+ * Ask Claude to draft a list entry from a movie title.
+ * Returns ['draft' => array] or ['error' => string].
+ *
+ * Only the parts that are matters of taste or common knowledge are drafted.
+ * Rotten Tomatoes scores and the poster are left to the person adding the
+ * movie: a remembered score is often a few points off, and an image URL from
+ * memory is usually invented.
+ */
+function mlDraft(string $title, string $api_key): array {
+    $prompt = 'Cali keeps a watch list of emotional movies: tearjerkers and feel-good favorites. Draft a list entry for the movie below, in the same voice as the example entries.
+
+Movie: ' . $title . '
+
+Report:
+- found: true only if you are confident which real, released film this is. If not (you do not know it, the title is ambiguous, or it is not a film), set found to false, say why in note, and leave the other fields empty or 0.
+- title: the film\'s usual English title, correctly capitalized.
+- year: its original release year.
+- emoji: one emoji for something specific in the film. It stands in for a poster.
+- tissues: 1 to 5, how hard it makes people cry. 1 is dry eyes, 2 misty, 3 a few tears, 4 bring tissues, 5 the full box.
+- vibe: one or two sentences, 20 to 35 words, warm and playful, saying what it is about and how it feels. No spoilers: never reveal how it ends or who dies. Hinting that the ending hurts is fine.
+- tags: one to three short lowercase tags. Reuse these where they fit: teacher, coming of age, romance, teen, friendship, family, feel-good, comfort, inspiring, true story, drama, dark comedy, fantasy, road trip, grief, quirky.
+- note: anything uncertain, such as two films sharing the title, or "".
+
+Example entries:
+Dead Poets Society (1989). Emoji 📜. 4 tissues. Tags: teacher, coming of age. Vibe: "Carpe diem, cardigans and poetry in a cave. A boarding-school story that ends with a salute you will feel in your chest."
+Silver Linings Playbook (2012). Emoji 💃. 1 tissue. Tags: romance, feel-good. Vibe: "Two gloriously messy people, a dance competition and some serious Eagles superstition. Chaotic, warm and hopeful."
+Big Fish (2003). Emoji 🐟. 4 tissues. Tags: fantasy, family. Vibe: "A son sorts the truth from his dad\'s tall tales of giants, witches and a field of daffodils. Whimsical, then the river ending gets you."';
+
+    $schema = [
+        'type'       => 'object',
+        'properties' => [
+            'found'   => ['type' => 'boolean'],
+            'title'   => ['type' => 'string'],
+            'year'    => ['type' => 'integer'],
+            'emoji'   => ['type' => 'string'],
+            'tissues' => ['type' => 'integer'],
+            'vibe'    => ['type' => 'string'],
+            'tags'    => ['type' => 'array', 'items' => ['type' => 'string']],
+            'note'    => ['type' => 'string'],
+        ],
+        'required'             => ['found', 'title', 'year', 'emoji', 'tissues', 'vibe', 'tags', 'note'],
+        'additionalProperties' => false,
+    ];
+
+    $payload = json_encode([
+        'model'         => 'claude-opus-5-5',
+        'max_tokens'    => 16000,
+        // A declined request is retried server-side on the model Anthropic
+        // recommends for that refusal category, instead of failing outright.
+        'fallbacks'     => 'default',
+        'output_config' => [
+            'effort' => 'low',
+            'format' => ['type' => 'json_schema', 'schema' => $schema],
+        ],
+        'messages'      => [['role' => 'user', 'content' => $prompt]],
+    ]);
+
+    $ch = curl_init('https://api.anthropic.com/v1/messages');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => $payload,
+        CURLOPT_HTTPHEADER     => [
+            'x-api-key: ' . $api_key,
+            'anthropic-version: 2023-06-01',
+            'anthropic-beta: server-side-fallback-2026-07-01',
+            'content-type: application/json',
+        ],
+        CURLOPT_CONNECTTIMEOUT => 15,
+        CURLOPT_TIMEOUT        => 90,
+    ]);
+    $response  = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    $data = json_decode((string)$response, true);
+    if (!$response || $http_code !== 200) {
+        return ['error' => 'Could not draft that movie' . (isset($data['error']['message']) ? ': ' . $data['error']['message'] : '.')];
+    }
+    if (($data['stop_reason'] ?? '') === 'refusal') return ['error' => 'Claude declined to draft that one. Fill it in by hand.'];
+
+    // The last text block is the answer; if a fallback took over, the
+    // declined model's text comes before it.
+    $text = '';
+    foreach ($data['content'] ?? [] as $blk) {
+        if (($blk['type'] ?? '') === 'text') $text = trim($blk['text']);
+    }
+    $result = json_decode($text, true);
+    return is_array($result) ? ['draft' => $result] : ['error' => 'Could not draft that movie.'];
+}
+
+// Tags as the page sends them (an array, or one comma-separated string),
+// cleaned to at most three short lowercase words with no commas inside.
+function mlTags($tags): array {
+    if (!is_array($tags)) $tags = explode(',', (string)$tags);
+    $out = [];
+    foreach ($tags as $t) {
+        $t = mb_substr(trim(mb_strtolower(str_replace(',', ' ', (string)$t))), 0, 30);
+        if ($t !== '' && !in_array($t, $out, true)) $out[] = $t;
+    }
+    return array_slice($out, 0, 3);
+}
+
+// GET ?action=ml_movies
+// Everything the page keeps on the server, in one request: every movie added
+// from the page, oldest first, so the page can append them after its built-in
+// list in the order they were added; and watched, keyed by the page's movie
+// id, as {at: epoch ms, tissues: 0-5}.
+if ($method === 'GET' && $action === 'ml_movies') {
+    $rows = $pdo->query("SELECT * FROM ml_movies ORDER BY id")->fetchAll();
+    $watched = [];
+    foreach ($pdo->query("SELECT movie_id, tissues, UNIX_TIMESTAMP(watched_at) AS ts FROM ml_watched") as $w) {
+        $watched[$w['movie_id']] = ['at' => (int)$w['ts'] * 1000, 'tissues' => (int)$w['tissues']];
+    }
+    echo json_encode(['success' => true, 'movies' => array_map('mlRow', $rows), 'watched' => (object)$watched]);
+    exit;
+}
+
+// POST ?action=ml_watch  {id, watched, tissues}
+// Checks a movie off (watched true) or un-checks it (false, which also drops
+// its tissue count). tissues, 0-5, is how many it took; 0 means not rated.
+// Re-sending watched true for a checked movie only updates tissues and keeps
+// the original watched time. id is not checked against the built-in list,
+// which only the page knows, so it is held to the shape of a page id.
+if ($method === 'POST' && $action === 'ml_watch') {
+    $b  = json_decode(file_get_contents('php://input'), true) ?: [];
+    $id = (string)($b['id'] ?? '');
+    if (!preg_match('/^[A-Za-z0-9]{1,20}$/', $id)) { http_response_code(400); echo json_encode(['error' => 'Unknown movie.']); exit; }
+    if (empty($b['watched'])) {
+        $pdo->prepare("DELETE FROM ml_watched WHERE movie_id = ?")->execute([$id]);
+    } else {
+        $pdo->prepare("INSERT INTO ml_watched (movie_id, tissues) VALUES (?, ?) ON DUPLICATE KEY UPDATE tissues = VALUES(tissues)")
+            ->execute([$id, max(0, min(5, (int)($b['tissues'] ?? 0)))]);
+    }
+    echo json_encode(['success' => true]);
+    exit;
+}
+
+// POST ?action=ml_draft  {title}
+// Claude drafts the year, emoji, tissue rating, vibe and tags from a title.
+// Saves nothing itself: the page passes the draft straight on to ml_add.
+// found is false when Claude does not recognize the title, with note saying
+// why, and nothing is added. Rotten Tomatoes scores and the poster are never
+// drafted. Open to anyone, so it is rate-limited per address (mlDraftLimit).
+if ($method === 'POST' && $action === 'ml_draft') {
+    $api_key = $_ENV['ANTHROPIC_API_KEY'] ?? '';
+    if (!$api_key) { http_response_code(500); echo json_encode(['error' => 'Drafting is not configured on the server.']); exit; }
+
+    $body  = json_decode(file_get_contents('php://input'), true);
+    $title = mb_substr(trim((string)($body['title'] ?? '')), 0, 200);
+    if ($title === '') { http_response_code(400); echo json_encode(['error' => 'Type a movie title first.']); exit; }
+    mlDraftLimit($pdo);
+
+    @set_time_limit(120);
+    $d = mlDraft($title, $api_key);
+    if (isset($d['error'])) { http_response_code(502); echo json_encode(['error' => $d['error']]); exit; }
+    $r = $d['draft'];
+
+    if (empty($r['found'])) {
+        echo json_encode(['success' => true, 'found' => false, 'note' => trim((string)($r['note'] ?? '')) ?: 'Claude did not recognize that title.']);
+        exit;
+    }
+    echo json_encode(['success' => true, 'found' => true, 'draft' => [
+        'title'   => mb_substr(trim((string)($r['title'] ?? '')), 0, 200) ?: $title,
+        'year'    => max(0, min(2100, (int)($r['year'] ?? 0))),
+        'emoji'   => mb_substr(trim((string)($r['emoji'] ?? '')), 0, 8),
+        'tissues' => max(1, min(5, (int)($r['tissues'] ?? 3))),
+        'vibe'    => mb_substr(trim((string)($r['vibe'] ?? '')), 0, 400),
+        'tags'    => mlTags($r['tags'] ?? []),
+        'note'    => trim((string)($r['note'] ?? '')),
+    ]]);
+    exit;
+}
+
+// POST ?action=ml_add  {title, year, emoji, tissues, vibe, tags, critics, audience, rt, poster}
+// Saves a movie and returns it in the ml_movies shape. rt takes a full Rotten
+// Tomatoes link or a bare slug and keeps only the slug. poster is an https
+// image link, or a bare TMDB file name that the page expands. critics,
+// audience, rt and poster may all be left empty.
+if ($method === 'POST' && $action === 'ml_add') {
+    $b = json_decode(file_get_contents('php://input'), true) ?: [];
+
+    $title = mb_substr(trim((string)($b['title'] ?? '')), 0, 200);
+    if ($title === '') { http_response_code(400); echo json_encode(['error' => 'A movie needs a title.']); exit; }
+
+    $pct = function ($v): ?int {
+        if ($v === null || trim((string)$v) === '') return null;
+        return max(0, min(100, (int)$v));
+    };
+
+    $rt = trim((string)($b['rt'] ?? ''));
+    if (preg_match('#rottentomatoes\.com/m/([A-Za-z0-9_\-]+)#', $rt, $m)) $rt = $m[1];
+    if ($rt !== '' && !preg_match('/^[A-Za-z0-9_\-]{1,120}$/', $rt)) {
+        http_response_code(400); echo json_encode(['error' => 'That Rotten Tomatoes link does not look right. Paste the movie page link, or leave it empty.']); exit;
+    }
+
+    $poster = trim((string)($b['poster'] ?? ''));
+    if ($poster !== '' && !preg_match('#^https://[^\s"\'<>]{1,290}$#', $poster) && !preg_match('/^[A-Za-z0-9]{10,60}\.(jpg|png)$/', $poster)) {
+        http_response_code(400); echo json_encode(['error' => 'The poster has to be an https image link, or left empty.']); exit;
+    }
+
+    $pdo->prepare("INSERT INTO ml_movies (title, year, emoji, tissues, vibe, tags, critics, audience, rt, poster)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        ->execute([
+            $title,
+            max(0, min(2100, (int)($b['year'] ?? 0))),
+            mb_substr(trim((string)($b['emoji'] ?? '')), 0, 8),
+            max(1, min(5, (int)($b['tissues'] ?? 3))),
+            mb_substr(trim((string)($b['vibe'] ?? '')), 0, 400),
+            implode(',', mlTags($b['tags'] ?? [])),
+            $pct($b['critics'] ?? null),
+            $pct($b['audience'] ?? null),
+            $rt !== '' ? $rt : null,
+            $poster !== '' ? $poster : null,
+        ]);
+    $st = $pdo->prepare("SELECT * FROM ml_movies WHERE id = ?");
+    $st->execute([(int)$pdo->lastInsertId()]);
+    echo json_encode(['success' => true, 'movie' => mlRow($st->fetch())]);
+    exit;
+}
+
+// POST ?action=ml_delete  {id}
+// Removes a movie that was added from the page, and its watched row. The
+// built-in list in movielist.html is not in this table; it changes by editing
+// the file.
+if ($method === 'POST' && $action === 'ml_delete') {
+    $b = json_decode(file_get_contents('php://input'), true) ?: [];
+    $id = (int)($b['id'] ?? 0);
+    $st = $pdo->prepare("DELETE FROM ml_movies WHERE id = ?");
+    $st->execute([$id]);
+    if (!$st->rowCount()) { http_response_code(404); echo json_encode(['error' => 'That movie is not on the list.']); exit; }
+    $pdo->prepare("DELETE FROM ml_watched WHERE movie_id = ?")->execute(['ml' . $id]);
     echo json_encode(['success' => true]);
     exit;
 }

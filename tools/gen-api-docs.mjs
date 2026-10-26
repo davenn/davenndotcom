@@ -53,6 +53,7 @@ const PREFIX_GROUPS = [
   ['cp_', 'Confidence Pool'],
   ['fb_', 'Face Breaker'],
   ['xc_', 'WildcatsXC'],
+  ['ml_', 'Movie List'],
   ['an_', 'Analytics'],
 ];
 
@@ -79,14 +80,14 @@ const EXPLICIT_GROUPS = {
 const GROUP_ORDER = [
   'Meeting Cost Timer', 'Track Timer', 'Toolshare', 'Flight Tracker',
   'Glucose', 'Confidence Pool', 'WildcatsXC', 'Daily Tasks', 'Face Breaker',
-  'Reaction Test', 'Update Notifications', 'Analytics',
+  'Reaction Test', 'Movie List', 'Update Notifications', 'Analytics',
 ];
 
 // Table prefixes, for the schema section.
 const TABLE_GROUPS = [
   ['tb_', 'Toolshare'], ['ft_', 'Flight Tracker'], ['bg_', 'Glucose'],
   ['dt_', 'Daily Tasks'], ['cp_', 'Confidence Pool'], ['fb_', 'Face Breaker'],
-  ['xc_', 'WildcatsXC'], ['an_', 'Analytics'],
+  ['xc_', 'WildcatsXC'], ['ml_', 'Movie List'], ['an_', 'Analytics'],
 ];
 
 const EXPLICIT_TABLES = {

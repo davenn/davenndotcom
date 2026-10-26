@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Cali's Movie List — davenn.com</title>
+<meta name="description" content="Cali's movie list: tissue ratings, vibes and Rotten Tomatoes scores.">
+<link rel="manifest" href="/manifest-movielist.json">
+<meta name="theme-color" content="#111110">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Movie List">
+<link rel="apple-touch-icon" href="/icons/movielist.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+<script>
+    // Stamp the theme before first paint so there is no flash of the wrong one.
+    (function () {
+        var t;
+        try { t = localStorage.getItem('movielist_theme'); } catch (e) {}
+        if (t !== 'light' && t !== 'dark') {
+            t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', t);
+    })();
+</script>
+<style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root, [data-theme="light"] {
+        color-scheme: light;
+        --page: #faf8f5; --surface: #ffffff; --surface-2: #f3f0eb; --border: #e6e1d8;
+        --text-primary: #1d1f24; --text-secondary: #52514e; --text-muted: #8a8a85;
+        --accent: #c8476b; --accent-soft: rgba(200,71,107,0.1);
+        --tissue: #4a8fd9; --tissue-off: #dcd7ce;
+        /* Cali's purple: background wash and the glow on hover and focus. */
+        --purple: #8b5cf6; --glow: rgba(139,92,246,0.32); --glow-wash: rgba(139,92,246,0.14);
+    }
+    [data-theme="dark"] {
+        color-scheme: dark;
+        --page: #0c0b0d; --surface: #161418; --surface-2: #1f1c21; --border: #2d2930;
+        --text-primary: #eeeae6; --text-secondary: #c0bab4; --text-muted: #8a8580;
+        --accent: #f07a98; --accent-soft: rgba(240,122,152,0.14);
+        --tissue: #7cb4f0; --tissue-off: #3a353d;
+        --purple: #a78bfa; --glow: rgba(167,139,250,0.45); --glow-wash: rgba(139,92,246,0.22);
+    }
+    :root {
+        /* Status hues are fixed, never themed, and always paired with a word. */
+        --fresh: #e0442f; --rotten: #5a9a2c;
+        --nav-bg: #111110; --nav-border: rgba(255,255,255,0.08);
+        --font-disp: 'Syne', sans-serif;
+        --font-ui: system-ui, -apple-system, 'Segoe UI', sans-serif;
+        --font-mono: 'DM Mono', ui-monospace, monospace;
+        --nav-h: 52px;
+    }
+
+    body {
+        font-family: var(--font-ui); background: var(--page); color: var(--text-primary);
+        -webkit-font-smoothing: antialiased;
+        padding-top: calc(var(--nav-h) + env(safe-area-inset-top));
+    }
+    /* A purple glow behind the page, fixed so it stays put while the list scrolls. */
+    body::before {
+        content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+        background:
+            radial-gradient(60vmax 40vmax at 10% 0%, var(--glow-wash), transparent 70%),
+            radial-gradient(50vmax 40vmax at 100% 55%, var(--glow-wash), transparent 70%),
+            radial-gradient(45vmax 35vmax at 0% 100%, var(--glow-wash), transparent 70%);
+    }
+
+    /* ── NAV ── */
+    nav {
+        position: fixed; top: 0; left: 0; right: 0;
+        height: calc(var(--nav-h) + env(safe-area-inset-top));
+        padding: env(safe-area-inset-top) 1.25rem 0;
+        background: var(--nav-bg); border-bottom: 1px solid var(--nav-border);
+        display: flex; align-items: center; justify-content: space-between; z-index: 200;
+    }
+    .nav-logo { font-family: var(--font-mono); font-size: 13px; color: rgba(255,255,255,0.4); text-decoration: none; }
+    .nav-logo strong { color: #fff; }
+    .nav-right { display: flex; align-items: center; gap: 1.2rem; }
+    .btn-install {
+        display: none; align-items: center;
+        font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;
+        color: rgba(255,255,255,0.5); background: none;
+        border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 4px 10px; cursor: pointer;
+    }
+    .btn-install.ready { display: flex; }
+    .btn-install:hover { color: rgba(255,255,255,0.9); border-color: rgba(255,255,255,0.4); }
+    .theme-toggle { width: 44px; height: 24px; cursor: pointer; background: none; border: none; padding: 0; flex: none; }
+    .theme-toggle-track { width: 44px; height: 24px; border-radius: 12px; background: #333; border: 1px solid #555; display: flex; align-items: center; padding: 0 3px; }
+    [data-theme="light"] .theme-toggle-track { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); }
+    .theme-toggle-thumb { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; transition: transform 0.2s; }
+    [data-theme="light"] .theme-toggle-thumb { transform: translateX(20px); background: #fff; }
+    [data-theme="dark"]  .theme-toggle-thumb { transform: translateX(0);    background: #666; }
+
+    main { max-width: 760px; margin: 0 auto; padding: 32px 16px 80px; }
+
+    /* ── HEADER ── */
+    .eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--purple); margin-bottom: 10px; }
+    h1 { font-family: var(--font-disp); font-size: clamp(2rem, 8vw, 3rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.02; text-shadow: 0 0 28px var(--glow); }
+    .sub { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-secondary); line-height: 1.7; margin-top: 12px; max-width: 520px; }
+
+
+    /* ── TOOLBAR ── */
+    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 22px 0 18px; }
+    .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); }
+    .seg button {
+        font-family: var(--font-mono); font-size: 11.5px; padding: 8px 12px; border: none; background: none;
+        color: var(--text-secondary); cursor: pointer; white-space: nowrap;
+    }
+    .seg button + button { border-left: 1px solid var(--border); }
+    .seg button[aria-pressed="true"] { background: var(--text-primary); color: var(--page); }
+    select {
+        font-family: var(--font-mono); font-size: 11.5px; padding: 8px 10px; border-radius: 8px;
+        border: 1px solid var(--border); background: var(--surface); color: var(--text-primary); cursor: pointer;
+    }
+    .btn-pick {
+        margin-left: auto;
+        font-family: var(--font-mono); font-size: 11.5px; padding: 8px 14px; border-radius: 8px;
+        border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent); cursor: pointer; white-space: nowrap;
+    }
+    .btn-pick:hover { background: var(--accent); color: #fff; }
+    /* Add Movie / Cancel and Submit share one size, and the title box matches
+       their height, so the add line reads as a single row of controls. */
+    :root { --add-w: 104px; --add-h: 36px; }
+    .btn-add, .btn-solid {
+        flex: none; width: var(--add-w); height: var(--add-h); padding: 0;
+        display: inline-flex; align-items: center; justify-content: center;
+        font-family: var(--font-mono); font-size: 11.5px; border-radius: 8px; cursor: pointer; white-space: nowrap;
+    }
+    .btn-add { border: 1px solid var(--text-primary); background: var(--text-primary); color: var(--page); }
+    .btn-add:hover { opacity: 0.85; }
+    .btn-remove {
+        margin-left: auto; font-family: var(--font-mono); font-size: 11px; padding: 4px 0; cursor: pointer;
+        background: none; border: none; color: var(--text-muted); text-decoration: underline; text-underline-offset: 3px;
+    }
+    .btn-remove:hover { color: var(--text-primary); }
+
+    /* ── ADD FORM: one line, just above the list ── */
+    .add-row { display: flex; gap: 8px; margin-bottom: 6px; }
+    .add-row[hidden] { display: none; }
+    .add-row input {
+        flex: 1; min-width: 0; height: var(--add-h); font: inherit; font-size: 14.5px; color: var(--text-primary);
+        background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0 12px;
+    }
+    .add-row input[hidden] { display: none; }
+    .add-row input:focus { outline: 2px solid var(--purple); outline-offset: -1px; border-color: transparent; box-shadow: 0 0 18px var(--glow); }
+    .btn-solid { background: var(--accent); border: 1px solid var(--accent); color: #fff; }
+    .btn-solid:disabled { opacity: 0.6; cursor: progress; }
+    .msg { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-secondary); line-height: 1.5; margin: 0 0 14px; }
+    .msg:empty { display: none; }
+    .msg.bad { color: var(--fresh); }
+
+    /* ── LIST ── */
+    .list { display: flex; flex-direction: column; gap: 12px; }
+    .empty { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-muted); text-align: center; padding: 40px 0; }
+
+    .card {
+        background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+        display: grid; grid-template-columns: 120px 1fr; overflow: hidden; position: relative;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .card:hover { border-color: var(--purple); box-shadow: 0 0 0 1px var(--purple), 0 8px 30px var(--glow); }
+    .card.watched { background: var(--surface-2); }
+    .card.picked { border-color: var(--purple); box-shadow: 0 0 0 3px var(--glow), 0 0 40px var(--glow); animation: pop 0.5s ease; }
+    @keyframes pop { 40% { transform: scale(1.015); } }
+    @media (prefers-reduced-motion: reduce) { .card.picked { animation: none; } }
+
+    /* The poster fills its column top to bottom, cropped to fit. The emoji
+       underneath is the fallback when the image is missing or offline. */
+    .poster {
+        position: relative; min-height: 180px; background: var(--surface-2); border-right: 1px solid var(--border);
+        display: flex; align-items: center; justify-content: center; font-size: 34px;
+    }
+    .poster img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+    .rank { position: absolute; top: 8px; left: 8px; z-index: 1; font-family: var(--font-mono); font-size: 10px; background: rgba(17,17,16,0.82); color: #fff; border-radius: 10px; min-width: 20px; height: 20px; padding: 0 6px; display: flex; align-items: center; justify-content: center; }
+
+    .body { min-width: 0; padding: 16px; }
+    .title-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; padding-right: 36px; }
+
+    /* Watched checkbox, pinned to the card's top-right corner. */
+    .check {
+        position: absolute; top: 14px; right: 14px; z-index: 1;
+        appearance: none; -webkit-appearance: none; margin: 0;
+        width: 26px; height: 26px; border-radius: 7px; cursor: pointer;
+        border: 2px solid var(--text-muted); background: var(--surface);
+        display: grid; place-content: center; transition: background 0.15s, border-color 0.15s;
+    }
+    .check::before {
+        content: ''; width: 13px; height: 13px; background: #fff; transform: scale(0); transition: transform 0.12s;
+        clip-path: polygon(14% 44%, 0 65%, 40% 100%, 100% 22%, 84% 8%, 38% 68%);
+    }
+    .check:hover { border-color: var(--accent); }
+    .check:checked { background: var(--purple); border-color: var(--purple); box-shadow: 0 0 14px var(--glow); }
+    .check:checked::before { transform: scale(1); }
+    .check:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .title { font-family: var(--font-disp); font-size: 17px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.25; }
+    .year { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-muted); }
+
+    .tissues { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+    .tissue-row { display: inline-flex; gap: 2px; }
+    .tissue-row svg { width: 18px; height: 18px; display: block; }
+    .tissue-word { font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); }
+
+    .vibe { font-size: 14px; line-height: 1.55; color: var(--text-secondary); margin-top: 8px; }
+    .tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+    .tag { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-secondary); padding: 2px 7px; border-radius: 4px; }
+    .card.watched .tag { background: var(--surface); }
+
+    .scores { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 11px; font-family: var(--font-mono); font-size: 11.5px; color: var(--text-secondary); }
+    .score { display: inline-flex; align-items: center; gap: 5px; }
+    .score b { font-weight: 500; color: var(--text-primary); }
+    .verdict { font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; color: #fff; }
+    .verdict.fresh { background: var(--fresh); }
+    .verdict.rotten { background: var(--rotten); }
+    .scores a { color: var(--text-muted); text-decoration: none; border-bottom: 1px solid var(--border); }
+    .scores a:hover { color: var(--text-primary); }
+
+    .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 13px; padding-top: 12px; border-top: 1px dashed var(--border); }
+    .mine { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; white-space: nowrap; font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); }
+    .mine-row { display: inline-flex; gap: 1px; }
+    .mine-row button { background: none; border: none; padding: 3px; cursor: pointer; border-radius: 4px; }
+    .mine-row button:hover { background: var(--surface); }
+    .mine-row svg { width: 20px; height: 20px; display: block; }
+
+    .foot { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); line-height: 1.7; margin-top: 28px; text-align: center; }
+    .foot a { color: inherit; }
+
+    @media (max-width: 480px) {
+        .btn-pick { margin-left: 0; }
+        .card { grid-template-columns: 92px 1fr; }
+        .body { padding: 13px 12px 14px; }
+        .title { font-size: 15.5px; }
+        .vibe { font-size: 13.5px; }
+        .check { top: 11px; right: 11px; }
+        .add-row input { font-size: 16px; }
+    }
+</style>
+</head>
+<body>
+
+<nav>
+    <a class="nav-logo" href="index.html"><strong>davenn</strong>dotcom</a>
+    <div class="nav-right">
+        <button class="theme-toggle" id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
+            <div class="theme-toggle-track"><div class="theme-toggle-thumb" id="toggle-icon">🌙</div></div>
+        </button>
+        <button class="btn-install" id="btn-install" type="button">⊕ Install</button>
+    </div>
+</nav>
+
+<main>
+    <p class="eyebrow">Watch list</p>
+    <h1>Cali's Movie List</h1>
+    <p class="sub">Each movie has a tissue rating, the vibe, and its Rotten Tomatoes scores. Check one off when you have seen it, then say how many tissues it actually took.</p>
+
+    <div class="toolbar">
+        <div class="seg" id="filter" role="group" aria-label="Show">
+            <button type="button" data-f="all">All</button>
+            <button type="button" data-f="towatch">To watch</button>
+            <button type="button" data-f="watched">Watched</button>
+        </div>
+        <select id="sort" aria-label="Sort by">
+            <option value="list">List order</option>
+            <option value="tissues-desc">Most tissues</option>
+            <option value="tissues-asc">Fewest tissues</option>
+            <option value="critics">Critics score</option>
+            <option value="audience">Audience score</option>
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+        </select>
+        <button class="btn-pick" id="btn-pick" type="button">🎲 Pick one for me</button>
+        <button class="btn-add" id="btn-add" type="button" aria-expanded="false" aria-controls="add-form">Add Movie</button>
+    </div>
+
+    <form class="add-row" id="add-form" autocomplete="off" hidden>
+        <input id="f-title" type="text" maxlength="200" placeholder="Movie title" aria-label="Movie title">
+        <button type="submit" class="btn-solid" id="btn-submit">Submit</button>
+    </form>
+    <p class="msg" id="add-msg" role="status"></p>
+
+    <div class="list" id="list"></div>
+
+    <p class="foot">Scores from Rotten Tomatoes, checked October 2026, and they drift over time.<br>Poster art from <a href="https://www.themoviedb.org" target="_blank" rel="noopener">TMDB</a>.</p>
+</main>
+
+<script>
+(function () {
+    'use strict';
+
+    // ── Theme ──
+    var toggle = document.getElementById('theme-toggle');
+    var icon = document.getElementById('toggle-icon');
+    icon.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '🌙' : '☀️';
+    toggle.addEventListener('click', function () {
+        var t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+        icon.textContent = t === 'dark' ? '🌙' : '☀️';
+        try { localStorage.setItem('movielist_theme', t); } catch (e) {}
+    });
+
+    // ── The list ──
+    // critics = Tomatometer, audience = Popcornmeter, both read off each film's
+    // rottentomatoes.com/m/<rt> page. rt is the page slug; several titles share
+    // a name with another film, so the slug is what pins down which one.
+    // tissues runs 1-5 (see TISSUE_WORDS).
+    var MOVIES = [
+        { id: 'dps',   title: 'Dead Poets Society', year: 1989, emoji: '📜', tissues: 4, critics: 85, audience: 92, rt: 'dead_poets_society', poster: 'erzbMlcNHOdx24AXOcn2ZKA7R1q.jpg',
+          vibe: 'Carpe diem, cardigans and poetry in a cave. A boarding-school story that ends with a salute you will feel in your chest.',
+          tags: ['teacher', 'coming of age'] },
+        { id: 'gwh',   title: 'Good Will Hunting', year: 1997, emoji: '🍎', tissues: 3, critics: 97, audience: 94, rt: 'good_will_hunting', poster: 'z2FnLKpFi1HPO7BEJxdkv6hpJSU.jpg',
+          vibe: 'A janitor genius, a therapist on a park bench, and Boston accents. Funny and sharp until one scene quietly takes you apart.',
+          tags: ['friendship', 'healing'] },
+        { id: 'lb',    title: 'Lady Bird', year: 2017, emoji: '🐦', tissues: 2, critics: 99, audience: 79, rt: 'lady_bird', poster: 'gl66K7zRdtNYGrxyS2YDUP5ASZd.jpg',
+          vibe: 'Senior year in Sacramento, thrift-store prom dresses and constant fights with Mom. A love letter disguised as an argument.',
+          tags: ['coming of age', 'mother-daughter'] },
+        { id: 'slp',   title: 'Silver Linings Playbook', year: 2012, emoji: '💃', tissues: 1, critics: 92, audience: 86, rt: 'silver_linings_playbook', poster: 'fhHB1uvfFKKFbj6bTKE8xdtsjKi.jpg',
+          vibe: 'Two gloriously messy people, a dance competition and some serious Eagles superstition. Chaotic, warm and hopeful.',
+          tags: ['romance', 'feel-good'] },
+        { id: 'foc',   title: 'The Fundamentals of Caring', year: 2016, emoji: '🚐', tissues: 2, critics: 80, audience: 83, rt: 'the_fundamentals_of_caring', poster: 'zZ0eda1GyHILNSoq9KF5u0hcq6O.jpg',
+          vibe: 'A road trip with a sarcastic teenager and his new caregiver to see the world\'s deepest pit. Laughs first, a lump in the throat later.',
+          tags: ['road trip', 'friendship'] },
+        { id: 'tfios', title: 'The Fault in Our Stars', year: 2014, emoji: '⭐', tissues: 5, critics: 81, audience: 85, rt: 'the_fault_in_our_stars', poster: 'kcVuktIlrn9SAN1uBmPDnocTQmF.jpg',
+          vibe: 'Okay? Okay. Two teens meet at a cancer support group and fall hard, with a side trip to Amsterdam. You will see it coming and still lose.',
+          tags: ['romance', 'teen'] },
+        { id: 'awtr',  title: 'A Walk to Remember', year: 2002, emoji: '🌟', tissues: 5, critics: 30, audience: 78, rt: 'walk_to_remember', poster: '8lUYMvWdHA0Q0k5F76RQCeCBUkA.jpg',
+          vibe: 'Peak early-2000s Mandy Moore. A bad boy, a minister\'s daughter and a bucket list. Critics hated it and everyone cried anyway.',
+          tags: ['romance', 'teen', 'nostalgia'] },
+        { id: 'ffa',   title: 'Five Feet Apart', year: 2019, emoji: '🫁', tissues: 4, critics: 53, audience: 79, rt: 'five_feet_apart', poster: 'kreTuJBkUjVWePRfhHZuYfhNE1T.jpg',
+          vibe: 'A hospital love story between two patients who can never touch. Pool-cue romance and some seriously high stakes.',
+          tags: ['romance', 'teen'] },
+        { id: '500',   title: '500 Days of Summer', year: 2009, emoji: '💙', tissues: 1, critics: 86, audience: 84, rt: '500_days_of_summer', poster: 'qXAuQ9hF30sQRsXf40OfRVl0MJZ.jpg',
+          vibe: 'This is not a love story. Told out of order, with IKEA dates, The Smiths and a split screen that is way too real.',
+          tags: ['romance', 'quirky'] },
+        { id: '3bb',   title: 'Three Billboards Outside Ebbing, Missouri', year: 2017, emoji: '🪧', tissues: 2, critics: 90, audience: 87, rt: 'three_billboards_outside_ebbing_missouri', poster: 'bRYLt8fV82tdVoDppSFTZIcJiLN.jpg',
+          vibe: 'A furious mother takes on her small-town police with three billboards. Darkly funny, full of rage and nothing like cozy.',
+          tags: ['dark comedy', 'grief'] },
+        { id: 'at',    title: 'About Time', year: 2013, emoji: '⏳', tissues: 4, critics: 71, audience: 82, rt: 'about_time', poster: 'ls6zswrOZVhCXQBh96DlbnLBajM.jpg',
+          vibe: 'A time-travel rom-com that turns out to be about fathers and ordinary days. Rainy weddings, beach walks and a soft British heart.',
+          tags: ['romance', 'family', 'comfort'] },
+        { id: 'mby',   title: 'Me Before You', year: 2016, emoji: '🐝', tissues: 5, critics: 55, audience: 73, rt: 'me_before_you', poster: 'oo2Q3T8juOYFh2G1YJ3oSMAfUyq.jpg',
+          vibe: 'Bumblebee tights, a grumpy rich guy and the caregiver who won\'t let him sulk. An ending that still splits friend groups.',
+          tags: ['romance'] },
+        { id: 'bf',    title: 'Big Fish', year: 2003, emoji: '🐟', tissues: 4, critics: 76, audience: 89, rt: 'big_fish_2003', poster: 'tjK063yCgaBAluVU72rZ6PKPH2l.jpg',
+          vibe: 'A son sorts the truth from his dad\'s tall tales of giants, witches and a field of daffodils. Whimsical, then the river ending gets you.',
+          tags: ['fantasy', 'family'] },
+        { id: 'pif',   title: 'Pay It Forward', year: 2000, emoji: '🤝', tissues: 5, critics: 39, audience: 77, rt: 'pay_it_forward', poster: '62OIokwaxFwBFWM147ijLJsaVJD.jpg',
+          vibe: 'A kid\'s social studies project to change the world, one favor at a time. Hopeful all the way through, with an ending people still talk about.',
+          tags: ['inspiring', 'family'] },
+        { id: 'mho',   title: 'Mr. Holland\'s Opus', year: 1995, emoji: '🎼', tissues: 4, critics: 76, audience: 84, rt: 'mr_hollands_opus', poster: 'kBmwWeSN3ajnYHZ3dSybEobxEPI.jpg',
+          vibe: 'Thirty years in the life of a music teacher who meant to be a composer. The finale is a standing-ovation ugly cry.',
+          tags: ['teacher', 'inspiring'] },
+        { id: 'msk',   title: 'My Sister\'s Keeper', year: 2009, emoji: '👭', tissues: 5, critics: 47, audience: 72, rt: 'my_sisters_keeper_2009', poster: 'atRGqnG7pe0hZP97RWDLrT2hRGZ.jpg',
+          vibe: 'A girl sues her parents over being her sick sister\'s donor. A heavy family drama, so bring the whole box.',
+          tags: ['family', 'drama'] },
+        { id: 'lop',   title: 'Life of Pi', year: 2012, emoji: '🐅', tissues: 3, critics: 86, audience: 84, rt: 'life_of_pi', poster: 'iLgRu4hhSr6V1uManX6ukDriiSc.jpg',
+          vibe: 'A boy, a Bengal tiger named Richard Parker and a lifeboat on a gorgeous, glowing ocean. A survival story that leaves you thinking.',
+          tags: ['adventure', 'visual feast'] },
+        { id: 'sp',    title: 'Seven Pounds', year: 2008, emoji: '🪼', tissues: 4, critics: 26, audience: 75, rt: 'seven_pounds', poster: '85zUipgVy2QbvAJ6djZXYaGckMv.jpg',
+          vibe: 'Will Smith carries out a mysterious plan to change seven strangers\' lives. A slow-burn puzzle with a gut-punch reveal.',
+          tags: ['drama', 'mystery'] },
+        { id: 'fw',    title: 'Freedom Writers', year: 2007, emoji: '📓', tissues: 3, critics: 69, audience: 87, rt: 'freedom_writers', poster: '81AdeUQT99N0xPg3j6RVh0YGOTk.jpg',
+          vibe: 'A first-year teacher, a class everyone gave up on, and the journals that changed them. Based on a true story and great for a pep talk.',
+          tags: ['teacher', 'true story', 'inspiring'] },
+        { id: 'pa',    title: 'Patch Adams', year: 1998, emoji: '🤡', tissues: 3, critics: 22, audience: 73, rt: 'patch_adams', poster: 'xN1aKur5ddWQSXTqvzDPJD2TCxe.jpg',
+          vibe: 'Robin Williams in a red clown nose takes on stuffy med school. Goofy and big-hearted, then it turns sad out of nowhere.',
+          tags: ['true story', 'comfort'] },
+        { id: 'rm',    title: 'Remember Me', year: 2010, emoji: '📔', tissues: 4, critics: 26, audience: 69, rt: '1211619-remember_me', poster: 'j7umuMiLCHvWT7wYhFKJOTFSokF.jpg',
+          vibe: 'A brooding Robert Pattinson finds love in New York while his family falls apart. Moody and tender, with an ending nobody sees coming.',
+          tags: ['romance', 'drama'] }
+    ];
+
+    // poster is a TMDB image path; the size segment (w185, w342) goes between.
+    // Movies added from the page may instead carry a full https image link.
+    var POSTER_BASE = 'https://image.tmdb.org/t/p/';
+
+    var TISSUE_WORDS = ['', 'Dry eyes', 'Misty', 'A few tears', 'Bring tissues', 'Full box'];
+
+    var API = '/api.php';
+
+    // ── Storage helpers: every read and write can throw in a private window ──
+    function get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+    function set(k, v) { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} }
+
+    // Movies added from the page live in ml_movies on the server. The last copy
+    // fetched is kept here so they still show offline. Their ids are 'ml' + the
+    // row id, so they can never collide with a built-in id.
+    function fromRow(r) {
+        return {
+            id: 'ml' + r.id, rowId: r.id, added: true,
+            title: r.title, year: r.year, emoji: r.emoji || '🎬', tissues: r.tissues || 3,
+            vibe: r.vibe, tags: r.tags || [], critics: r.critics, audience: r.audience,
+            rt: r.rt, poster: r.poster
+        };
+    }
+    var added = [];
+    try { added = (JSON.parse(get('movielist_added')) || []).map(fromRow); } catch (e) {}
+    function all() { return MOVIES.concat(added); }
+
+    // Filter and sort are this device's view of the list, so they stay here.
+    var KEY = 'movielist_view';
+    var state = { filter: 'all', sort: 'list' };
+    try {
+        var v = JSON.parse(get(KEY));
+        if (v && typeof v === 'object') { state.filter = v.filter || 'all'; state.sort = v.sort || 'list'; }
+    } catch (e) {}
+    function save() { set(KEY, JSON.stringify(state)); }
+
+    // What Cali has watched lives in ml_watched on the server, the same on
+    // every device: watched[id] = { at: epoch ms, tissues: 0-5 }, 0 meaning
+    // not rated yet. The last copy fetched is kept here so it shows offline.
+    var watched = {};
+    try { watched = JSON.parse(get('movielist_watched')) || {}; } catch (e) {}
+    function keepWatched() { set('movielist_watched', JSON.stringify(watched)); }
+
+    // ── Rendering ──
+    function esc(s) {
+        return String(s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+
+    function tissueSvg(on) {
+        // A tissue box with one tissue poking out of the top.
+        var fill = on ? 'var(--tissue)' : 'var(--tissue-off)';
+        return '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+            '<path d="M8.5 11 C8.5 7 10 4.5 12 3.5 C14 4.5 15.5 7 15.5 11 Z" fill="' + fill + '" opacity="0.55"/>' +
+            '<rect x="3.5" y="10" width="17" height="11" rx="2" fill="' + fill + '"/>' +
+            '<rect x="8" y="10" width="8" height="2.2" rx="1.1" fill="var(--surface)" opacity="0.6"/>' +
+            '</svg>';
+    }
+    function tissueRow(n) {
+        var h = '';
+        for (var i = 1; i <= 5; i++) h += tissueSvg(i <= n);
+        return h;
+    }
+
+    function verdict(score) {
+        return score >= 60
+            ? '<span class="verdict fresh">Fresh</span>'
+            : '<span class="verdict rotten">Rotten</span>';
+    }
+
+    function posterImg(p) {
+        if (/^https:\/\//.test(p)) {
+            return '<img src="' + esc(p) + '" alt="" loading="lazy" decoding="async" onerror="this.remove()">';
+        }
+        return '<img src="' + POSTER_BASE + 'w342/' + p + '" ' +
+            'srcset="' + POSTER_BASE + 'w185/' + p + ' 185w, ' + POSTER_BASE + 'w342/' + p + ' 342w" ' +
+            'sizes="(max-width: 480px) 92px, 120px" alt="" loading="lazy" decoding="async" onerror="this.remove()">';
+    }
+
+    // Added movies may have no scores yet; they sort below every scored one.
+    function score(v) { return v === null || v === undefined ? -1 : v; }
+
+    function sorted() {
+        var list = all().map(function (m, i) { return { m: m, i: i }; });
+        var by = {
+            'list':         function (a, b) { return a.i - b.i; },
+            'tissues-desc': function (a, b) { return b.m.tissues - a.m.tissues || a.i - b.i; },
+            'tissues-asc':  function (a, b) { return a.m.tissues - b.m.tissues || a.i - b.i; },
+            'critics':      function (a, b) { return score(b.m.critics) - score(a.m.critics) || a.i - b.i; },
+            'audience':     function (a, b) { return score(b.m.audience) - score(a.m.audience) || a.i - b.i; },
+            'newest':       function (a, b) { return b.m.year - a.m.year || a.i - b.i; },
+            'oldest':       function (a, b) { return a.m.year - b.m.year || a.i - b.i; }
+        }[state.sort] || function (a, b) { return a.i - b.i; };
+        return list.sort(by).filter(function (x) {
+            var w = !!watched[x.m.id];
+            return state.filter === 'all' || (state.filter === 'watched' ? w : !w);
+        });
+    }
+
+    function cardHtml(m, i) {
+        var w = watched[m.id];
+        var mine = '';
+        if (w) {
+            var btns = '';
+            for (var n = 1; n <= 5; n++) {
+                btns += '<button type="button" data-act="mine" data-id="' + m.id + '" data-n="' + n + '" ' +
+                    'aria-label="' + n + ' tissue' + (n > 1 ? 's' : '') + '" aria-pressed="' + (w.tissues === n) + '">' +
+                    tissueSvg(n <= w.tissues) + '</button>';
+            }
+            mine = '<div class="mine"><span>' + (w.tissues ? 'Took ' + w.tissues + ':' : 'Your tissues:') + '</span>' +
+                '<span class="mine-row">' + btns + '</span></div>';
+        }
+        var scores = '';
+        if (m.critics !== null && m.critics !== undefined) scores += '<span class="score">🍅 Critics <b>' + m.critics + '%</b> ' + verdict(m.critics) + '</span>';
+        if (m.audience !== null && m.audience !== undefined) scores += '<span class="score">🍿 Audience <b>' + m.audience + '%</b></span>';
+        if (m.rt) scores += '<a href="https://www.rottentomatoes.com/m/' + esc(m.rt) + '" target="_blank" rel="noopener">Rotten Tomatoes ↗</a>';
+        var remove = m.added
+            ? '<button type="button" class="btn-remove" data-act="remove" data-id="' + m.id + '">Remove from list</button>'
+            : '';
+        return '<article class="card' + (w ? ' watched' : '') + '" id="m-' + m.id + '">' +
+            '<div class="poster" aria-hidden="true"><span class="rank">' + (i + 1) + '</span>' + esc(m.emoji) +
+                (m.poster ? posterImg(m.poster) : '') + '</div>' +
+            '<input type="checkbox" class="check" data-act="watch" data-id="' + m.id + '"' + (w ? ' checked' : '') +
+                ' aria-label="Watched ' + esc(m.title) + '" title="' + (w ? 'Watched' : 'Mark watched') + '">' +
+            '<div class="body">' +
+                '<div class="title-row"><h2 class="title">' + esc(m.title) + '</h2>' + (m.year ? '<span class="year">' + m.year + '</span>' : '') + '</div>' +
+                '<div class="tissues" title="Tissue rating: ' + m.tissues + ' of 5">' +
+                    '<span class="tissue-row" role="img" aria-label="' + m.tissues + ' of 5 tissues">' + tissueRow(m.tissues) + '</span>' +
+                    '<span class="tissue-word">' + TISSUE_WORDS[m.tissues] + '</span></div>' +
+                (m.vibe ? '<p class="vibe">' + esc(m.vibe) + '</p>' : '') +
+                (m.tags.length ? '<div class="tags">' + m.tags.map(function (t) { return '<span class="tag">' + esc(t) + '</span>'; }).join('') + '</div>' : '') +
+                (scores ? '<div class="scores">' + scores + '</div>' : '') +
+                (w || remove ? '<div class="actions">' + mine + remove + '</div>' : '') +
+            '</div></article>';
+    }
+
+    function render() {
+        var rows = sorted();
+        var list = document.getElementById('list');
+        list.innerHTML = rows.length
+            ? rows.map(function (x) { return cardHtml(x.m, x.i); }).join('')
+            : '<p class="empty">' + (state.filter === 'watched' ? 'Nothing watched yet. Pick one and press play.' : 'All watched. Time for a new list.') + '</p>';
+
+
+        document.querySelectorAll('#filter button').forEach(function (b) {
+            b.setAttribute('aria-pressed', String(b.getAttribute('data-f') === state.filter));
+        });
+        document.getElementById('sort').value = state.sort;
+    }
+
+    // ── Events ──
+    // Shows the change at once, then saves it with ml_watch. If the save
+    // fails, the change is undone and the reason shown above the list.
+    function saveWatch(id, next) {
+        var prev = watched[id];
+        if (next) watched[id] = next; else delete watched[id];
+        keepWatched();
+        render();
+        call('ml_watch', { id: id, watched: !!next, tissues: next ? next.tissues : 0 }).catch(function (err) {
+            if (prev) watched[id] = prev; else delete watched[id];
+            keepWatched();
+            render();
+            say(err.message, true);
+        });
+    }
+
+    document.getElementById('list').addEventListener('change', function (e) {
+        var c = e.target;
+        if (c.getAttribute('data-act') !== 'watch') return;
+        saveWatch(c.getAttribute('data-id'), c.checked ? { at: Date.now(), tissues: 0 } : null);
+    });
+
+    document.getElementById('list').addEventListener('click', function (e) {
+        var b = e.target.closest('button[data-act="mine"]');
+        if (!b) return;
+        var id = b.getAttribute('data-id'), n = +b.getAttribute('data-n'), w = watched[id];
+        // Tapping the current count again clears it.
+        saveWatch(id, { at: w.at, tissues: w.tissues === n ? 0 : n });
+    });
+
+    document.getElementById('list').addEventListener('click', function (e) {
+        var b = e.target.closest('button[data-act="remove"]');
+        if (!b) return;
+        var m = added.filter(function (x) { return x.id === b.getAttribute('data-id'); })[0];
+        if (!m || !confirm('Remove "' + m.title + '" from the list?')) return;
+        b.disabled = true;
+        call('ml_delete', { id: m.rowId }).then(function () {
+            added = added.filter(function (x) { return x !== m; });
+            keepAdded();
+            // ml_delete drops the server's watched row too.
+            delete watched[m.id];
+            keepWatched();
+            render();
+        }).catch(function (err) {
+            b.disabled = false;
+            alert(err.message);
+        });
+    });
+
+    document.getElementById('filter').addEventListener('click', function (e) {
+        var b = e.target.closest('button[data-f]');
+        if (!b) return;
+        state.filter = b.getAttribute('data-f');
+        save();
+        render();
+    });
+
+    document.getElementById('sort').addEventListener('change', function (e) {
+        state.sort = e.target.value;
+        save();
+        render();
+    });
+
+    // Re-render with a card visible and highlighted, then scroll to it.
+    function spotlight(m) {
+        var hidden = state.filter === 'watched' ? !watched[m.id] : state.filter === 'towatch' && watched[m.id];
+        if (hidden) { state.filter = 'all'; save(); }
+        render();
+        var el = document.getElementById('m-' + m.id);
+        if (!el) return;
+        el.classList.add('picked');
+        var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+        el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
+    }
+
+    document.getElementById('btn-pick').addEventListener('click', function () {
+        var pool = all().filter(function (m) { return !watched[m.id]; });
+        if (!pool.length) pool = all();
+        spotlight(pool[Math.floor(Math.random() * pool.length)]);
+    });
+
+    // ── Server ──
+    // POST to a ml_ endpoint. Resolves with the JSON body; rejects with an
+    // Error carrying the server's message.
+    function call(action, body) {
+        return fetch(API + '?action=' + action, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body || {})
+        }).then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (d) {
+                if (r.ok && d.success) return d;
+                throw new Error(d.error || 'Something went wrong. Try again.');
+            });
+        }, function () { throw new Error('Could not reach the server. Check your connection.'); });
+    }
+
+    function keepAdded() {
+        set('movielist_added', JSON.stringify(added.map(function (m) {
+            return { id: m.rowId, title: m.title, year: m.year, emoji: m.emoji, tissues: m.tissues, vibe: m.vibe,
+                     tags: m.tags, critics: m.critics, audience: m.audience, rt: m.rt, poster: m.poster };
+        })));
+    }
+
+    // Fetch added movies and watched state; until it answers (or offline) the
+    // page shows the last copies kept on this device.
+    function refresh() {
+        fetch(API + '?action=ml_movies').then(function (r) { return r.json(); }).then(function (d) {
+            if (!d || !d.success) return;
+            added = d.movies.map(fromRow);
+            watched = d.watched || {};
+            keepAdded();
+            keepWatched();
+            render();
+        }).catch(function () {});
+    }
+
+    // ── Adding a movie ──
+    // One line above the list: just a title. Submit has Claude draft the rest
+    // (ml_draft) and saves the draft as is (ml_add), so an added movie has no
+    // scores or poster.
+    var form = document.getElementById('add-form');
+    function $(id) { return document.getElementById(id); }
+    function say(text, bad) { var el = $('add-msg'); el.textContent = text || ''; el.classList.toggle('bad', !!bad); }
+
+    // The same button opens the line and, while it is open, cancels it.
+    $('btn-add').addEventListener('click', function () {
+        form.hidden = !form.hidden;
+        this.textContent = form.hidden ? 'Add Movie' : 'Cancel';
+        this.setAttribute('aria-expanded', String(!form.hidden));
+        if (form.hidden) $('f-title').value = '';
+        else $('f-title').focus();
+        say('');
+    });
+
+    function busy(on) {
+        $('btn-submit').disabled = on;
+        $('f-title').disabled = on;
+    }
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var title = $('f-title').value.trim();
+        if (!title) { say('Type a movie title.', true); $('f-title').focus(); return; }
+        busy(true);
+        say('Claude is filling in the details…');
+        call('ml_draft', { title: title }).then(function (d) {
+            if (!d.found) throw new Error(d.note);
+            var r = d.draft;
+            return call('ml_add', { title: r.title, year: r.year, emoji: r.emoji, tissues: r.tissues, vibe: r.vibe, tags: r.tags });
+        }).then(function (d) {
+            var m = fromRow(d.movie);
+            added.push(m);
+            keepAdded();
+            $('f-title').value = '';
+            say('Added ' + m.title + '.');
+            spotlight(m);
+        }).catch(function (err) { say(err.message, true); }).then(function () { busy(false); });
+    });
+
+    render();
+    refresh();
+})();
+</script>
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+<script>
+let _installEvt = null;
+const installBtn = document.getElementById('btn-install');
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _installEvt = e;
+  installBtn.classList.add('ready');
+});
+window.addEventListener('appinstalled', () => {
+  _installEvt = null;
+  installBtn.classList.remove('ready');
+});
+installBtn.addEventListener('click', () => {
+  if (!_installEvt) return;
+  _installEvt.prompt();
+  _installEvt.userChoice.then(() => { _installEvt = null; installBtn.classList.remove('ready'); });
+});
+</script>
+<script>
+// Anonymous page-view count (see /privacy.html): no cookies, nothing stored on
+// this device. Skipped for Do Not Track, Global Privacy Control, automated
+// browsers, and any device opted out from the stats page.
+(function () {
+    try {
+        var n = navigator, de = document.documentElement;
+        if (!n.sendBeacon || n.webdriver || n.globalPrivacyControl || n.doNotTrack === '1') return;
+        try { if (localStorage.getItem('an_optout') === '1') return; } catch (e) {}
+        var mq = function (q) { return !!(window.matchMedia && matchMedia(q).matches); };
+        var s = Math.min(screen.width, screen.height), t = de.getAttribute('data-theme');
+        n.sendBeacon('/api.php?action=an_hit', JSON.stringify({
+            p: location.pathname,
+            r: document.referrer,
+            d: mq('(pointer: coarse)') ? (s < 600 ? 'mobile' : 'tablet') : 'desktop',
+            i: mq('(display-mode: standalone)') || n.standalone === true,
+            t: t === 'light' || t === 'dark' ? t : (mq('(prefers-color-scheme: dark)') ? 'dark' : 'light'),
+            l: n.language
+        }));
+    } catch (e) {}
+})();
+</script>
+
+</body>
+</html>
