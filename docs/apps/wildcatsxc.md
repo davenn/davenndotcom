@@ -555,26 +555,33 @@ Scores a race while it is being run, from a phone at the finish line. Start
 the clock with the gun, then tap a school's button as each of its runners
 crosses: the tap takes the next place, and the clock's time if it is running.
 
-**The board is two columns even on a phone**: school buttons on the left
-(small, two across, so all twelve Section schools fit on one screen),
-the score on the right (sticky, so it stays in view while scrolling the
-buttons). Above the buttons the last tap is read back ("2 Madison La
-Follette · 4:12.3"), so a coach can see it landed without looking away.
-Tapping Verona then La Follette reads Verona 1, La Follette 2: a team's
-score is its first five places added up, shown from its first runner in,
-with the places underneath ("1+3+4+7+8 (11)", or "· 2 of 5" while short).
-A new race starts with **every Section school** in (`GROUPS.section`), so
-the coach takes out the ones not running rather than typing in the rest.
-The school setup sits in a fold above the board, shut so the buttons are on
-screen from the start (open only with fewer than two schools), unless the
-coach has opened or shut it. "Add all Section schools" puts back any taken
-out, and covers a device whose saved race predates the default.
+**The school buttons come first**, full width at the top of the tab, so in a
+race they are the first thing on screen; under them, the last tap read back
+("2 Madison La Follette · 4:12.3"), then the clock and Undo on the left and the
+score on the right, side by side even on a phone. Tapping Verona then La
+Follette reads Verona 1, La Follette 2: a team's score is its first five
+places added up, shown from its first runner in, with the places underneath
+("1+3+4+7+8 (11)", or "· 2 of 5" while short).
+
+**Buttons wear the school's colours** (`SCHOOL_COLORS`): filled with the main
+colour, edged in the second, the text dark or light by whichever contrasts
+more (`inkOn()`). The table holds only colours found listed for the school;
+a school not in it gets a plain button rather than a guess. Each school's
+chip in setup has a swatch that sets its colour on this device
+(`localStorage['wildcatsxc_live_colors']`, by `schoolKey()`), which wins over
+the table. Schools sharing colours (DeForest, Madison East and Waunakee are
+all purple) still read apart by name, which every button carries.
+
+Setup sits in a card under the board, folded unless fewer than two schools
+are in. **Section schools** and **State teams** make the race that group's
+list, keeping any school that already has finishers so a switch mid-race
+loses no taps.
 
 - **Schools** are added per race, with suggestions from every saved school
   plus the Conference and Section lists. A typed name that normalises to a
   known one (`schoolKey()`) takes the known spelling, and so does a typed
-  part of exactly one known name, four characters or more ("lafollette"). The coach's school starts
-  in and its button carries the orange border.
+  part of exactly one known name, four characters or more ("lafollette"). A
+  new race starts with every Section school in (`GROUPS.section`).
 - **Place** is always the next one. A missed runner is slotted in from the
   finish order card: type the place, then tap their school; everyone behind
   moves back one, and the box clears after that one tap. A slotted-in runner
