@@ -59,6 +59,7 @@ jobs:
             .env
             .env.*
             tools/**
+            .claude/**
             CLAUDE.md
             docs/*.md
             docs/apps/**

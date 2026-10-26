@@ -113,9 +113,10 @@ schools" filter applies in the browser.
 
 **Rules this feature keeps — do not loosen them:**
 
-- **User-initiated only.** One pasted link, one import. No saved links, no
-  refresh, no schedule, no following links to other meets. MileSplit's terms
-  discourage scraping; the owner accepted the risk on exactly these terms.
+- **User-initiated only.** In the app, one pasted link, one import. No saved
+  links, no refresh, no schedule, no following links to other meets.
+  MileSplit's terms discourage scraping; the owner accepted the risk on
+  exactly these terms. Bulk gathering happens outside the app (below).
 - **No workarounds.** Requests identify as this site (`xcMilesplitGet()`), not
   as a browser, and send no MileSplit app or user token. If MileSplit blocks
   that, adds a captcha, or moves results behind PRO, the import fails with a
@@ -127,6 +128,27 @@ schools" filter applies in the browser.
 This rides on an unofficial API, so expect it to break without notice, the way
 ESPN does for the Confidence Pool. Pasting and the official results file are
 the fallbacks.
+
+### Gathering a season in bulk
+
+For schools whose seasons were never entered (the State qualifiers, say), the
+owner allows gathering in bulk, run by a person from Claude Code and never
+scheduled:
+
+- **`xc-data-gatherer`** (`.claude/agents/xc-data-gatherer.md`) reads each
+  listed school's MileSplit team page to find this season's meets, makes one
+  deduplicated list of meet links, and runs the import as a dry run. It reads
+  one page at a time, stops at any block, captcha, sign-in or PRO wall, and
+  never saves.
+- **`tools/xc-import.mjs`** takes that list (`XC_PIN` in the environment).
+  Each link goes through `xc_milesplit`, so the parser, user agent and PRO
+  skipping are the app's own, five seconds apart; a refusal (HTTP 502/429)
+  stops the run without retrying. It keeps runners from the chosen `GROUPS`
+  (aliases included, read out of `wildcatsxc.html`), drops rows with no usable
+  time and a runner listed twice, and skips a meet when one is already saved
+  on that date, since a scanned copy under another name would be doubled
+  (`--force` overrides). Nothing is written without `--commit`; then it saves
+  through `xc_save_meet`, which validates as the app does.
 
 ## Pasting results
 
@@ -356,9 +378,9 @@ squad — so every time is visible before anything is summarised.
   coach of one squad folds the other once, and it stays folded across visits,
   schools and seasons. A convenience only: nothing about it reaches the server.
 
-## Conference and Section tabs
+## Conference, Section and State tabs
 
-Two tabs, one view: each combines a fixed list of schools into one ranked list
+Three tabs, one view: each combines a fixed list of schools into one ranked list
 per squad — **each school's 10 fastest runners by season best, ranked
 together**. Columns: rank and runner (pinned), season best, **average** (the
 mean of every race that runner ran in the chosen season at the chosen
@@ -367,6 +389,18 @@ shows the same time in both. Averages always show the tenth (`tenths()`:
 "16:49.0", not "16:49") so the column lines up; times as printed go through
 `fmtTime()`, which keeps their own precision.
 
+- **State** is the same view over the 2026 WIAA Division 1 boys **team**
+  qualifiers (individual qualifiers are left out on purpose), with three
+  differences set on its `GROUPS` entry: `perSchool: 7`, the seven a team
+  runs at state, so the virtual meet scores state as it is run; `squads:
+  ['Boys']`, since only the boys qualified a team, so a qualifying school's
+  girls are not shown; and `aliases`, other spellings of a school (Sussex
+  Hamilton for Hamilton, SPASH for Stevens Point Area Senior High), because
+  results for schools outside our area come in under whatever a results site
+  calls them. `groupKeys()` resolves list names and aliases alike. A school
+  with no matching results is named under the table ("No results yet
+  for …"); that line doubles as the list of meets still to import, or of
+  spellings to add to `aliases`. Replace the list each season.
 - **The school lists live in `GROUPS`** in `wildcatsxc.html` — the Big Eight
   for Conference, the WIAA sectional for Section. Edit them there when the
   conference or the sectional assignment changes (sectionals change yearly).
