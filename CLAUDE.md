@@ -38,6 +38,7 @@ Browser ──► /appname.html  (self-contained: HTML + CSS + JS)
 | `brand/` | RCS/SMS sender branding assets |
 | `docs/` | `api.md` (generated reference) and public styled HTML doc pages |
 | `tools/` | Repo tooling. Not deployed |
+| `.claude/agents/` | Claude Code agent definitions (`xc-data-gatherer`). Not deployed |
 | `CHANGELOG.md` | **Load-bearing** — edits here text and email subscribers. See Deploy |
 | `.github/workflows/deploy.yml` | Lint, FTP deploy, changelog notification |
 | `.env` | Credentials. Never deployed (excluded in the workflow) |
@@ -280,12 +281,17 @@ against a local env file.
   `?action=cp_diag` probes the outbound path from the web host itself.
 - **MileSplit** (`*.milesplit.com`) — WildcatsXC's `xc_milesplit` imports one
   meet from a link a coach pastes, through the same unofficial, unauthenticated
-  performances API MileSplit's own results page loads. **Strictly
-  user-initiated**: one link, one import, never scheduled, crawled or retried,
-  and PRO-only files are skipped. MileSplit's terms discourage scraping and the
-  owner accepted that on these terms, so keep it that way — and never add
-  anything that works around a block, captcha or paywall. Like ESPN, it can
-  break without notice.
+  performances API MileSplit's own results page loads. In the app it is **one
+  link, one import**, never scheduled or retried, and PRO-only files are
+  skipped. Outside the app, the owner allows **bulk gathering** for the team's
+  own data: the `xc-data-gatherer` agent (`.claude/agents/`) reads team and
+  meet pages to find the season's meets, and `tools/xc-import.mjs` imports a
+  list of links through `xc_milesplit`, one at a time with a pause between.
+  Both are run by a person, never on a schedule, and nothing saves until
+  `--commit`. MileSplit's terms discourage scraping and the owner accepted
+  that risk on these terms. Whatever reads MileSplit, never add anything that
+  works around a block, rate limit, captcha, sign-in or paywall: stop and
+  report instead. Like ESPN, it can break without notice.
 
 ## Analytics
 

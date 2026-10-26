@@ -113,9 +113,10 @@ schools" filter applies in the browser.
 
 **Rules this feature keeps — do not loosen them:**
 
-- **User-initiated only.** One pasted link, one import. No saved links, no
-  refresh, no schedule, no following links to other meets. MileSplit's terms
-  discourage scraping; the owner accepted the risk on exactly these terms.
+- **User-initiated only.** In the app, one pasted link, one import. No saved
+  links, no refresh, no schedule, no following links to other meets.
+  MileSplit's terms discourage scraping; the owner accepted the risk on
+  exactly these terms. Bulk gathering happens outside the app (below).
 - **No workarounds.** Requests identify as this site (`xcMilesplitGet()`), not
   as a browser, and send no MileSplit app or user token. If MileSplit blocks
   that, adds a captcha, or moves results behind PRO, the import fails with a
@@ -127,6 +128,27 @@ schools" filter applies in the browser.
 This rides on an unofficial API, so expect it to break without notice, the way
 ESPN does for the Confidence Pool. Pasting and the official results file are
 the fallbacks.
+
+### Gathering a season in bulk
+
+For schools whose seasons were never entered (the State qualifiers, say), the
+owner allows gathering in bulk, run by a person from Claude Code and never
+scheduled:
+
+- **`xc-data-gatherer`** (`.claude/agents/xc-data-gatherer.md`) reads each
+  listed school's MileSplit team page to find this season's meets, makes one
+  deduplicated list of meet links, and runs the import as a dry run. It reads
+  one page at a time, stops at any block, captcha, sign-in or PRO wall, and
+  never saves.
+- **`tools/xc-import.mjs`** takes that list (`XC_PIN` in the environment).
+  Each link goes through `xc_milesplit`, so the parser, user agent and PRO
+  skipping are the app's own, five seconds apart; a refusal (HTTP 502/429)
+  stops the run without retrying. It keeps runners from the chosen `GROUPS`
+  (aliases included, read out of `wildcatsxc.html`), drops rows with no usable
+  time and a runner listed twice, and skips a meet when one is already saved
+  on that date, since a scanned copy under another name would be doubled
+  (`--force` overrides). Nothing is written without `--commit`; then it saves
+  through `xc_save_meet`, which validates as the app does.
 
 ## Pasting results
 
