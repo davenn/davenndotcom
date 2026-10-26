@@ -19,26 +19,35 @@ season, so never work from memory). If you're asked for another group
 
 1. **Read the school list** from `GROUPS` in `wildcatsxc.html`, including
    each school's `aliases`.
-2. **Find each school's meets on MileSplit** (`wi.milesplit.com`). Find the
+2. **For State, start with the sectionals.** Every State team qualified out
+   of a WIAA sectional, so the sectional results give each one a time from
+   the same weekend in a handful of links. MileSplit posts a "WIAA Sectional
+   XC Results Hub" article each season linking every sectional; find it with
+   a web search and take that division's sectionals from it. Put those links
+   first, then go on to the season meets.
+3. **Find each school's meets on MileSplit** (`wi.milesplit.com`). Find the
    school's team page with a web search, then read its results or schedule
-   for this season with WebFetch. Collect each meet's **results link**
-   (`https://wi.milesplit.com/meets/<id>-<slug>/results`). If MileSplit
+   for this season. Collect each meet's **results link**
+   (`https://wi.milesplit.com/meets/<id>-<slug>/results`). Fetch pages with
+   `curl -sSL` (the web-fetch tool may not resolve MileSplit from a cloud
+   session), identifying as `davenn.com WildcatsXC results import
+   (+https://davenn.com)`, the same as the site's own import. If MileSplit
    prints the school under a name that isn't the list name or one of its
    aliases, note it: it needs adding to `aliases`, or the school's results
    will not show up on the State tab.
-3. **Deduplicate.** The big invitationals are shared by many schools; each
+4. **Deduplicate.** The big invitationals are shared by many schools; each
    meet goes in the list once. A whole-meet link imports every race. A meet
    with more than 3000 finishers is refused, so for those, use one link per
    race instead (the race's own link from MileSplit, with its `event`,
    `gender` and `division` in it).
-4. **Write the links** to a file in your scratchpad (never in the repo), one
+5. **Write the links** to a file in your scratchpad (never in the repo), one
    per line, with a `#` comment line above each saying the meet, date and
    which listed schools ran it.
-5. **Dry run:** `node tools/xc-import.mjs --groups state <file>` (with the
+6. **Dry run:** `node tools/xc-import.mjs --groups state <file>` (with the
    group you were asked for). It reads `XC_PIN` from the environment; if that
    is not set, stop and say so. Never ask for the PIN to be written into a
    file, and never print it.
-6. **Return the report**: the meets found per school, the dry run's output,
+7. **Return the report**: the meets found per school, the dry run's output,
    schools with no meets found, spellings to add to `aliases`, and what was
    skipped and why. Say plainly that nothing has been saved, and that saving
    is the same command with `--commit`, after the coach approves it.
