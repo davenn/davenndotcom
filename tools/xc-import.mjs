@@ -15,7 +15,7 @@
 // Options:
 //   --commit            save; without it nothing is written
 //   --groups a,b        whose runners to keep: state (default), section, conference, all
-//   --force             save a meet even if one is already saved on that date
+//   --force             save a meet even if another-named one is saved on that date
 //   --delay N           seconds between MileSplit reads (default 5, minimum 2)
 //   --base URL          site to talk to (default https://davenn.com)
 //
@@ -141,16 +141,17 @@ async function main() {
             (noTime ? `; ${noTime} with an unusable time left out` : '') + (twice ? `; ${twice} listed twice left out` : ''));
 
         if (!kept.length) { console.log('  Nothing to save.\n'); summary.skipped.push(`${url} (no runners from these schools)`); continue; }
-        // The same meet saved under another name (a scanned sheet, say) would be
-        // doubled, so a meet on a date that already has one waits for a person.
+        // A meet saved under the same name and date is added to, as the app does
+        // with a second import. The same meet saved under another name (a
+        // scanned sheet, say) would be doubled, so that waits for a person.
         const same = (onDate[meet.date] || []);
         const exact = same.some(n => normName(n) === normName(meet.name));
-        if (same.length && !o.force) {
-            console.log(`  Already saved on ${meet.date}: ${same.join('; ')}. ${exact ? 'Same name: saving would add to it.' : 'Possibly the same meet.'} Skipped; rerun with --force to save it anyway.\n`);
+        if (same.length && !exact && !o.force) {
+            console.log(`  Already saved on ${meet.date} under another name: ${same.join('; ')}. Possibly the same meet. Skipped; rerun with --force to save it anyway.\n`);
             summary.skipped.push(`${url} (a meet is already saved on ${meet.date})`);
             continue;
         }
-        if (!o.commit) { console.log('  Would save.\n'); continue; }
+        if (!o.commit) { console.log(exact ? '  Would add to the meet already saved under this name.\n' : '  Would save.\n'); continue; }
         const s = await api('xc_save_meet', { name: meet.name, date: meet.date, location: meet.location || '', rows: kept });
         if (s.status !== 200) { console.log(`  Save failed: ${s.data.error || 'HTTP ' + s.status}\n`); summary.failed.push(`${url} (save: ${s.data.error || s.status})`); continue; }
         console.log(`  Saved ${s.data.saved} result(s)${s.data.converted ? `, ${s.data.converted} converted to 5K` : ''}.\n`);

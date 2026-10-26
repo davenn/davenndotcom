@@ -145,9 +145,10 @@ scheduled:
   skipping are the app's own, five seconds apart; a refusal (HTTP 502/429)
   stops the run without retrying. It keeps runners from the chosen `GROUPS`
   (aliases included, read out of `wildcatsxc.html`), drops rows with no usable
-  time and a runner listed twice, and skips a meet when one is already saved
-  on that date, since a scanned copy under another name would be doubled
-  (`--force` overrides). Nothing is written without `--commit`; then it saves
+  time and a runner listed twice. A meet already saved under the same name and
+  date is added to, as a second import in the app is; one saved on that date
+  under another name holds the import back, since a scanned copy would be
+  doubled (`--force` overrides). Nothing is written without `--commit`; then it saves
   through `xc_save_meet`, which validates as the app does.
 
 ## Pasting results

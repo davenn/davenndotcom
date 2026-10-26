@@ -1,4 +1,4 @@
-const CACHE = 'davenn-v59';
+const CACHE = 'davenn-v60';
 const SHELL = [
   '/index.html',
   '/tracktimer.html',
