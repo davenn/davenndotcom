@@ -15,7 +15,7 @@
 // Options:
 //   --commit            save; without it nothing is written
 //   --groups a,b        whose runners to keep: state (default), section, conference, all
-//   --force             save a meet even if another-named one is saved on that date
+//   --force             save as its own meet even if one saved that day shares a school
 //   --delay N           seconds between MileSplit reads (default 5, minimum 2)
 //   --base URL          site to talk to (default https://davenn.com)
 //
@@ -98,8 +98,10 @@ async function main() {
     const saved = await api('xc_meets');
     if (saved.status === 401) throw new Error('Wrong PIN.');
     if (saved.status !== 200) throw new Error(`Could not list saved meets (HTTP ${saved.status}): ${saved.data.error || ''}`);
-    const onDate = {};
-    (saved.data.meets || []).forEach(m => { (onDate[m.date] = onDate[m.date] || []).push(m.name); });
+    const onDate = {};                            // date → [{ name, schools: Set of schoolKey }]
+    (saved.data.meets || []).forEach(m => {
+        (onDate[m.date] = onDate[m.date] || []).push({ name: m.name, schools: new Set(Object.keys(m.schools || {}).map(schoolKey)) });
+    });
 
     console.log(`${o.commit ? 'IMPORTING' : 'DRY RUN (add --commit to save)'}: ${links.length} link(s), keeping ${o.groups.join(', ')} schools (${new Set(keys.values()).size}).\n`);
     const summary = { saved: 0, runners: 0, skipped: [], failed: [] };
@@ -141,22 +143,41 @@ async function main() {
             (noTime ? `; ${noTime} with an unusable time left out` : '') + (twice ? `; ${twice} listed twice left out` : ''));
 
         if (!kept.length) { console.log('  Nothing to save.\n'); summary.skipped.push(`${url} (no runners from these schools)`); continue; }
-        // A meet saved under the same name and date is added to, as the app does
-        // with a second import. The same meet saved under another name (a
-        // scanned sheet, say) would be doubled, so that waits for a person.
-        const same = (onDate[meet.date] || []);
-        const exact = same.some(n => normName(n) === normName(meet.name));
-        if (same.length && !exact && !o.force) {
-            console.log(`  Already saved on ${meet.date} under another name: ${same.join('; ')}. Possibly the same meet. Skipped; rerun with --force to save it anyway.\n`);
-            summary.skipped.push(`${url} (a meet is already saved on ${meet.date})`);
+        // A team runs one meet a day, so a meet already saved on this date that
+        // shares a school with this one is this meet, saved before (a scanned
+        // sheet under its own name, or an earlier import). Add only the schools
+        // it does not have yet, under its name, so no runner is doubled. One
+        // that shares no school is a different meet. Shared schools with two
+        // saved meets can't be told apart, so that waits for a person.
+        let saveAs = meet.name, rowsToSave = kept;
+        const mine = new Set(kept.map(k => schoolKey(k.school)));
+        const overlap = (onDate[meet.date] || []).filter(m => [...m.schools].some(k => mine.has(k)));
+        if (overlap.length > 1 && !o.force) {
+            console.log(`  Shares schools with ${overlap.length} meets already saved on ${meet.date} (${overlap.map(m => m.name).join('; ')}). Skipped; check which it is.\n`);
+            summary.skipped.push(`${url} (matches more than one saved meet on ${meet.date})`);
             continue;
         }
-        if (!o.commit) { console.log(exact ? '  Would add to the meet already saved under this name.\n' : '  Would save.\n'); continue; }
-        const s = await api('xc_save_meet', { name: meet.name, date: meet.date, location: meet.location || '', rows: kept });
+        if (overlap.length === 1 && !o.force) {
+            saveAs = overlap[0].name;
+            rowsToSave = kept.filter(k => !overlap[0].schools.has(schoolKey(k.school)));
+            const have = [...new Set(kept.filter(k => overlap[0].schools.has(schoolKey(k.school))).map(k => keys.get(schoolKey(k.school))))];
+            if (!rowsToSave.length) {
+                console.log(`  Already saved as "${saveAs}" with ${have.join(', ')}. Nothing new.\n`);
+                summary.skipped.push(`${url} (already saved as "${saveAs}")`);
+                continue;
+            }
+            console.log(`  Same meet as "${saveAs}", which already has ${have.join(', ')}: adding the other ${rowsToSave.length}.`);
+        }
+        if (!o.commit) { console.log('  Would save.\n'); continue; }
+        const s = await api('xc_save_meet', { name: saveAs, date: meet.date, location: meet.location || '', rows: rowsToSave });
         if (s.status !== 200) { console.log(`  Save failed: ${s.data.error || 'HTTP ' + s.status}\n`); summary.failed.push(`${url} (save: ${s.data.error || s.status})`); continue; }
         console.log(`  Saved ${s.data.saved} result(s)${s.data.converted ? `, ${s.data.converted} converted to 5K` : ''}.\n`);
         summary.saved++; summary.runners += s.data.saved;
-        (onDate[meet.date] = onDate[meet.date] || []).push(meet.name);
+        // Remembered for the rest of the run, so a later link for this same meet
+        // (one race of it, say) adds to it rather than starting another.
+        const day = (onDate[meet.date] = onDate[meet.date] || []);
+        const entry = day.find(m => m.name === saveAs) || day[day.push({ name: saveAs, schools: new Set() }) - 1];
+        rowsToSave.forEach(k => entry.schools.add(schoolKey(k.school)));
     }
 
     console.log(`\nDone. ${o.commit ? `Saved ${summary.saved} meet(s), ${summary.runners} result(s).` : 'Dry run: nothing saved.'}`);

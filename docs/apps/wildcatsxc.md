@@ -145,10 +145,13 @@ scheduled:
   skipping are the app's own, five seconds apart; a refusal (HTTP 502/429)
   stops the run without retrying. It keeps runners from the chosen `GROUPS`
   (aliases included, read out of `wildcatsxc.html`), drops rows with no usable
-  time and a runner listed twice. A meet already saved under the same name and
-  date is added to, as a second import in the app is; one saved on that date
-  under another name holds the import back, since a scanned copy would be
-  doubled (`--force` overrides). Nothing is written without `--commit`; then it saves
+  time and a runner listed twice. A team runs one meet a day, so a meet
+  already saved on that date **that shares a school** is taken to be the same
+  meet (a scanned sheet under its own name, or an earlier import): only the
+  schools it does not have yet are added, under its saved name, so no runner
+  is doubled. A same-date meet sharing no school is a different meet and is
+  saved on its own. Shared schools with two saved meets that day are held for
+  a person (`--force` saves it as its own meet anyway). Nothing is written without `--commit`; then it saves
   through `xc_save_meet`, which validates as the app does.
 
 ## Pasting results
