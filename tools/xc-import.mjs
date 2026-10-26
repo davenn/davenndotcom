@@ -15,7 +15,7 @@
 // Options:
 //   --commit            save; without it nothing is written
 //   --groups a,b        whose runners to keep: state (default), section, conference, all
-//   --force             save as its own meet even if one saved that day shares a school
+//   --force             save as its own meet even if a matching one is saved that day
 //   --delay N           seconds between MileSplit reads (default 5, minimum 2)
 //   --base URL          site to talk to (default https://davenn.com)
 //
@@ -73,7 +73,25 @@ function targetKeys(GROUPS, schoolKey, names) {
 }
 
 const sleep = s => new Promise(r => setTimeout(r, s * 1000));
+
+// A meet's name without the parts that vary between results sites and sheets:
+// the year, "30th", "Annual", invite/invitational, "(High School)", CC/XC.
+const nameWords = n => new Set(n.toLowerCase()
+    .replace(/\(.*?\)/g, ' ').replace(/\b(19|20)\d\d\b|\b\d+(st|nd|rd|th)\b/g, ' ')
+    .replace(/\b(annual|invitational|invite|inv|high school|hs|cross country|cc|xc|meet|the|of)\b/g, ' ')
+    .split(/[^a-z0-9]+/).filter(w => w.length > 1));
+/** Same meet by name: the shorter name's words all in the longer, or most words shared. */
+function sameName(a, b) {
+    const x = nameWords(a), y = nameWords(b);
+    if (!x.size || !y.size) return false;
+    const both = [...x].filter(w => y.has(w)).length;
+    return both === Math.min(x.size, y.size) || both / new Set([...x, ...y]).size >= 0.5;
+}
 const normName = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+// A team's MileSplit schedule includes its middle school's meets. Those runners
+// are not the high school team, and their 2-mile and 3000 m times would be
+// converted to 5K as if they were, so they are left out.
+const middleSchool = r => (r.grade >= 6 && r.grade <= 8) || /middle school|\bms\b|junior high|jr\.? high/i.test(r.race || '');
 
 async function main() {
     const o = parseArgs(process.argv.slice(2));
@@ -125,10 +143,19 @@ async function main() {
             continue;
         }
         const { meet, rows = [] } = r.data;
+        const ours = rows.filter(row => keys.has(schoolKey(row.school || '')));
+        const young = ours.filter(middleSchool).length;
+        const graded = ours.filter(row => row.grade > 0);
+        const mostlyYoung = graded.length && graded.filter(middleSchool).length >= 0.8 * graded.length;
+        if (ours.length && (/middle school|\bms\b|junior high|jr\.? high/i.test(meet.name) || mostlyYoung)) {
+            console.log(`• ${meet.name} · ${meet.date}\n  ${url}\n  A middle school meet (${young} of ${ours.length} listed runners in grades 6-8 or middle school races): left out.\n`);
+            summary.skipped.push(`${url} (middle school)`);
+            continue;
+        }
         const kept = [], seen = new Set();
         let noTime = 0, twice = 0;
-        for (const row of rows) {
-            if (!keys.has(schoolKey(row.school || ''))) continue;
+        for (const row of ours) {
+            if (middleSchool(row)) continue;
             if (!row.time) { noTime++; continue; }
             // One runner listed in two races (a misfiled heat) would fail the whole save.
             const k = normName(row.name) + '|' + schoolKey(row.school);
@@ -140,18 +167,21 @@ async function main() {
         kept.forEach(k => { const s = keys.get(schoolKey(k.school)); bySchool[s] = (bySchool[s] || 0) + 1; });
         console.log(`• ${meet.name} · ${meet.date}${meet.location ? ' · ' + meet.location : ''}\n  ${url}\n  ${rows.length} finishers, keeping ${kept.length}` +
             (Object.keys(bySchool).length ? ': ' + Object.entries(bySchool).sort().map(([s, n]) => `${s} ${n}`).join(', ') : '') +
+            (young ? `; ${young} middle schoolers left out` : '') +
             (noTime ? `; ${noTime} with an unusable time left out` : '') + (twice ? `; ${twice} listed twice left out` : ''));
 
+        // Relay legs are not races a runner's season can be compared on.
+        if (/relay/i.test(meet.name)) { console.log('  A relay meet: left out.\n'); summary.skipped.push(`${url} (relay)`); continue; }
         if (!kept.length) { console.log('  Nothing to save.\n'); summary.skipped.push(`${url} (no runners from these schools)`); continue; }
-        // A team runs one meet a day, so a meet already saved on this date that
-        // shares a school with this one is this meet, saved before (a scanned
-        // sheet under its own name, or an earlier import). Add only the schools
-        // it does not have yet, under its name, so no runner is doubled. One
-        // that shares no school is a different meet. Shared schools with two
-        // saved meets can't be told apart, so that waits for a person.
+        // A meet already saved on this date under a matching name (a scanned
+        // sheet, or an earlier import) is this meet: only the schools it does
+        // not have yet are added, under its saved name, so no runner is
+        // doubled. A name match alone is not enough, nor is a shared school —
+        // teams split varsity and JV across two meets on one day — so it takes
+        // both. Two matching saved meets that day wait for a person.
         let saveAs = meet.name, rowsToSave = kept;
         const mine = new Set(kept.map(k => schoolKey(k.school)));
-        const overlap = (onDate[meet.date] || []).filter(m => [...m.schools].some(k => mine.has(k)));
+        const overlap = (onDate[meet.date] || []).filter(m => sameName(m.name, meet.name) && [...m.schools].some(k => mine.has(k)));
         if (overlap.length > 1 && !o.force) {
             console.log(`  Shares schools with ${overlap.length} meets already saved on ${meet.date} (${overlap.map(m => m.name).join('; ')}). Skipped; check which it is.\n`);
             summary.skipped.push(`${url} (matches more than one saved meet on ${meet.date})`);

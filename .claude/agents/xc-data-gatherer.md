@@ -36,7 +36,9 @@ season, so never work from memory). If you're asked for another group
    aliases, note it: it needs adding to `aliases`, or the school's results
    will not show up on the State tab.
 4. **Deduplicate.** The big invitationals are shared by many schools; each
-   meet goes in the list once. A whole-meet link imports every race. A meet
+   meet goes in the list once. Leave out middle school meets and relays (a
+   school's MileSplit schedule includes its middle school's meets); the import
+   also drops grade 6-8 runners, but a clean list costs fewer reads. A whole-meet link imports every race. A meet
    with more than 3000 finishers is refused, so for those, use one link per
    race instead (the race's own link from MileSplit, with its `event`,
    `gender` and `division` in it).
@@ -44,7 +46,9 @@ season, so never work from memory). If you're asked for another group
    per line, with a `#` comment line above each saying the meet, date and
    which listed schools ran it.
 6. **Dry run:** `node tools/xc-import.mjs --groups state <file>` (with the
-   group you were asked for). It reads `XC_PIN` from the environment; if that
+   group you were asked for). In a cloud session Node's fetch needs
+   `NODE_USE_ENV_PROXY=1 NODE_EXTRA_CA_CERTS=/root/.ccr/ca-bundle.crt` to go
+   through the session's proxy. It reads `XC_PIN` from the environment; if that
    is not set, stop and say so. Never ask for the PIN to be written into a
    file, and never print it.
 7. **Return the report**: the meets found per school, the dry run's output,

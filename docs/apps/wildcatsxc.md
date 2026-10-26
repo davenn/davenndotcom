@@ -151,7 +151,18 @@ scheduled:
   schools it does not have yet are added, under its saved name, so no runner
   is doubled. A same-date meet sharing no school is a different meet and is
   saved on its own. Shared schools with two saved meets that day are held for
-  a person (`--force` saves it as its own meet anyway). Nothing is written without `--commit`; then it saves
+  a person (`--force` saves it as its own meet anyway).
+- **What it leaves out.** A school's MileSplit schedule includes its middle
+  school's meets and its relays. Runners in grades 6–8 or in a race named
+  middle school / junior high are dropped, and a meet that is middle school by
+  name or by most of its graded runners is skipped whole; relay meets are
+  skipped too. Their 2-mile and 3000 m times would otherwise be converted to
+  5K and ranked against the high school team.
+- **Why a matching name is required.** The first bulk run (Oct 2026) treated
+  any same-day meet sharing a school as the same meet, and filed three meets
+  under the wrong names: teams split varsity and JV across two meets on one
+  day. It takes a matching name (`sameName()`, ignoring year, "30th",
+  "Annual", invite/invitational) *and* a shared school now. Nothing is written without `--commit`; then it saves
   through `xc_save_meet`, which validates as the app does.
 
 ## Pasting results
