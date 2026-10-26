@@ -531,26 +531,39 @@
         .live-add input { flex: 1 1 auto; }
         .live-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
         .live-chip {
-            font-family: var(--font-ui); font-size: 13px; cursor: pointer;
-            background: var(--page); color: var(--text-primary);
-            border: 1px solid var(--border); border-radius: 20px; padding: 5px 10px;
+            display: inline-flex; align-items: center; gap: 6px;
+            background: var(--page); border: 1px solid var(--border); border-radius: 20px; padding: 3px 10px 3px 4px;
         }
-        .live-chip::after { content: ' ×'; color: var(--text-muted); }
-        .live-chip:hover::after { color: var(--crit); }
+        .live-chip input[type="color"] {
+            width: 24px; height: 24px; padding: 0; border: 1px solid var(--border); border-radius: 50%;
+            background: none; cursor: pointer; overflow: hidden;
+        }
+        .live-chip input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        .live-chip input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
+        .live-chip input[type="color"]::-moz-color-swatch { border: none; border-radius: 50%; }
+        .live-chip button {
+            font-family: var(--font-ui); font-size: 13px; cursor: pointer;
+            background: none; border: none; padding: 2px 0; color: var(--text-primary);
+        }
+        .live-chip button::after { content: ' ×'; color: var(--text-muted); }
+        .live-chip button:hover::after { color: var(--crit); }
+        .live-fill { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+        .live-fill button { font-size: 11px; padding: 7px 10px; }
         .live-place { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 13px; color: var(--text-secondary); }
         .live-place input { width: 84px; font-family: var(--font-mono); }
-        .live-setup { margin-top: 12px; }
-        .live-section { margin-top: 10px; font-size: 11px; padding: 7px 10px; }
+        .live-setup { margin: 0; }
         .live-setup summary { cursor: pointer; font-size: 13px; color: var(--text-secondary); }
         .live-setup summary span { color: var(--text-muted); }
         .live-board { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
-        @media (min-width: 700px) { .live-board { grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; } }
-        .live-right { position: sticky; top: calc(var(--nav-h) + env(safe-area-inset-top) + 8px); }
-        .live-last { font-family: var(--font-mono); font-size: 13px; color: var(--text-secondary); min-height: 1.4em; margin-bottom: 8px; }
+        @media (min-width: 700px) { .live-board { grid-template-columns: minmax(0, 1fr) 340px; gap: 12px 20px; } }
+        .live-board > .live-tap, .live-board > .live-last { grid-column: 1 / -1; }
+        .live-board .clock { font-size: 30px; }
+        @media (min-width: 700px) { .live-board .clock { font-size: 44px; } }
+        .live-last { font-family: var(--font-mono); font-size: 13px; color: var(--text-secondary); min-height: 1.4em; }
         .live-last strong { color: var(--text-primary); font-size: 16px; }
         /* Small, so a dozen schools fit on one phone screen: two across the
            left column, each about a quarter of a full-width button. */
-        .live-tap { display: grid; grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)); gap: 5px; }
+        .live-tap { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 6px; }
         .sb-row {
             display: grid; grid-template-columns: 1.6em minmax(0, 1fr) auto; column-gap: 6px; align-items: baseline;
             padding: 8px 0 8px 6px; border-top: 1px solid var(--border);
@@ -573,9 +586,13 @@
             overflow-wrap: anywhere;
         }
         .live-tap button small { display: block; font-family: var(--font-mono); font-size: 10px; font-weight: 400; color: var(--text-muted); margin-top: 2px; }
-        .live-tap button.ours { border-color: var(--series-1); box-shadow: inset 0 0 0 1px var(--series-1); }
-        .live-tap button:active { background: var(--surface-2); }
-        .live-tap button.flash { background: var(--surface-2); }
+        /* A school with colours: filled with its main one, edged in its second,
+           text dark or light by which reads on the fill. The name is always
+           there, so two schools in the same colours still tell apart. */
+        .live-tap button.colored { background: var(--fill); color: var(--ink); border: 2px solid var(--edge); }
+        .live-tap button.colored small { color: var(--ink); opacity: 0.75; }
+        .live-tap button:active, .live-tap button.flash { filter: brightness(0.8); transform: scale(0.97); }
+        @media (prefers-reduced-motion: reduce) { .live-tap button:active, .live-tap button.flash { transform: none; } }
         .livebar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; justify-content: space-between; }
         table.live { width: 100%; border-collapse: collapse; font-size: 14px; }
         table.live th {
@@ -780,31 +797,18 @@
     <!-- Live: scoring a race as it finishes. Kept on this device only, so a
          dead signal at the course costs nothing; saved meets are separate. -->
     <div class="viewpane hidden" id="live-view">
-        <section class="card">
-            <div class="clockrow">
-                <div class="clock idle" id="live-clock" aria-live="off">0:00.0</div>
-                <button class="primary" id="live-start" type="button">Start</button>
-                <button class="ghost hidden" id="live-stop" type="button">Stop</button>
-            </div>
-            <details class="live-setup" id="live-setup">
-                <summary>Schools in this race <span id="live-nschools"></span></summary>
-                <form class="live-add" id="live-add">
-                    <input id="live-school" type="text" list="live-schoollist" maxlength="120" autocomplete="off"
-                           aria-label="Add a school" placeholder="Add a school">
-                    <datalist id="live-schoollist"></datalist>
-                    <button class="ghost" type="submit">Add</button>
-                </form>
-                <div class="live-chips" id="live-chips"></div>
-                <button class="ghost live-section" id="live-section" type="button">Add all Section schools</button>
-            </details>
-        </section>
-
-        <!-- The board: tap on the left, the score on the right, side by side
-             even on a phone so every tap shows its effect without scrolling. -->
+        <!-- The board. School buttons first, full width, so they are the first
+             thing on screen in a race; the last tap, the clock and the score
+             sit right under them. -->
         <section class="card live-board">
+            <div class="live-tap" id="live-tap"></div>
+            <div class="live-last" id="live-last" aria-live="polite"></div>
             <div class="live-left">
-                <div class="live-last" id="live-last" aria-live="polite"></div>
-                <div class="live-tap" id="live-tap"></div>
+                <div class="clockrow">
+                    <div class="clock idle" id="live-clock" aria-live="off">0:00.0</div>
+                    <button class="primary" id="live-start" type="button">Start</button>
+                    <button class="ghost hidden" id="live-stop" type="button">Stop</button>
+                </div>
                 <div class="livebar">
                     <button class="ghost" id="live-undo" type="button">Undo</button>
                     <button class="ghost" id="live-reset" type="button">New race</button>
@@ -816,6 +820,24 @@
                 <label class="switchrow live-final"><input type="checkbox" id="live-final"> <span>Final: drop teams under 5</span></label>
                 <button class="ghost live-clear" id="live-clear" type="button" title="Clear every finisher; the clock keeps running">Clear scores</button>
             </div>
+        </section>
+
+        <section class="card">
+            <details class="live-setup" id="live-setup">
+                <summary>Schools in this race <span id="live-nschools"></span></summary>
+                <div class="live-fill">
+                    <button class="ghost" type="button" data-livegroup="section">Section schools</button>
+                    <button class="ghost" type="button" data-livegroup="state">State teams</button>
+                </div>
+                <form class="live-add" id="live-add">
+                    <input id="live-school" type="text" list="live-schoollist" maxlength="120" autocomplete="off"
+                           aria-label="Add a school" placeholder="Add a school">
+                    <datalist id="live-schoollist"></datalist>
+                    <button class="ghost" type="submit">Add</button>
+                </form>
+                <div class="live-chips" id="live-chips"></div>
+                <p class="live-note">Tap a swatch to set a school's button colour (saved on this device); tap a name to take the school out.</p>
+            </details>
         </section>
 
         <section class="card">
@@ -2394,7 +2416,7 @@ const GROUPS = {
       // listed as having no results; add the spelling here.
       aliases: {
         'Hamilton': ['Sussex Hamilton'],
-        'Kenosha Indian Trail': ['Indian Trail', 'Kenosha Indian Trail Academy', 'Indian Trail High School and Academy'],
+        'Kenosha Indian Trail': ['Indian Trail Academy', 'Indian Trail', 'Kenosha Indian Trail Academy', 'Indian Trail High School and Academy'],
         'Kenosha Tremper': ['Tremper'],
         'Kohler': ['Kohler/Sheboygan Christian', 'Kohler/Sheboygan Christian/Sheboygan Lutheran'],
         'Marquette': ['Marquette University', 'Milwaukee Marquette', 'Marquette University High School'],
@@ -2850,6 +2872,52 @@ $('t-dist').addEventListener('change', e => { team.dist = +e.target.value; rende
 // placing; Final drops teams under five and closes the places up, as the
 // official result will.
 const LIVE_KEY = 'wildcatsxc_live';
+
+// School colours for the Live buttons: [main, second], keyed by the GROUPS
+// name. Taken from each school's listed colours (Wikipedia, conference pages)
+// as of Oct 2026; Verona's orange is the one the rest of the app uses. A school
+// not here gets a plain button until the coach picks a colour, which is kept
+// per device under LIVE_COLORS_KEY and wins over this table. Leave a school
+// out rather than guess.
+const SCHOOL_COLORS = {
+    'Appleton North':      ['#1f2a44', '#f2c14e'],   // navy, gold
+    'De Pere':             ['#b3122e', '#ffffff'],   // cardinal, white
+    'DeForest':            ['#4b2e83', '#f2c14e'],   // purple, gold
+    'Hamilton':            ['#ce1126', '#111111'],   // red, black
+    'Holmen':              ['#7a1f2b', '#a7a9ac'],   // maroon, silver
+    'Kenosha Tremper':     ['#1d4ed8', '#c8102e'],   // royal blue, scarlet
+    'Kohler':              ['#1d4ed8', '#ffffff'],   // royal blue, white
+    'Madison East':        ['#4b2e83', '#f2c14e'],   // purple, gold (the Purgolders)
+    'Madison La Follette': ['#7a1f2b', '#9ca3af'],   // maroon, gray
+    'Madison West':        ['#ffcb05', '#00274c'],   // maize, blue
+    'Marquette':           ['#1f2a44', '#f2c14e'],   // navy, gold
+    'Menomonee Falls':     ['#800020', '#9ca3af'],   // burgundy, gray
+    'Menomonie':           ['#7a1f2b', '#ffffff'],   // maroon, white
+    'Middleton':           ['#b3122e', '#ffffff'],   // cardinal, white
+    'Monona Grove':        ['#1f2a44', '#a7a9ac'],   // navy, silver
+    'Oregon':              ['#f26522', '#111111'],   // orange, black
+    'Sun Prairie East':    ['#b3122e', '#111111'],   // cardinal, black
+    'Sun Prairie West':    ['#1b2a4a', '#8ec5e8'],   // navy, light blue
+    'Verona Area':         ['#eb6834', '#111111'],   // the app's Verona orange
+    'Waunakee':            ['#4b2e83', '#ffffff'],   // purple, white
+    'West Bend West':      ['#1f2a44', '#8ec5e8'],   // navy, Columbia blue
+    'Whitefish Bay':       ['#1e40af', '#9ca3af'],   // blue, gray
+};
+const LIVE_COLORS_KEY = 'wildcatsxc_live_colors';
+let liveColors = (() => { try { return JSON.parse(load(LIVE_COLORS_KEY)) || {}; } catch (e) { return {}; } })();
+const SCHOOL_COLOR_KEYS = new Map(Object.entries(SCHOOL_COLORS).map(([n, c]) => [schoolKey(n), c]));
+/** A school's [main, second] colour, the coach's pick first; null if none is known. */
+function schoolColors(sc) {
+    const k = schoolKey(sc), pick = liveColors[k], known = SCHOOL_COLOR_KEYS.get(k);
+    if (pick) return [pick, known && known[0].toLowerCase() === pick.toLowerCase() ? known[1] : pick];
+    return known || null;
+}
+/** Dark or light text, whichever contrasts more with the fill (WCAG; they cross at luminance 0.179). */
+function inkOn(hex) {
+    const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255)
+        .map(c => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.179 ? '#111111' : '#ffffff';
+}
 // A race starts with every Section school in: take out the ones not running
 // rather than type in the ones that are.
 const liveBlank = () => ({ schools: [...GROUPS.section.schools], start: null, stop: null, final: false, finish: [], seq: 0 });
@@ -2886,12 +2954,18 @@ function renderLive() {
     // Folded, so the buttons are on screen from the start; open only when there
     // is not yet a race to score. The summary's count says who is in.
     if (!liveSetupTouched) $('live-setup').open = live.schools.length < 2;
-    $('live-section').classList.toggle('hidden', GROUPS.section.schools.every(sc => live.schools.some(x => schoolKey(x) === schoolKey(sc))));
-    $('live-chips').innerHTML = live.schools.map(sc =>
-        `<button class="live-chip" type="button" data-liveremove="${esc(sc)}" title="Take ${esc(sc)} out of this race">${esc(sc)}</button>`).join('');
+    $('live-chips').innerHTML = live.schools.map(sc => {
+        const c = schoolColors(sc);
+        return `<span class="live-chip"><input type="color" data-livecolor="${esc(sc)}" value="${c ? c[0] : '#cccccc'}" aria-label="Button colour for ${esc(sc)}">` +
+            `<button type="button" data-liveremove="${esc(sc)}" title="Take ${esc(sc)} out of this race">${esc(sc)}</button></span>`;
+    }).join('');
 
     $('live-tap').innerHTML = live.schools.length
-        ? live.schools.map(sc => `<button type="button" data-livetap="${esc(sc)}" class="${schoolKey(sc) === ours ? 'ours' : ''}">${esc(sc)}<small>${counts[sc] || 0} in</small></button>`).join('')
+        ? live.schools.map(sc => {
+            const c = schoolColors(sc);
+            const style = c ? ` style="--fill:${c[0]};--edge:${c[1]};--ink:${inkOn(c[0])}"` : '';
+            return `<button type="button" data-livetap="${esc(sc)}"${c ? ' class="colored"' : ''}${style}>${esc(sc)}<small>${counts[sc] || 0} in</small></button>`;
+        }).join('')
         : '<p class="msg">Add the schools in this race above, then tap one as each runner finishes.</p>';
     $('live-place').value = '';
     $('live-place').max = n;
@@ -2989,11 +3063,25 @@ $('live-add').addEventListener('submit', e => {
     $('live-school').focus();
 });
 
-// Puts back any Section school taken out, keeping any others added; for a
-// race set up before the Section list became the default, too.
-$('live-section').addEventListener('click', () => {
-    GROUPS.section.schools.forEach(sc => { if (!live.schools.some(x => schoolKey(x) === schoolKey(sc))) live.schools.push(sc); });
+// Section schools / State teams: the race becomes that group's list. A school
+// that already has finishers stays, so a switch mid-race loses no taps.
+$('live-setup').addEventListener('click', e => {
+    const b = e.target.closest('[data-livegroup]');
+    if (!b) return;
+    const list = [...GROUPS[b.dataset.livegroup].schools];
+    live.finish.forEach(f => { if (!list.some(x => schoolKey(x) === schoolKey(f.school))) list.push(f.school); });
+    live.schools = [...new Set(list)];
     saveLive(); renderLive();
+    toast(`${live.schools.length} schools in this race`);
+});
+
+// A swatch sets that school's button colour on this device.
+$('live-chips').addEventListener('change', e => {
+    const sc = e.target.dataset.livecolor;
+    if (sc === undefined) return;
+    liveColors[schoolKey(sc)] = e.target.value;
+    store(LIVE_COLORS_KEY, JSON.stringify(liveColors));
+    renderLive();
 });
 
 $('live-chips').addEventListener('click', async e => {
