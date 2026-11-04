@@ -348,6 +348,27 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS ml_watched (
     watched_at DATETIME    DEFAULT CURRENT_TIMESTAMP
 )");
 
+// Finance: the owner's one vault, a single row. ciphertext is all it holds — the
+// page encrypts with a key derived from a passphrase the server never sees, so
+// nothing here (or in a backup of this table) reveals a number. version counts
+// saves, so two devices cannot silently overwrite each other.
+$pdo->exec("CREATE TABLE IF NOT EXISTS fn_vault (
+    id         TINYINT     NOT NULL PRIMARY KEY,
+    ciphertext MEDIUMTEXT  NOT NULL,
+    version    INT         NOT NULL DEFAULT 0,
+    updated_at DATETIME    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+)");
+
+// One row per wrong Finance key, kept for a day. The key itself is too long to
+// guess, but it comes from a passphrase, and this caps how fast anyone can
+// try passphrases against the server.
+$pdo->exec("CREATE TABLE IF NOT EXISTS fn_attempts (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    ip         VARCHAR(45) NOT NULL,
+    created_at DATETIME    DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_ip (ip, created_at)
+)");
+
 // Analytics: one row per page view, sent by the beacon at the bottom of every
 // page. No IP and no cookie — vid is a hash of IP + user agent + a salt that is
 // replaced every UTC day, so it counts unique visitors within a day and cannot
@@ -4725,6 +4746,81 @@ if ($method === 'POST' && $action === 'ml_delete') {
     if (!$st->rowCount()) { http_response_code(404); echo json_encode(['error' => 'That movie is not on the list.']); exit; }
     $pdo->prepare("DELETE FROM ml_watched WHERE movie_id = ?")->execute(['ml' . $id]);
     echo json_encode(['success' => true]);
+    exit;
+}
+
+// ══════════════════════════════════════════════════════════════
+// FINANCE
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * Gate for every Finance endpoint: the X-FN-Key header, hashed with SHA-256,
+ * must match FN_KEY_HASH from .env. The page derives that key from the owner's
+ * passphrase (PBKDF2), alongside a separate encryption key that never leaves
+ * the browser — so the server can tell the right passphrase from a wrong one
+ * but cannot decrypt anything. Unset, the app stays locked rather than open;
+ * the page shows the line to add when it gets the 503.
+ *
+ * Ten wrong keys from one address in an hour locks that address out for the
+ * rest of the hour, checked before the key is compared.
+ */
+function fnRequireKey(PDO $pdo): void {
+    $want = strtolower($_ENV['FN_KEY_HASH'] ?? '');
+    if ($want === '') { http_response_code(503); echo json_encode(['error' => 'Finance is not set up on the server yet.', 'setup' => true]); exit; }
+
+    $ip = substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45);
+    $pdo->exec("DELETE FROM fn_attempts WHERE created_at < NOW() - INTERVAL 1 DAY");
+    $st = $pdo->prepare("SELECT COUNT(*) FROM fn_attempts WHERE ip = ? AND created_at > NOW() - INTERVAL 1 HOUR");
+    $st->execute([$ip]);
+    if ((int)$st->fetchColumn() >= 10) {
+        http_response_code(429); echo json_encode(['error' => 'Too many wrong passphrases. Try again in an hour.']); exit;
+    }
+    $key = (string)($_SERVER['HTTP_X_FN_KEY'] ?? '');
+    if ($key === '' || !hash_equals($want, hash('sha256', $key))) {
+        $pdo->prepare("INSERT INTO fn_attempts (ip) VALUES (?)")->execute([$ip]);
+        http_response_code(401); echo json_encode(['error' => 'Wrong passphrase.']); exit;
+    }
+}
+
+// GET ?action=fn_vault
+// The encrypted vault and its version. blob is null until the first save.
+// The page decrypts it; the server only ever holds and returns ciphertext.
+if ($method === 'GET' && $action === 'fn_vault') {
+    fnRequireKey($pdo);
+    $row = $pdo->query("SELECT ciphertext, version, UNIX_TIMESTAMP(updated_at) AS ts FROM fn_vault WHERE id = 1")->fetch();
+    echo json_encode([
+        'success'    => true,
+        'blob'       => $row ? $row['ciphertext'] : null,
+        'version'    => $row ? (int)$row['version'] : 0,
+        'updated_at' => $row ? (int)$row['ts'] * 1000 : null,
+    ]);
+    exit;
+}
+
+// POST ?action=fn_save  {blob, version}
+// Replaces the vault. version is the one the page last loaded; if another
+// device has saved since, nothing is written and the reply is 409 with the
+// current version, so the page reloads instead of overwriting newer data.
+// blob is opaque ciphertext, held to a plain-text shape and 1 MB.
+if ($method === 'POST' && $action === 'fn_save') {
+    fnRequireKey($pdo);
+    $b = json_decode(file_get_contents('php://input'), true) ?: [];
+    $blob = (string)($b['blob'] ?? '');
+    $base = (int)($b['version'] ?? -1);
+    if ($blob === '' || strlen($blob) > 1048576 || !preg_match('/^[A-Za-z0-9+\/=.]+$/', $blob)) {
+        http_response_code(400); echo json_encode(['error' => 'That is not a vault.']); exit;
+    }
+    $pdo->beginTransaction();
+    $cur = $pdo->query("SELECT version FROM fn_vault WHERE id = 1 FOR UPDATE")->fetchColumn();
+    $cur = $cur === false ? 0 : (int)$cur;
+    if ($base !== $cur) {
+        $pdo->rollBack();
+        http_response_code(409); echo json_encode(['error' => 'Changed on another device.', 'version' => $cur]); exit;
+    }
+    $pdo->prepare("INSERT INTO fn_vault (id, ciphertext, version) VALUES (1, ?, ?) ON DUPLICATE KEY UPDATE ciphertext = VALUES(ciphertext), version = VALUES(version)")
+        ->execute([$blob, $cur + 1]);
+    $pdo->commit();
+    echo json_encode(['success' => true, 'version' => $cur + 1, 'updated_at' => time() * 1000]);
     exit;
 }
 

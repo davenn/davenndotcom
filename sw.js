@@ -1,4 +1,4 @@
-const CACHE = 'davenn-v62';
+const CACHE = 'davenn-v63';
 const SHELL = [
   '/index.html',
   '/tracktimer.html',
@@ -17,6 +17,7 @@ const SHELL = [
   '/nflpool.html',
   '/wildcatsxc.html',
   '/movielist.html',
+  '/finance.html',
   '/notify.html',
   // Real file paths only. addAll() rejects as a whole if any single entry
   // fails, which would leave every app above uncached — so never list a

@@ -54,6 +54,7 @@ const PREFIX_GROUPS = [
   ['fb_', 'Face Breaker'],
   ['xc_', 'WildcatsXC'],
   ['ml_', 'Movie List'],
+  ['fn_', 'Finance'],
   ['an_', 'Analytics'],
 ];
 
@@ -80,14 +81,15 @@ const EXPLICIT_GROUPS = {
 const GROUP_ORDER = [
   'Meeting Cost Timer', 'Track Timer', 'Toolshare', 'Flight Tracker',
   'Glucose', 'Confidence Pool', 'WildcatsXC', 'Daily Tasks', 'Face Breaker',
-  'Reaction Test', 'Movie List', 'Update Notifications', 'Analytics',
+  'Reaction Test', 'Movie List', 'Finance', 'Update Notifications', 'Analytics',
 ];
 
 // Table prefixes, for the schema section.
 const TABLE_GROUPS = [
   ['tb_', 'Toolshare'], ['ft_', 'Flight Tracker'], ['bg_', 'Glucose'],
   ['dt_', 'Daily Tasks'], ['cp_', 'Confidence Pool'], ['fb_', 'Face Breaker'],
-  ['xc_', 'WildcatsXC'], ['ml_', 'Movie List'], ['an_', 'Analytics'],
+  ['xc_', 'WildcatsXC'], ['ml_', 'Movie List'], ['fn_', 'Finance'],
+  ['an_', 'Analytics'],
 ];
 
 const EXPLICIT_TABLES = {
@@ -111,12 +113,13 @@ function tableGroupFor(table) {
   return EXPLICIT_TABLES[table] ?? 'Other';
 }
 
-// Auth is five unrelated schemes. Detect which one a branch body enforces.
+// Auth is six unrelated schemes. Detect which one a branch body enforces.
 function authFor(body) {
   if (/\bftRequireAuth\(/.test(body)) return 'Flight Tracker account — `X-Auth-Token`';
   if (/\brequireAuth\(/.test(body)) return 'Toolshare account — `X-Auth-Token`';
   if (/\bbgRequireRead\(/.test(body)) return 'Glucose read token — `X-BG-Token` or `?token=`';
   if (/\bxcRequirePin\(/.test(body)) return 'WildcatsXC team PIN — `X-XC-PIN`';
+  if (/\bfnRequireKey\(/.test(body)) return 'Owner only — Finance key `X-FN-Key`';
   if (/HTTP_X_ADMIN_SECRET/.test(body)) return 'Admin — `X-Admin-Secret`';
   if (/\$_GET\['token'\]/.test(body)) return 'Single-use link token — `?token=`';
   if (/\bauthUser\(/.test(body)) return 'Optional Toolshare account — `X-Auth-Token`';
@@ -234,7 +237,9 @@ const tableGroupsUsed = [...GROUP_ORDER, 'Other']
 // here until it was given the guard it needed.
 const OPERATOR_ACTIONS = new Set();
 
-const isOperator = e => e.auth.startsWith('Admin') || OPERATOR_ACTIONS.has(e.action);
+// Owner-only endpoints (Finance) are a private app's, so they stay off the
+// public page for the same reason.
+const isOperator = e => e.auth.startsWith('Admin') || e.auth.startsWith('Owner') || OPERATOR_ACTIONS.has(e.action);
 const publicEndpoints = ordered.filter(e => !isOperator(e));
 const publicGroups = GROUP_ORDER.filter(g => publicEndpoints.some(e => e.group === g));
 const operatorCount = ordered.length - publicEndpoints.length;
