@@ -349,24 +349,14 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS ml_watched (
 )");
 
 // Finance: the owner's one vault, a single row. ciphertext is all it holds — the
-// page encrypts with a key derived from a passphrase the server never sees, so
-// nothing here (or in a backup of this table) reveals a number. version counts
-// saves, so two devices cannot silently overwrite each other.
+// page encrypts with a key it derives from the admin secret, which is never
+// stored in the database, so this table (or a backup of it) reveals no number.
+// version counts saves, so two devices cannot silently overwrite each other.
 $pdo->exec("CREATE TABLE IF NOT EXISTS fn_vault (
     id         TINYINT     NOT NULL PRIMARY KEY,
     ciphertext MEDIUMTEXT  NOT NULL,
     version    INT         NOT NULL DEFAULT 0,
     updated_at DATETIME    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-)");
-
-// One row per wrong Finance key, kept for a day. The key itself is too long to
-// guess, but it comes from a passphrase, and this caps how fast anyone can
-// try passphrases against the server.
-$pdo->exec("CREATE TABLE IF NOT EXISTS fn_attempts (
-    id         INT AUTO_INCREMENT PRIMARY KEY,
-    ip         VARCHAR(45) NOT NULL,
-    created_at DATETIME    DEFAULT CURRENT_TIMESTAMP,
-    KEY idx_ip (ip, created_at)
 )");
 
 // Analytics: one row per page view, sent by the beacon at the bottom of every
@@ -4753,40 +4743,16 @@ if ($method === 'POST' && $action === 'ml_delete') {
 // FINANCE
 // ══════════════════════════════════════════════════════════════
 
-/**
- * Gate for every Finance endpoint: the X-FN-Key header, hashed with SHA-256,
- * must match FN_KEY_HASH from .env. The page derives that key from the owner's
- * passphrase (PBKDF2), alongside a separate encryption key that never leaves
- * the browser — so the server can tell the right passphrase from a wrong one
- * but cannot decrypt anything. Unset, the app stays locked rather than open;
- * the page shows the line to add when it gets the 503.
- *
- * Ten wrong keys from one address in an hour locks that address out for the
- * rest of the hour, checked before the key is compared.
- */
-function fnRequireKey(PDO $pdo): void {
-    $want = strtolower($_ENV['FN_KEY_HASH'] ?? '');
-    if ($want === '') { http_response_code(503); echo json_encode(['error' => 'Finance is not set up on the server yet.', 'setup' => true]); exit; }
-
-    $ip = substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45);
-    $pdo->exec("DELETE FROM fn_attempts WHERE created_at < NOW() - INTERVAL 1 DAY");
-    $st = $pdo->prepare("SELECT COUNT(*) FROM fn_attempts WHERE ip = ? AND created_at > NOW() - INTERVAL 1 HOUR");
-    $st->execute([$ip]);
-    if ((int)$st->fetchColumn() >= 10) {
-        http_response_code(429); echo json_encode(['error' => 'Too many wrong passphrases. Try again in an hour.']); exit;
-    }
-    $key = (string)($_SERVER['HTTP_X_FN_KEY'] ?? '');
-    if ($key === '' || !hash_equals($want, hash('sha256', $key))) {
-        $pdo->prepare("INSERT INTO fn_attempts (ip) VALUES (?)")->execute([$ip]);
-        http_response_code(401); echo json_encode(['error' => 'Wrong passphrase.']); exit;
-    }
-}
-
 // GET ?action=fn_vault
 // The encrypted vault and its version. blob is null until the first save.
-// The page decrypts it; the server only ever holds and returns ciphertext.
+// Unlocked with the admin secret, the same one Stats uses. The page also
+// derives its AES key from that secret (PBKDF2, in the browser), so the
+// database only ever holds and returns ciphertext.
 if ($method === 'GET' && $action === 'fn_vault') {
-    fnRequireKey($pdo);
+    $admin_secret = $_ENV['ADMIN_SECRET'] ?? '';
+    if (!$admin_secret || !hash_equals($admin_secret, $_SERVER['HTTP_X_ADMIN_SECRET'] ?? '')) {
+        http_response_code(401); echo json_encode(['error' => 'That secret was not accepted.']); exit;
+    }
     $row = $pdo->query("SELECT ciphertext, version, UNIX_TIMESTAMP(updated_at) AS ts FROM fn_vault WHERE id = 1")->fetch();
     echo json_encode([
         'success'    => true,
@@ -4803,7 +4769,10 @@ if ($method === 'GET' && $action === 'fn_vault') {
 // current version, so the page reloads instead of overwriting newer data.
 // blob is opaque ciphertext, held to a plain-text shape and 1 MB.
 if ($method === 'POST' && $action === 'fn_save') {
-    fnRequireKey($pdo);
+    $admin_secret = $_ENV['ADMIN_SECRET'] ?? '';
+    if (!$admin_secret || !hash_equals($admin_secret, $_SERVER['HTTP_X_ADMIN_SECRET'] ?? '')) {
+        http_response_code(401); echo json_encode(['error' => 'That secret was not accepted.']); exit;
+    }
     $b = json_decode(file_get_contents('php://input'), true) ?: [];
     $blob = (string)($b['blob'] ?? '');
     $base = (int)($b['version'] ?? -1);

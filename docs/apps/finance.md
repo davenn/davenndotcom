@@ -5,56 +5,45 @@ saving, rolled up into monthly figures and a few rule-of-thumb health checks.
 One person, one vault. Like Stats, it is deliberately not on the home grid.
 
 **File:** [`finance.html`](../../finance.html)
-**Tables:** `fn_vault`, `fn_attempts`
-**Auth:** `X-FN-Key`, an access key derived from the owner's passphrase,
-checked by `fnRequireKey()` against `FN_KEY_HASH` in the server `.env`
+**Tables:** `fn_vault`
+**Auth:** `X-Admin-Secret`, the same secret as Stats, checked inline in each
+branch like every other admin endpoint
 
-## The server never sees a number
+## One secret, two jobs
 
-Everything is encrypted in the browser before it is sent. The passphrase is
-stretched with PBKDF2-SHA256 (600,000 iterations, fixed salt
-`davenn.com/finance/v1`) into 512 bits, split in two:
+The admin secret unlocks the two endpoints, exactly as it unlocks Stats. The
+page also stretches it with PBKDF2-SHA256 (600,000 iterations, fixed salt
+`davenn.com/finance/v1`) into the AES-GCM key that encrypts the vault in the
+browser. `fn_vault` holds one row whose `ciphertext` is
+`v1.<iv>.<ciphertext>` in base64.
 
-- **bits 0–255** → the AES-GCM key. Never leaves the browser.
-- **bits 256–511** → the access key, sent as `X-FN-Key` on every request. The
-  server stores only its SHA-256 (`FN_KEY_HASH`) and compares against that.
+What that buys, and what it does not:
 
-The two halves are independent, so the server can tell the right passphrase
-from a wrong one without being able to decrypt anything. `fn_vault` holds one
-row whose `ciphertext` is `v1.<iv>.<ciphertext>` in base64; a database dump
-or a GoDaddy backup reveals nothing.
+- **A database dump or a hosting backup of the DB reveals nothing.** The
+  secret is not in the database.
+- **Someone with both the server `.env` and the database could decrypt it.**
+  The server knows `ADMIN_SECRET`, so it can derive the key. Owning both
+  already means owning the site, so this was accepted in exchange for one
+  secret instead of a separate passphrase. (The first version used its own
+  passphrase, whose key the server never saw; that was swapped for the shared
+  secret at the owner's request.)
+- **Changing `ADMIN_SECRET` orphans the vault.** The new secret derives a
+  different key. Back up first, change the secret, unlock with the new one and
+  restore. Unlocking over data the key cannot read shows a notice saying so;
+  the first save, or a restore, replaces it.
 
 The salt is fixed because there is one user and nothing to look a per-user
-salt up by before authenticating. PBKDF2's cost and the per-IP limit below are
-what slow down guessing.
-
-## Setup and the passphrase
-
-With `FN_KEY_HASH` unset, both endpoints answer 503 and the app is locked, the
-same way WildcatsXC behaves without `XC_PIN`. On that 503 the unlock form asks
-for the passphrase again (at least 12 characters), then shows the exact
-`FN_KEY_HASH=…` line to add to `.env` on the host. Nothing is committed.
-
-**There is no reset.** Lose the passphrase and the data is unrecoverable —
-that is the point of the design, not a gap in it.
-
-To **change** the passphrase: `Back up` (exports plain JSON), put the new
-passphrase's line in `.env` (run the setup flow by temporarily removing the old
-line, or derive it the same way), unlock with the new passphrase, and
-`Restore` the backup. Unlocking with the new passphrase over data encrypted
-with the old one shows a notice that the saved data cannot be read; the first
-save, or a restore, replaces it.
-
-Ten wrong keys from one address in an hour lock that address out for the rest
-of the hour (`fn_attempts`, pruned after a day).
+salt up by before authenticating.
 
 ## Remembering a device
 
-"Remember on this device" keeps the derived keys (not the passphrase) in
+"Remember on this device" keeps the secret and the derived key in
 `localStorage['finance_keys']`; otherwise they live in `sessionStorage` for the
-tab. `Lock` clears both. The last ciphertext seen is cached in
-`localStorage['finance_cache']`, so the app opens read-only offline; edits made
-offline retry every 15 seconds.
+tab. This is separate from Stats' own `stats_secret`, so `Lock` here does not
+sign Stats out, and signing in to Stats does not unlock this. `Lock` clears
+both stores. The last ciphertext seen is cached in
+`localStorage['finance_cache']`, so the app opens offline; edits made offline
+retry every 15 seconds.
 
 ## Syncing two devices
 
@@ -91,6 +80,6 @@ fund ≥ 6 months Good, ≥ 3 OK. Every status is a word as well as a colour.
 ## Backups
 
 `Back up` downloads the decrypted data as plain JSON, deliberately: it is the
-way back in after a passphrase change and is readable without this page. The
+way back in after the admin secret changes and is readable without this page. The
 file is sensitive. `Restore` accepts the same shape and runs it through
 `normalize()`, which is also what every server read goes through.
