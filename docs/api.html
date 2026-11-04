@@ -179,7 +179,7 @@
     <h1>API Reference</h1>
     <p class="lede">Every app on davenn.com is served by a single <code class="inline">api.php</code>. Endpoints are selected by an <code class="inline">action</code> query parameter and always return JSON.</p>
     <div class="base">https://davenn.com/api.php?action=&lt;action&gt;</div>
-    <p class="counts">79 endpoints · 39 tables</p>
+    <p class="counts">79 endpoints · 38 tables</p>
 
     <div class="filter-row">
         <input type="search" id="filter" placeholder="Filter endpoints…" aria-label="Filter endpoints">
@@ -1752,11 +1752,6 @@ watched_at DATETIME    DEFAULT CURRENT_TIMESTAMP</code></pre>
 ciphertext MEDIUMTEXT  NOT NULL
 version    INT         NOT NULL DEFAULT 0
 updated_at DATETIME    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP</code></pre>
-        <h3>fn_attempts</h3>
-        <pre><code>id         INT AUTO_INCREMENT PRIMARY KEY
-ip         VARCHAR(45) NOT NULL
-created_at DATETIME    DEFAULT CURRENT_TIMESTAMP
-KEY idx_ip (ip, created_at)</code></pre>
         <p class="group">Update Notifications</p>
         <h3>subscribers</h3>
         <pre><code>id            INT AUTO_INCREMENT PRIMARY KEY

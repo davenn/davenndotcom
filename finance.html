@@ -196,8 +196,6 @@
     label.check { font: 12px var(--font-mono); color: var(--text-secondary); display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
     label.check input { width: auto; }
     .err { color: var(--bad); font-size: 13px; margin-top: 10px; min-height: 1em; line-height: 1.45; }
-    .setup { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
-    pre.env { font: 12px var(--font-mono); background: var(--surface-2); border-radius: 6px; padding: 10px; overflow-x: auto; margin-bottom: 10px; color: var(--text-primary); }
 
     footer { margin-top: 28px; font: 11px var(--font-mono); color: var(--text-muted); line-height: 1.7; }
 
@@ -233,26 +231,14 @@
 
     <form class="signin" id="signin" hidden>
         <h2>Unlock</h2>
-        <p>Enter your passphrase. It never leaves this device. Two keys are made from it here: one the server checks, and one that encrypts your numbers.</p>
-        <input type="password" id="pass" autocomplete="current-password" placeholder="Passphrase" required>
+        <p>Enter the admin secret, the same one Stats uses. This device also turns it into the key that encrypts your numbers, so the database only holds scrambled data.</p>
+        <input type="password" id="pass" autocomplete="current-password" placeholder="Admin secret" required>
         <div class="line">
             <label class="check"><input type="checkbox" id="remember"> Remember on this device</label>
             <button class="btn primary" type="submit" id="unlock">Unlock</button>
         </div>
         <div class="err" id="signin-err"></div>
 
-        <div class="setup" id="setup" hidden>
-            <h2>First-time setup</h2>
-            <p>The server has no Finance key yet. Type the same passphrase again to confirm it. Use at least 12 characters, and keep it somewhere safe: <strong>there is no reset.</strong> Without it nobody can read the saved data, including the server.</p>
-            <input type="password" id="pass2" autocomplete="new-password" placeholder="Passphrase again">
-            <button class="btn" type="button" id="confirm">Confirm</button>
-            <div id="env-out" hidden>
-                <p style="margin-top:14px">Add this line to <code>.env</code> beside <code>api.php</code> on the host, then press Unlock.</p>
-                <pre class="env" id="env-line"></pre>
-                <button class="btn" type="button" id="copy-env">Copy</button>
-            </div>
-            <div class="err" id="setup-err"></div>
-        </div>
     </form>
 
     <div id="dash" hidden>
@@ -326,7 +312,7 @@
         </div>
 
         <footer>
-            Saved encrypted (AES-GCM, key from your passphrase by PBKDF2). Back up writes an <strong>unencrypted</strong> file; keep it somewhere private.
+            Saved encrypted (AES-GCM, key from the admin secret by PBKDF2). Back up writes an <strong>unencrypted</strong> file; keep it somewhere private.
         </footer>
     </div>
 </main>
@@ -370,42 +356,34 @@
     var CATEGORIES = ['Housing', 'Utilities', 'Transportation', 'Insurance', 'Debt', 'Food', 'Kids', 'Health', 'Subscriptions', 'Savings', 'Other'];
 
     var state = {
-        keys: null,        // { aes: CryptoKey, access: hex string }
+        keys: null,        // { aes: CryptoKey, secret: the admin secret }
         data: null,        // the decrypted vault
         version: 0,        // server version the data was loaded at
         dirty: false, saving: false, again: false, timer: null, retry: null
     };
 
     // ══════════════════════════════════════════════════════════════
-    // Crypto. One passphrase, stretched by PBKDF2 into 512 bits: the first
-    // half is the AES-GCM key, which never leaves the browser; the second is
-    // the access key the server checks (it stores only its SHA-256). Knowing
-    // the access key tells you nothing about the AES key.
+    // Crypto. The admin secret unlocks the endpoints (X-Admin-Secret, as on
+    // Stats) and, stretched by PBKDF2, is also the AES-GCM key. The database
+    // never holds the secret, so a dump or backup of it reveals no number.
     // ══════════════════════════════════════════════════════════════
     var enc = new TextEncoder(), dec = new TextDecoder();
     var SALT = enc.encode('davenn.com/finance/v1');
     var ITERATIONS = 600000;
 
-    function hex(bytes) { return Array.prototype.map.call(bytes, function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); }
     function b64(bytes) { var s = ''; for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s); }
     function unb64(str) { var s = atob(str), out = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) out[i] = s.charCodeAt(i); return out; }
 
     function derive(pass) {
         return crypto.subtle.importKey('raw', enc.encode(pass.normalize('NFC')), 'PBKDF2', false, ['deriveBits'])
             .then(function (base) {
-                return crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: SALT, iterations: ITERATIONS }, base, 512);
+                return crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: SALT, iterations: ITERATIONS }, base, 256);
             })
-            .then(function (bits) {
-                bits = new Uint8Array(bits);
-                return { raw: b64(bits.slice(0, 32)), access: hex(bits.slice(32)) };
-            });
+            .then(function (bits) { return { raw: b64(new Uint8Array(bits)), secret: pass }; });
     }
     function importKeys(k) {
         return crypto.subtle.importKey('raw', unb64(k.raw), 'AES-GCM', false, ['encrypt', 'decrypt'])
-            .then(function (aes) { return { aes: aes, access: k.access }; });
-    }
-    function sha256hex(str) {
-        return crypto.subtle.digest('SHA-256', enc.encode(str)).then(function (h) { return hex(new Uint8Array(h)); });
+            .then(function (aes) { return { aes: aes, secret: k.secret }; });
     }
     function encrypt(obj) {
         var iv = crypto.getRandomValues(new Uint8Array(12));
@@ -485,7 +463,7 @@
     // Server
     // ══════════════════════════════════════════════════════════════
     function call(method, action, body) {
-        var opts = { method: method, headers: { 'X-FN-Key': state.keys ? state.keys.access : '' } };
+        var opts = { method: method, headers: { 'X-Admin-Secret': state.keys ? state.keys.secret : '' } };
         if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
         return fetch(API + '?action=' + action, opts).then(function (r) {
             return r.json().catch(function () { return {}; }).then(function (j) { j._status = r.status; return j; });
@@ -498,7 +476,7 @@
     // has data to show.
     function load(quiet) {
         return call('GET', 'fn_vault').then(function (r) {
-            if (r._status === 401 || r._status === 429 || r._status === 503) return Promise.reject(r);
+            if (r._status === 401) return Promise.reject(r);
             if (!r.success) return Promise.reject({ error: r.error || 'The server did not answer properly.' });
             if (!r.blob) {
                 state.version = r.version;
@@ -513,7 +491,7 @@
                 if (!quiet) sync('Up to date');
                 return true;
             }, function () {
-                return Promise.reject({ error: 'Your passphrase was accepted, but the saved data was encrypted with a different one, so it cannot be read. Restore a backup to replace it. Anything you enter here will also replace it.', undecryptable: true });
+                return Promise.reject({ error: 'The secret was accepted, but the saved data was encrypted with a different one (has the admin secret changed?), so it cannot be read. Restore a backup to replace it. Anything you enter here will also replace it.', undecryptable: true });
             });
         }, function () {
             // Offline: fall back to the last copy this device saw, still encrypted.
@@ -550,7 +528,7 @@
                     return;
                 }
                 if (r._status === 409) return conflict(r.version);
-                if (r._status === 401 || r._status === 429) { lock('Locked: ' + (r.error || 'the server no longer accepts this passphrase.')); return; }
+                if (r._status === 401) { lock('Locked: ' + (r.error || 'the server no longer accepts this secret.')); return; }
                 state.dirty = true;
                 sync('Not saved: ' + (r.error || 'server error') + '. Retrying…', true);
                 state.retry = setTimeout(save, 15000);
@@ -591,8 +569,7 @@
         state.keys = null; state.data = null; state.dirty = false;
         set('sessionStorage', 'finance_keys', null);
         set('localStorage', 'finance_keys', null);
-        $('pass').value = ''; $('pass2').value = '';
-        $('setup').hidden = true;
+        $('pass').value = '';
         $('notices').innerHTML = '';
         showSignin(msg);
     }
@@ -600,8 +577,7 @@
     function opened(raw, remember) {
         $('signin').hidden = true;
         $('dash').hidden = false;
-        $('setup').hidden = true;
-        $('pass').value = ''; $('pass2').value = '';
+        $('pass').value = '';
         set('sessionStorage', 'finance_keys', JSON.stringify(raw));
         if (remember) set('localStorage', 'finance_keys', JSON.stringify(raw));
         render();
@@ -613,7 +589,7 @@
             return load().then(function () { opened(raw, remember); });
         }).catch(function (e) {
             if (e && e.undecryptable) {
-                // Right passphrase, unreadable data: let them restore over it.
+                // Right secret, unreadable data: let them restore over it.
                 state.data = normalize(null);
                 opened(raw, remember);
                 notice(e.error, true);
@@ -623,15 +599,6 @@
             // Keys that no longer open the vault are not worth remembering.
             set('sessionStorage', 'finance_keys', null);
             set('localStorage', 'finance_keys', null);
-            if (e && e._status === 503) {
-                $('dash').hidden = true;
-                $('signin').hidden = false;
-                $('setup').hidden = false;
-                $('env-out').hidden = true;
-                $('signin-err').textContent = '';
-                $('pass2').focus();
-                return;
-            }
             showSignin((e && e.error) || 'Could not unlock.');
         });
     }
@@ -648,23 +615,6 @@
             .then(function () { $('unlock').disabled = false; });
     });
 
-    $('confirm').addEventListener('click', function () {
-        var p1 = $('pass').value, p2 = $('pass2').value;
-        $('setup-err').textContent = '';
-        if (p1.length < 12) { $('setup-err').textContent = 'Use at least 12 characters.'; return; }
-        if (p1 !== p2) { $('setup-err').textContent = 'Those do not match.'; return; }
-        derive(p1).then(function (raw) {
-            return sha256hex(raw.access);
-        }).then(function (h) {
-            $('env-line').textContent = 'FN_KEY_HASH=' + h;
-            $('env-out').hidden = false;
-        });
-    });
-
-    $('copy-env').addEventListener('click', function () {
-        var t = $('env-line').textContent;
-        if (navigator.clipboard) navigator.clipboard.writeText(t).then(function () { $('copy-env').textContent = 'Copied'; });
-    });
 
     $('lock').addEventListener('click', function () {
         if (state.dirty && !confirm('A change has not saved yet. Lock anyway?')) return;
@@ -1069,7 +1019,7 @@
     });
 
     // ── Backup & restore. The file is plain JSON, deliberately: it is the way
-    // back in if the passphrase changes, and it should open without this page. ──
+    // back in if the admin secret changes, and it should open without this page. ──
     $('export').addEventListener('click', function () {
         var blob = new Blob([JSON.stringify(state.data, null, 2)], { type: 'application/json' });
         var a = el('a', { href: URL.createObjectURL(blob), download: 'finance-backup-' + today() + '.json' });
@@ -1097,7 +1047,7 @@
     // ── Start: reuse keys from this tab, or from "Remember on this device" ──
     var saved = null;
     try { saved = JSON.parse(get('sessionStorage', 'finance_keys') || get('localStorage', 'finance_keys') || 'null'); } catch (e) {}
-    if (saved && saved.raw && saved.access && window.crypto && crypto.subtle) {
+    if (saved && saved.raw && saved.secret && window.crypto && crypto.subtle) {
         $('signin').hidden = true;
         sync('Loading…');
         tryKeys(saved, !!get('localStorage', 'finance_keys'));
