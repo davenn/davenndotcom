@@ -31,6 +31,7 @@ Browser ──► /appname.html  (self-contained: HTML + CSS + JS)
 | `notify.html` | The **only** update-notification signup. It is the opt-in page filed with the A2P campaign (`docs/a2p-campaign.md`), so do not add a second signup form anywhere |
 | `<app>.html` | One file per app; see the inventory below |
 | `stats.html` | Analytics dashboard. **Unlisted** — deliberately not on the home grid |
+| `finance.html` | Owner's private finance tracker. **Unlisted**, like Stats |
 | `api.php` | The entire backend. Every app, every endpoint |
 | `manifest-<app>.json` | PWA manifest, one per installable app |
 | `sw.js` | Single service worker shared by all apps |
@@ -63,6 +64,7 @@ Browser ──► /appname.html  (self-contained: HTML + CSS + JS)
 | Cribbage | `cribbage.html` | — | local only |
 | Cali's Movie List | `movielist.html` | `ml_movies` `ml_watched` `ml_draft_log` | — (anyone can add, remove or check off; drafts rate-limited per IP) |
 | Legal | `privacy.html`, `terms.html` | — | static |
+| Finance | `finance.html` | `fn_vault` `fn_attempts` | `X-FN-Key` (owner only; data is encrypted in the browser) |
 | Stats | `stats.html`, plus the beacon on every page | `an_hits` `an_daily` `an_salt` `an_api` `an_ai` `an_fixed_costs` `an_cache` | `X-Admin-Secret` to read; beacon open |
 
 ## api.php
@@ -78,13 +80,13 @@ before deploying for exactly this reason. Never push PHP you have not linted.
   Add new endpoints in the same shape, grouped with their app's other branches.
 - **Table prefixes** namespace each app: `tb_` Toolshare, `ft_` Flight Tracker,
   `bg_` glucose, `dt_` Daily Tasks, `cp_` Confidence Pool, `xc_` WildcatsXC,
-  `ml_` Cali's Movie List, `an_` analytics. Unprefixed tables (`meetings`, `track_sessions`, `subscribers`, `fb_scores`, `reaction_scores`)
+  `ml_` Cali's Movie List, `fn_` Finance, `an_` analytics. Unprefixed tables (`meetings`, `track_sessions`, `subscribers`, `fb_scores`, `reaction_scores`)
   predate the convention — leave their names alone.
 - **Schema is self-migrating.** Every request runs the `CREATE TABLE IF NOT
   EXISTS` block at the top of the file. To add a table, add it there. There are
   no migration files, so column *changes* to an existing table need a manual
   `ALTER` against the live DB — `CREATE TABLE IF NOT EXISTS` will not apply them.
-- **Auth** is five unrelated schemes, by design:
+- **Auth** is six unrelated schemes, by design:
   - `X-Auth-Token` → two separate implementations that share the header name:
     `authUser()` / `requireAuth()` resolves it against `tb_sessions` (Toolshare
     supports multiple sessions per user), while `ftAuthUser()` /
@@ -96,6 +98,10 @@ before deploying for exactly this reason. Never push PHP you have not linted.
   - `X-XC-PIN` → `xcRequirePin()`, one shared team PIN for every WildcatsXC
     endpoint, checked against `XC_PIN` in `.env` and rate-limited per IP in
     `xc_pin_attempts`. It guards minors' names, so it is never hardcoded
+  - `X-FN-Key` → `fnRequireKey()`, Finance's owner-only key. The page derives
+    it from a passphrase alongside a separate AES key, and the server checks
+    its SHA-256 against `FN_KEY_HASH`. The vault is ciphertext, so the server
+    and the database never see a number. Rate-limited per IP in `fn_attempts`
   - `X-Admin-Secret` → operator-only endpoints (ingest, notify, roster, purge)
   - none → the leaderboard and timer apps write unauthenticated, and so do
     the page-view beacon `an_hit` and Cali's Movie List (by the owner's
@@ -160,7 +166,7 @@ credentials live and how they are loaded, deploy mechanics and server paths,
 and the fact that one bad parse takes the whole API down.
 
 `docs/api.html` omits every endpoint where `isOperator()` in the generator
-returns true — anything admin-gated, plus anything named in the
+returns true — anything admin-gated or owner-only (Finance), plus anything named in the
 `OPERATOR_ACTIONS` escape hatch. `docs/api.md` stays complete.
 
 `OPERATOR_ACTIONS` is empty, and that is the healthy state. Needing an entry
@@ -252,7 +258,7 @@ must be made on the host** — pushing will not update it.
 `DB_HOST` `DB_NAME` `DB_USER` `DB_PASS` · `UPLOAD_DIR` `UPLOAD_URL` ·
 `MAIL_FROM` `MAIL_FROM_NAME` `MAIL_REPLY_TO` `APP_URL` ·
 `TWILIO_ACCOUNT_SID` `TWILIO_AUTH_TOKEN` `TWILIO_FROM_NUMBER` ·
-`ADMIN_SECRET` `BG_READ_TOKEN` `BG_TIMEZONE` · `TEST_PHONE` · `XC_PIN` · `GEOIP_DB`
+`ADMIN_SECRET` `BG_READ_TOKEN` `BG_TIMEZONE` · `TEST_PHONE` · `XC_PIN` · `FN_KEY_HASH` · `GEOIP_DB`
 
 `TEST_PHONE` is the one number `?action=resetTestPhone` may delete from
 `subscribers`, in stored form (`+1` and ten digits). The repo is public, so it
@@ -260,6 +266,11 @@ lives only in the server `.env`. Unset, the endpoint does nothing.
 
 `XC_PIN` is the WildcatsXC team PIN, for the same reason only in the server
 `.env`. Unset, every WildcatsXC endpoint answers 503 — locked, not open.
+
+`FN_KEY_HASH` is the SHA-256 of Finance's access key. Unset, Finance answers
+503 — locked — and the page prints the exact line to add on first unlock. It
+is a hash of a key derived from the owner's passphrase, so it cannot decrypt
+the vault; see `docs/apps/finance.md`.
 
 `GEOIP_DB` is optional: the path to MaxMind's `GeoLite2-City.mmdb`. Unset, it
 defaults to one level above the web root. The file is licensed, never

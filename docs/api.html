@@ -179,7 +179,7 @@
     <h1>API Reference</h1>
     <p class="lede">Every app on davenn.com is served by a single <code class="inline">api.php</code>. Endpoints are selected by an <code class="inline">action</code> query parameter and always return JSON.</p>
     <div class="base">https://davenn.com/api.php?action=&lt;action&gt;</div>
-    <p class="counts">79 endpoints · 37 tables</p>
+    <p class="counts">79 endpoints · 39 tables</p>
 
     <div class="filter-row">
         <input type="search" id="filter" placeholder="Filter endpoints…" aria-label="Filter endpoints">
@@ -1746,6 +1746,17 @@ KEY idx_ip (ip, created_at)</code></pre>
         <pre><code>movie_id   VARCHAR(20) NOT NULL PRIMARY KEY
 tissues    TINYINT     NOT NULL DEFAULT 0
 watched_at DATETIME    DEFAULT CURRENT_TIMESTAMP</code></pre>
+        <p class="group">Finance</p>
+        <h3>fn_vault</h3>
+        <pre><code>id         TINYINT     NOT NULL PRIMARY KEY
+ciphertext MEDIUMTEXT  NOT NULL
+version    INT         NOT NULL DEFAULT 0
+updated_at DATETIME    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP</code></pre>
+        <h3>fn_attempts</h3>
+        <pre><code>id         INT AUTO_INCREMENT PRIMARY KEY
+ip         VARCHAR(45) NOT NULL
+created_at DATETIME    DEFAULT CURRENT_TIMESTAMP
+KEY idx_ip (ip, created_at)</code></pre>
         <p class="group">Update Notifications</p>
         <h3>subscribers</h3>
         <pre><code>id            INT AUTO_INCREMENT PRIMARY KEY
@@ -1824,7 +1835,7 @@ KEY idx_contact (contact_value, created_at)</code></pre>
     </section>
 
     <section class="todo">
-        <p class="note">12 operator endpoints are not listed here.</p>
+        <p class="note">14 operator endpoints are not listed here.</p>
     </section>
 
     <footer>

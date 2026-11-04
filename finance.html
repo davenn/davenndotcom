@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Finance — davenn.com</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="manifest" href="/manifest-finance.json">
+<meta name="theme-color" content="#111110">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Finance">
+<link rel="apple-touch-icon" href="/icons/finance.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+    // Stamp the theme before first paint so there is no flash of the wrong one.
+    (function () {
+        var t;
+        try { t = localStorage.getItem('finance_theme'); } catch (e) {}
+        if (t !== 'light' && t !== 'dark') {
+            t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', t);
+    })();
+</script>
+<style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root, [data-theme="light"] {
+        color-scheme: light;
+        --page: #fafafa; --surface: #ffffff; --surface-2: #f4f4f1; --border: #e4e4e0;
+        --text-primary: #1d1f24; --text-secondary: #52514e; --text-muted: #8a8f98;
+        --grid: #ecece8;
+        /* Categorical slots 1-3, in fixed order: costs, saving, left over. */
+        --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a;
+        --s1-soft: rgba(42,120,214,0.14);
+    }
+    [data-theme="dark"] {
+        color-scheme: dark;
+        --page: #0a0a0a; --surface: #131313; --surface-2: #1a1a1a; --border: #2a2a2a;
+        --text-primary: #ecebe8; --text-secondary: #c3c2b7; --text-muted: #8a8f98;
+        --grid: #222;
+        --s1: #3987e5; --s2: #d95926; --s3: #199e70;
+        --s1-soft: rgba(57,135,229,0.2);
+    }
+    :root {
+        /* Status hues are fixed, never themed, and always paired with a word. */
+        --good: #188038; --warn: #c98500; --bad: #d93025;
+        --nav-bg: #111110; --nav-border: rgba(255,255,255,0.08);
+        --font-ui: system-ui, -apple-system, 'Segoe UI', sans-serif;
+        --font-mono: 'DM Mono', ui-monospace, monospace;
+        --nav-h: 52px;
+    }
+
+    body {
+        font-family: var(--font-ui); background: var(--page); color: var(--text-primary);
+        -webkit-font-smoothing: antialiased;
+        padding-top: calc(var(--nav-h) + env(safe-area-inset-top));
+    }
+
+    nav {
+        position: fixed; top: 0; left: 0; right: 0;
+        height: calc(var(--nav-h) + env(safe-area-inset-top));
+        padding: env(safe-area-inset-top) 1.25rem 0;
+        background: var(--nav-bg); border-bottom: 1px solid var(--nav-border);
+        display: flex; align-items: center; justify-content: space-between; z-index: 200;
+    }
+    .nav-logo { font-family: var(--font-mono); font-size: 13px; color: rgba(255,255,255,0.4); text-decoration: none; }
+    .nav-logo strong { color: #fff; }
+    .nav-right { display: flex; align-items: center; gap: 1.2rem; }
+    .theme-toggle { width: 44px; height: 24px; cursor: pointer; background: none; border: none; padding: 0; flex: none; }
+    .theme-toggle-track { width: 44px; height: 24px; border-radius: 12px; background: #333; border: 1px solid #555; display: flex; align-items: center; padding: 0 3px; }
+    [data-theme="light"] .theme-toggle-track { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); }
+    .theme-toggle-thumb { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; transition: transform 0.2s; }
+    [data-theme="light"] .theme-toggle-thumb { transform: translateX(20px); background: #fff; }
+    [data-theme="dark"]  .theme-toggle-thumb { transform: translateX(0);    background: #666; }
+
+    main { max-width: 1080px; margin: 0 auto; padding: 28px 16px 80px; }
+    h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; }
+    .sub { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 20px 0 18px; }
+    .spacer { flex: 1; }
+    .btn {
+        font: 500 12px var(--font-mono); padding: 7px 12px; border: 1px solid var(--border); border-radius: 6px;
+        background: var(--surface); color: var(--text-secondary); cursor: pointer;
+    }
+    .btn:hover { color: var(--text-primary); border-color: var(--text-muted); }
+    .btn.primary { background: var(--text-primary); color: var(--surface); border-color: var(--text-primary); }
+    .btn.danger { color: var(--bad); }
+    .sync { font: 11px var(--font-mono); color: var(--text-muted); }
+    .sync.bad { color: var(--bad); }
+
+    .notice { font-size: 13px; line-height: 1.55; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); margin-bottom: 16px; }
+    .notice strong { color: var(--text-primary); }
+
+    /* ── Tiles ── */
+    .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 12px; }
+    .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; min-width: 0; }
+    .tile-label { font: 11px var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+    .tile-value { font-size: 1.7rem; font-weight: 650; letter-spacing: -0.02em; margin-top: 6px; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tile-note { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+    /* ── Cards ── */
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; min-width: 0; }
+    .card.wide { grid-column: 1 / -1; }
+    .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+    .card h2 { font-size: 14px; font-weight: 600; }
+    .card h3 { font: 500 11px var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin: 18px 0 8px; }
+    .hint { font: 11px var(--font-mono); color: var(--text-muted); }
+    .note { font-size: 12px; color: var(--text-muted); line-height: 1.5; margin-top: 10px; }
+    .empty { font-size: 13px; color: var(--text-muted); padding: 14px 0; text-align: center; }
+
+    /* ── Where it goes: one stacked bar ── */
+    .stack { display: flex; gap: 2px; height: 28px; margin: 4px 0 12px; }
+    .seg-bar { min-width: 2px; border-radius: 4px; cursor: default; }
+    .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--text-secondary); }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+    .legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+    .legend b { color: var(--text-primary); font-weight: 600; }
+
+    /* ── Health checks ── */
+    .checks { list-style: none; }
+    .checks li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding: 9px 0; border-top: 1px solid var(--border); }
+    .checks li:first-child { border-top: none; padding-top: 0; }
+    .check-name { font-size: 13px; font-weight: 600; }
+    .check-val { font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; }
+    .check-why { font-size: 12px; color: var(--text-muted); grid-column: 1 / -1; line-height: 1.45; }
+    .status { font: 500 11px var(--font-mono); display: inline-flex; align-items: center; gap: 5px; margin-left: 8px; }
+    .status::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+    .status.good { color: var(--good); } .status.warn { color: var(--warn); } .status.bad { color: var(--bad); }
+    .status.none { color: var(--text-muted); }
+
+    /* ── Editable rows ── */
+    .rows { display: flex; flex-direction: column; gap: 8px; }
+    .row {
+        display: grid; gap: 6px; align-items: center;
+        grid-template-columns: minmax(0, 1.6fr) 104px 136px minmax(0, 1fr) 28px;
+    }
+    .row.income { grid-template-columns: minmax(0, 1.6fr) 104px 136px 28px; }
+    .row-head { font: 500 10.5px var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+    input, select {
+        font: 13px var(--font-ui); padding: 7px 8px; border-radius: 6px; min-width: 0; width: 100%;
+        border: 1px solid var(--border); background: var(--page); color: var(--text-primary);
+    }
+    input[type="number"] { font-variant-numeric: tabular-nums; text-align: right; }
+    input:focus, select:focus { outline: 2px solid var(--s1); outline-offset: -1px; }
+    .x { width: 28px; height: 28px; border: none; background: none; color: var(--text-muted); font-size: 18px; cursor: pointer; border-radius: 6px; }
+    .x:hover { color: var(--bad); background: var(--surface-2); }
+    .x[disabled] { visibility: hidden; }
+    .per-mo { font: 11px var(--font-mono); color: var(--text-muted); grid-column: 1 / -1; margin-top: -4px; display: none; }
+    .add { margin-top: 10px; }
+    .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .fields.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .field label { display: block; font: 11px var(--font-mono); color: var(--text-muted); margin-bottom: 4px; }
+
+    /* ── Ranked rows ── */
+    table.rank { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.rank th { font: 500 10.5px var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); text-align: right; padding: 0 0 6px 10px; }
+    table.rank th:first-child { text-align: left; padding-left: 0; }
+    table.rank td { padding: 5px 0 5px 10px; text-align: right; font-variant-numeric: tabular-nums; color: var(--text-secondary); border-top: 1px solid var(--border); white-space: nowrap; }
+    table.rank td:first-child { text-align: left; padding-left: 0; color: var(--text-primary); width: 100%; position: relative; }
+    .rank-name { position: relative; z-index: 1; }
+    .rank-bar { position: absolute; left: 0; top: 3px; bottom: 3px; background: var(--s1-soft); border-radius: 0 4px 4px 0; }
+
+    /* ── 401(k) ── */
+    .proj { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+    .proj div { background: var(--surface-2); border-radius: 6px; padding: 8px 10px; }
+    .proj b { display: block; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+    .proj span { font: 11px var(--font-mono); color: var(--text-muted); }
+    .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+    .axis text { font: 10px var(--font-mono); fill: var(--text-muted); }
+    .axis line { stroke: var(--grid); }
+    .history { margin-top: 10px; font-size: 12px; color: var(--text-secondary); }
+    .history summary { cursor: pointer; color: var(--text-muted); font-family: var(--font-mono); font-size: 11px; }
+    .history div { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 2px 0; font-variant-numeric: tabular-nums; }
+
+    /* ── Tooltip ── */
+    #tip {
+        position: fixed; z-index: 300; pointer-events: none; display: none;
+        background: var(--surface); color: var(--text-primary); border: 1px solid var(--border);
+        border-radius: 6px; padding: 7px 10px; font-size: 12px; line-height: 1.45;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12); max-width: 260px;
+    }
+    #tip .muted { color: var(--text-muted); }
+
+    /* ── Unlock ── */
+    .signin { max-width: 420px; margin: 48px auto; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 22px; }
+    .signin h2 { font-size: 16px; margin-bottom: 6px; }
+    .signin p { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 14px; }
+    .signin input { font: 14px var(--font-mono); padding: 9px 11px; margin-bottom: 10px; }
+    .signin .line { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    label.check { font: 12px var(--font-mono); color: var(--text-secondary); display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+    label.check input { width: auto; }
+    .err { color: var(--bad); font-size: 13px; margin-top: 10px; min-height: 1em; line-height: 1.45; }
+    .setup { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+    pre.env { font: 12px var(--font-mono); background: var(--surface-2); border-radius: 6px; padding: 10px; overflow-x: auto; margin-bottom: 10px; color: var(--text-primary); }
+
+    footer { margin-top: 28px; font: 11px var(--font-mono); color: var(--text-muted); line-height: 1.7; }
+
+    @media (max-width: 760px) {
+        .tiles { grid-template-columns: repeat(2, 1fr); }
+        .tile-value { font-size: 1.35rem; }
+        .grid { grid-template-columns: minmax(0, 1fr); }
+        .row, .row.income { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 28px; }
+        .row .name { grid-column: 1 / 3; }
+        .row .x-slot { grid-column: 3; grid-row: 1; }
+        .row .cat { grid-column: 1 / 3; }
+        .row-head { display: none; }
+        .per-mo { display: block; }
+        .fields.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .spacer { display: none; }
+    }
+</style>
+</head>
+<body>
+
+<nav>
+    <a class="nav-logo" href="/"><strong>davenn</strong>dotcom</a>
+    <div class="nav-right">
+        <button class="theme-toggle" id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
+            <div class="theme-toggle-track"><div class="theme-toggle-thumb" id="toggle-icon">🌙</div></div>
+        </button>
+    </div>
+</nav>
+
+<main>
+    <h1>Finance</h1>
+    <p class="sub">Private. Encrypted in this browser before it is saved; the server only ever holds scrambled data.</p>
+
+    <form class="signin" id="signin" hidden>
+        <h2>Unlock</h2>
+        <p>Enter your passphrase. It never leaves this device. Two keys are made from it here: one the server checks, and one that encrypts your numbers.</p>
+        <input type="password" id="pass" autocomplete="current-password" placeholder="Passphrase" required>
+        <div class="line">
+            <label class="check"><input type="checkbox" id="remember"> Remember on this device</label>
+            <button class="btn primary" type="submit" id="unlock">Unlock</button>
+        </div>
+        <div class="err" id="signin-err"></div>
+
+        <div class="setup" id="setup" hidden>
+            <h2>First-time setup</h2>
+            <p>The server has no Finance key yet. Type the same passphrase again to confirm it. Use at least 12 characters, and keep it somewhere safe: <strong>there is no reset.</strong> Without it nobody can read the saved data, including the server.</p>
+            <input type="password" id="pass2" autocomplete="new-password" placeholder="Passphrase again">
+            <button class="btn" type="button" id="confirm">Confirm</button>
+            <div id="env-out" hidden>
+                <p style="margin-top:14px">Add this line to <code>.env</code> beside <code>api.php</code> on the host, then press Unlock.</p>
+                <pre class="env" id="env-line"></pre>
+                <button class="btn" type="button" id="copy-env">Copy</button>
+            </div>
+            <div class="err" id="setup-err"></div>
+        </div>
+    </form>
+
+    <div id="dash" hidden>
+        <div class="toolbar">
+            <span class="sync" id="sync" aria-live="polite"></span>
+            <div class="spacer"></div>
+            <button class="btn" type="button" id="export">Back up</button>
+            <button class="btn" type="button" id="import">Restore</button>
+            <input type="file" id="import-file" accept="application/json,.json" hidden>
+            <button class="btn" type="button" id="lock">Lock</button>
+        </div>
+
+        <div id="notices"></div>
+
+        <div class="tiles">
+            <div class="tile"><div class="tile-label">Take-home / mo</div><div class="tile-value" id="t-income">–</div><div class="tile-note" id="t-income-n"></div></div>
+            <div class="tile"><div class="tile-label">Recurring / mo</div><div class="tile-value" id="t-costs">–</div><div class="tile-note" id="t-costs-n"></div></div>
+            <div class="tile"><div class="tile-label">Saving / mo</div><div class="tile-value" id="t-saving">–</div><div class="tile-note" id="t-saving-n"></div></div>
+            <div class="tile"><div class="tile-label">Left over / mo</div><div class="tile-value" id="t-left">–</div><div class="tile-note" id="t-left-n"></div></div>
+        </div>
+
+        <div class="grid">
+            <section class="card wide">
+                <div class="card-head"><h2>Where take-home goes</h2><span class="hint">per month</span></div>
+                <div class="stack" id="stack"></div>
+                <div class="legend" id="stack-legend"></div>
+            </section>
+
+            <section class="card">
+                <div class="card-head"><h2>Health check</h2><span class="hint">rules of thumb</span></div>
+                <ul class="checks" id="checks"></ul>
+            </section>
+
+            <section class="card">
+                <div class="card-head"><h2>Income</h2><span class="hint">take-home, after tax &amp; 401(k)</span></div>
+                <div class="rows" id="income"></div>
+                <button class="btn add" type="button" id="add-income">+ Add income</button>
+                <h3>Savings on hand</h3>
+                <div class="fields">
+                    <div class="field">
+                        <label for="cash">Cash savings / emergency fund</label>
+                        <input type="number" id="cash" inputmode="decimal" min="0" step="0.01" placeholder="0">
+                    </div>
+                </div>
+            </section>
+
+            <section class="card wide">
+                <div class="card-head"><h2>Recurring costs</h2><span class="hint" id="costs-hint"></span></div>
+                <div class="rows" id="bills"></div>
+                <button class="btn add" type="button" id="add-bill">+ Add cost</button>
+                <p class="note">Put transfers to savings, an HSA or a brokerage account under <strong>Savings</strong>. They count toward what you save, not what you spend.</p>
+                <h3>By category</h3>
+                <div id="by-cat"></div>
+            </section>
+
+            <section class="card wide">
+                <div class="card-head"><h2>401(k)</h2><span class="hint" id="k-hint"></span></div>
+                <div class="fields four" id="k-fields">
+                    <div class="field"><label for="k-bal">Current balance</label><input type="number" id="k-bal" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
+                    <div class="field"><label for="k-mine">You, per paycheck</label><input type="number" id="k-mine" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
+                    <div class="field"><label for="k-match">Employer, per paycheck</label><input type="number" id="k-match" inputmode="decimal" min="0" step="0.01" placeholder="0"></div>
+                    <div class="field"><label for="k-ret">Yearly return %</label><input type="number" id="k-ret" inputmode="decimal" min="0" max="20" step="0.1" placeholder="6"></div>
+                </div>
+                <div class="proj" id="proj"></div>
+                <h3>Balance over time</h3>
+                <div class="chart" id="k-chart"></div>
+                <button class="btn add" type="button" id="log-bal">Log today's balance</button>
+                <details class="history" id="k-history"></details>
+                <p class="note">Projections are nominal dollars, before inflation, and assume you keep contributing at the current rate. Contributions follow the paycheck's schedule.</p>
+            </section>
+        </div>
+
+        <footer>
+            Saved encrypted (AES-GCM, key from your passphrase by PBKDF2). Back up writes an <strong>unencrypted</strong> file; keep it somewhere private.
+        </footer>
+    </div>
+</main>
+
+<div id="tip" role="tooltip"></div>
+
+<script>
+(function () {
+    'use strict';
+
+    // ── Theme ──
+    var toggle = document.getElementById('theme-toggle');
+    var icon = document.getElementById('toggle-icon');
+    icon.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '🌙' : '☀️';
+    toggle.addEventListener('click', function () {
+        var t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+        icon.textContent = t === 'dark' ? '🌙' : '☀️';
+        try { localStorage.setItem('finance_theme', t); } catch (e) {}
+        if (state.data) render();
+    });
+
+    // ── Storage helpers: every read and write can throw in a private window ──
+    function get(store, k) { try { return window[store].getItem(k); } catch (e) { return null; } }
+    function set(store, k, v) { try { v === null ? window[store].removeItem(k) : window[store].setItem(k, v); } catch (e) {} }
+
+    var API = '/api.php';
+    var SVGNS = 'http://www.w3.org/2000/svg';
+    var $ = function (id) { return document.getElementById(id); };
+
+    var FREQS = [
+        ['weekly', 'Weekly', 52 / 12],
+        ['biweekly', 'Every 2 weeks', 26 / 12],
+        ['semimonthly', 'Twice a month', 2],
+        ['monthly', 'Monthly', 1],
+        ['quarterly', 'Quarterly', 1 / 3],
+        ['yearly', 'Yearly', 1 / 12]
+    ];
+    var PER_MONTH = {};
+    FREQS.forEach(function (f) { PER_MONTH[f[0]] = f[2]; });
+    var CATEGORIES = ['Housing', 'Utilities', 'Transportation', 'Insurance', 'Debt', 'Food', 'Kids', 'Health', 'Subscriptions', 'Savings', 'Other'];
+
+    var state = {
+        keys: null,        // { aes: CryptoKey, access: hex string }
+        data: null,        // the decrypted vault
+        version: 0,        // server version the data was loaded at
+        dirty: false, saving: false, again: false, timer: null, retry: null
+    };
+
+    // ══════════════════════════════════════════════════════════════
+    // Crypto. One passphrase, stretched by PBKDF2 into 512 bits: the first
+    // half is the AES-GCM key, which never leaves the browser; the second is
+    // the access key the server checks (it stores only its SHA-256). Knowing
+    // the access key tells you nothing about the AES key.
+    // ══════════════════════════════════════════════════════════════
+    var enc = new TextEncoder(), dec = new TextDecoder();
+    var SALT = enc.encode('davenn.com/finance/v1');
+    var ITERATIONS = 600000;
+
+    function hex(bytes) { return Array.prototype.map.call(bytes, function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); }
+    function b64(bytes) { var s = ''; for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s); }
+    function unb64(str) { var s = atob(str), out = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) out[i] = s.charCodeAt(i); return out; }
+
+    function derive(pass) {
+        return crypto.subtle.importKey('raw', enc.encode(pass.normalize('NFC')), 'PBKDF2', false, ['deriveBits'])
+            .then(function (base) {
+                return crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: SALT, iterations: ITERATIONS }, base, 512);
+            })
+            .then(function (bits) {
+                bits = new Uint8Array(bits);
+                return { raw: b64(bits.slice(0, 32)), access: hex(bits.slice(32)) };
+            });
+    }
+    function importKeys(k) {
+        return crypto.subtle.importKey('raw', unb64(k.raw), 'AES-GCM', false, ['encrypt', 'decrypt'])
+            .then(function (aes) { return { aes: aes, access: k.access }; });
+    }
+    function sha256hex(str) {
+        return crypto.subtle.digest('SHA-256', enc.encode(str)).then(function (h) { return hex(new Uint8Array(h)); });
+    }
+    function encrypt(obj) {
+        var iv = crypto.getRandomValues(new Uint8Array(12));
+        return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, state.keys.aes, enc.encode(JSON.stringify(obj)))
+            .then(function (ct) { return 'v1.' + b64(iv) + '.' + b64(new Uint8Array(ct)); });
+    }
+    function decrypt(blob) {
+        var p = String(blob).split('.');
+        if (p[0] !== 'v1' || p.length !== 3) return Promise.reject(new Error('format'));
+        return crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(p[1]) }, state.keys.aes, unb64(p[2]))
+            .then(function (pt) { return JSON.parse(dec.decode(pt)); });
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // Data
+    // ══════════════════════════════════════════════════════════════
+    function uid() { return Math.random().toString(36).slice(2, 10); }
+    function num(v) { v = parseFloat(v); return isFinite(v) && v > 0 ? Math.round(v * 100) / 100 : 0; }
+    function freq(v, d) { return PER_MONTH[v] ? v : d; }
+    function str(v, max) { return String(v == null ? '' : v).slice(0, max); }
+    function today() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+
+    // Anything read back (the server, a restored file) goes through here, so the
+    // rest of the page can trust the shape.
+    function normalize(o) {
+        o = o && typeof o === 'object' ? o : {};
+        var income = Array.isArray(o.income) ? o.income : [];
+        var out = {
+            v: 1,
+            income: income.map(function (r) {
+                return { id: str(r.id, 12) || uid(), name: str(r.name, 60), amount: num(r.amount), freq: freq(r.freq, 'monthly') };
+            }),
+            bills: (Array.isArray(o.bills) ? o.bills : []).map(function (r) {
+                return {
+                    id: str(r.id, 12) || uid(), name: str(r.name, 60), amount: num(r.amount),
+                    freq: freq(r.freq, 'monthly'), cat: CATEGORIES.indexOf(r.cat) >= 0 ? r.cat : 'Other'
+                };
+            }),
+            cash: num(o.cash),
+            k401: {
+                balance: num(o.k401 && o.k401.balance),
+                mine: num(o.k401 && o.k401.mine),
+                match: num(o.k401 && o.k401.match),
+                ret: o.k401 && isFinite(parseFloat(o.k401.ret)) ? Math.max(0, Math.min(20, parseFloat(o.k401.ret))) : 6,
+                history: (o.k401 && Array.isArray(o.k401.history) ? o.k401.history : [])
+                    .filter(function (h) { return h && /^\d{4}-\d{2}-\d{2}$/.test(h.d); })
+                    .map(function (h) { return { d: h.d, b: num(h.b) }; })
+                    .sort(function (a, b) { return a.d < b.d ? -1 : 1; })
+            }
+        };
+        // The paycheck is the first income line and cannot be removed: 401(k)
+        // contributions follow its schedule.
+        var pay = out.income.filter(function (r) { return r.id === 'pay'; })[0] ||
+            { id: 'pay', name: 'Paycheck', amount: 0, freq: 'biweekly' };
+        out.income = [pay].concat(out.income.filter(function (r) { return r.id !== 'pay'; }));
+        return out;
+    }
+
+    function totals(d) {
+        var t = { income: 0, costs: 0, xfer: 0, cats: {} };
+        d.income.forEach(function (r) { t.income += r.amount * PER_MONTH[r.freq]; });
+        d.bills.forEach(function (r) {
+            var m = r.amount * PER_MONTH[r.freq];
+            if (r.cat === 'Savings') t.xfer += m; else t.costs += m;
+            t.cats[r.cat] = (t.cats[r.cat] || 0) + m;
+        });
+        var pf = PER_MONTH[d.income[0].freq];
+        t.kMine = d.k401.mine * pf;
+        t.kMatch = d.k401.match * pf;
+        t.k401 = t.kMine + t.kMatch;
+        t.saving = t.xfer + t.k401;
+        t.left = t.income - t.costs - t.xfer;
+        return t;
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // Server
+    // ══════════════════════════════════════════════════════════════
+    function call(method, action, body) {
+        var opts = { method: method, headers: { 'X-FN-Key': state.keys ? state.keys.access : '' } };
+        if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+        return fetch(API + '?action=' + action, opts).then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (j) { j._status = r.status; return j; });
+        });
+    }
+
+    function sync(text, bad) { var s = $('sync'); s.textContent = text; s.className = 'sync' + (bad ? ' bad' : ''); }
+
+    // Load the vault for the keys in state.keys. Resolves to true when the page
+    // has data to show.
+    function load(quiet) {
+        return call('GET', 'fn_vault').then(function (r) {
+            if (r._status === 401 || r._status === 429 || r._status === 503) return Promise.reject(r);
+            if (!r.success) return Promise.reject({ error: r.error || 'The server did not answer properly.' });
+            if (!r.blob) {
+                state.version = r.version;
+                state.data = normalize(null);
+                if (!quiet) sync('Nothing saved yet');
+                return true;
+            }
+            return decrypt(r.blob).then(function (data) {
+                state.version = r.version;
+                state.data = normalize(data);
+                set('localStorage', 'finance_cache', JSON.stringify({ blob: r.blob, version: r.version }));
+                if (!quiet) sync('Up to date');
+                return true;
+            }, function () {
+                return Promise.reject({ error: 'Your passphrase was accepted, but the saved data was encrypted with a different one, so it cannot be read. Restore a backup to replace it. Anything you enter here will also replace it.', undecryptable: true });
+            });
+        }, function () {
+            // Offline: fall back to the last copy this device saw, still encrypted.
+            var c = null;
+            try { c = JSON.parse(get('localStorage', 'finance_cache') || 'null'); } catch (e) {}
+            if (!c || !c.blob) return Promise.reject({ error: 'Could not reach the server, and this device has no saved copy.' });
+            return decrypt(c.blob).then(function (data) {
+                state.version = c.version;
+                state.data = normalize(data);
+                sync('Offline: showing this device\'s last copy', true);
+                return true;
+            }, function () { return Promise.reject({ error: 'Could not reach the server.' }); });
+        });
+    }
+
+    function scheduleSave() {
+        state.dirty = true;
+        sync('Saving…');
+        clearTimeout(state.timer);
+        state.timer = setTimeout(save, 700);
+    }
+
+    function save() {
+        if (!state.keys || !state.data) return;
+        if (state.saving) { state.again = true; return; }
+        state.saving = true; state.dirty = false;
+        clearTimeout(state.retry);
+        encrypt(state.data).then(function (blob) {
+            return call('POST', 'fn_save', { blob: blob, version: state.version }).then(function (r) {
+                if (r.success) {
+                    state.version = r.version;
+                    set('localStorage', 'finance_cache', JSON.stringify({ blob: blob, version: r.version }));
+                    sync('Saved ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }));
+                    return;
+                }
+                if (r._status === 409) return conflict(r.version);
+                if (r._status === 401 || r._status === 429) { lock('Locked: ' + (r.error || 'the server no longer accepts this passphrase.')); return; }
+                state.dirty = true;
+                sync('Not saved: ' + (r.error || 'server error') + '. Retrying…', true);
+                state.retry = setTimeout(save, 15000);
+            });
+        }).catch(function () {
+            state.dirty = true;
+            sync('Offline: changes will save when you reconnect', true);
+            state.retry = setTimeout(save, 15000);
+        }).then(function () {
+            state.saving = false;
+            if (state.again) { state.again = false; save(); }
+        });
+    }
+
+    // Another device saved since this one loaded. Ask rather than guess.
+    function conflict(serverVersion) {
+        var keep = confirm('Finance was changed on another device since you opened it here.\n\nOK: keep the version on this screen and overwrite the other.\nCancel: load the other version (your latest change here is dropped).');
+        if (keep) {
+            state.version = serverVersion;
+            state.again = true;
+            return;
+        }
+        return load().then(render, function (e) { sync(e.error || 'Could not reload.', true); });
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // Unlock / lock
+    // ══════════════════════════════════════════════════════════════
+    function showSignin(msg) {
+        $('dash').hidden = true;
+        $('signin').hidden = false;
+        $('signin-err').textContent = msg || '';
+        $('pass').focus();
+    }
+
+    function lock(msg) {
+        clearTimeout(state.timer); clearTimeout(state.retry);
+        state.keys = null; state.data = null; state.dirty = false;
+        set('sessionStorage', 'finance_keys', null);
+        set('localStorage', 'finance_keys', null);
+        $('pass').value = ''; $('pass2').value = '';
+        $('setup').hidden = true;
+        $('notices').innerHTML = '';
+        showSignin(msg);
+    }
+
+    function opened(raw, remember) {
+        $('signin').hidden = true;
+        $('dash').hidden = false;
+        $('setup').hidden = true;
+        $('pass').value = ''; $('pass2').value = '';
+        set('sessionStorage', 'finance_keys', JSON.stringify(raw));
+        if (remember) set('localStorage', 'finance_keys', JSON.stringify(raw));
+        render();
+    }
+
+    function tryKeys(raw, remember) {
+        return importKeys(raw).then(function (keys) {
+            state.keys = keys;
+            return load().then(function () { opened(raw, remember); });
+        }).catch(function (e) {
+            if (e && e.undecryptable) {
+                // Right passphrase, unreadable data: let them restore over it.
+                state.data = normalize(null);
+                opened(raw, remember);
+                notice(e.error, true);
+                return;
+            }
+            state.keys = null;
+            // Keys that no longer open the vault are not worth remembering.
+            set('sessionStorage', 'finance_keys', null);
+            set('localStorage', 'finance_keys', null);
+            if (e && e._status === 503) {
+                $('dash').hidden = true;
+                $('signin').hidden = false;
+                $('setup').hidden = false;
+                $('env-out').hidden = true;
+                $('signin-err').textContent = '';
+                $('pass2').focus();
+                return;
+            }
+            showSignin((e && e.error) || 'Could not unlock.');
+        });
+    }
+
+    $('signin').addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        var pass = $('pass').value;
+        if (!pass) return;
+        if (!window.crypto || !crypto.subtle) { $('signin-err').textContent = 'This browser cannot encrypt here (it needs HTTPS).'; return; }
+        $('unlock').disabled = true;
+        $('signin-err').textContent = 'Unlocking…';
+        derive(pass).then(function (raw) { return tryKeys(raw, $('remember').checked); })
+            .catch(function () { $('signin-err').textContent = 'Could not unlock.'; })
+            .then(function () { $('unlock').disabled = false; });
+    });
+
+    $('confirm').addEventListener('click', function () {
+        var p1 = $('pass').value, p2 = $('pass2').value;
+        $('setup-err').textContent = '';
+        if (p1.length < 12) { $('setup-err').textContent = 'Use at least 12 characters.'; return; }
+        if (p1 !== p2) { $('setup-err').textContent = 'Those do not match.'; return; }
+        derive(p1).then(function (raw) {
+            return sha256hex(raw.access);
+        }).then(function (h) {
+            $('env-line').textContent = 'FN_KEY_HASH=' + h;
+            $('env-out').hidden = false;
+        });
+    });
+
+    $('copy-env').addEventListener('click', function () {
+        var t = $('env-line').textContent;
+        if (navigator.clipboard) navigator.clipboard.writeText(t).then(function () { $('copy-env').textContent = 'Copied'; });
+    });
+
+    $('lock').addEventListener('click', function () {
+        if (state.dirty && !confirm('A change has not saved yet. Lock anyway?')) return;
+        lock('');
+    });
+
+    // Coming back to the page: pick up anything another device saved meanwhile.
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState !== 'visible' || !state.keys || state.dirty || state.saving) return;
+        var before = state.version;
+        load(true).then(function () { if (state.version !== before) { render(); sync('Updated from another device'); } }, function () {});
+    });
+
+    // ══════════════════════════════════════════════════════════════
+    // Rendering
+    // ══════════════════════════════════════════════════════════════
+    var money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+    function $$(n) { return money.format(Math.round(n || 0)); }
+    function short$(n) {
+        var a = Math.abs(n);
+        if (a >= 1e6) return '$' + (n / 1e6).toFixed(a >= 1e7 ? 0 : 1) + 'M';
+        if (a >= 1e3) return '$' + Math.round(n / 1e3) + 'k';
+        return '$' + Math.round(n);
+    }
+    function pct(n) { return (Math.round(n * 1000) / 10) + '%'; }
+
+    function el(tag, attrs, text) {
+        var svg = /^(svg|g|rect|path|line|text|circle)$/.test(tag);
+        var n = svg ? document.createElementNS(SVGNS, tag) : document.createElement(tag);
+        for (var k in attrs || {}) n.setAttribute(k, attrs[k]);
+        if (text !== undefined && text !== null) n.textContent = text;
+        return n;
+    }
+
+    function notice(text, bad) {
+        var n = el('div', { 'class': 'notice' });
+        if (bad) n.style.borderColor = 'var(--bad)';
+        n.textContent = text;
+        $('notices').appendChild(n);
+    }
+
+    var tip = $('tip');
+    function showTip(ev, html) {
+        tip.innerHTML = html; tip.style.display = 'block';
+        var x = ev.clientX + 14, y = ev.clientY + 14, w = tip.offsetWidth, h = tip.offsetHeight;
+        if (x + w > innerWidth - 8) x = ev.clientX - w - 14;
+        if (y + h > innerHeight - 8) y = ev.clientY - h - 14;
+        tip.style.left = Math.max(8, x) + 'px'; tip.style.top = Math.max(8, y) + 'px';
+    }
+    function hideTip() { tip.style.display = 'none'; }
+    function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+    function render() {
+        var d = state.data;
+        if (!d) return;
+        renderInputs(d);
+        renderComputed();
+    }
+
+    // Everything derived from the numbers, without touching the inputs, so it
+    // can rerun on every keystroke without stealing focus.
+    function renderComputed() {
+        var d = state.data, t = totals(d);
+        renderTiles(d, t);
+        renderStack(t);
+        renderChecks(d, t);
+        renderCats(t);
+        renderK401(d, t);
+        renderPerMonth(d);
+    }
+
+    function renderTiles(d, t) {
+        $('t-income').textContent = $$(t.income);
+        $('t-income-n').textContent = $$(t.income * 12) + ' a year';
+        $('t-costs').textContent = $$(t.costs);
+        $('t-costs-n').textContent = t.income ? pct(t.costs / t.income) + ' of take-home' : d.bills.length + ' costs';
+        $('t-saving').textContent = $$(t.saving);
+        $('t-saving-n').textContent = t.k401 ? 'incl. ' + $$(t.k401) + ' to 401(k)' : 'transfers to savings';
+        $('t-left').textContent = (t.left < 0 ? '−' : '') + $$(Math.abs(t.left));
+        $('t-left-n').innerHTML = t.left < 0 ? '<span class="status bad">Short</span>' : (t.income ? 'unplanned each month' : '');
+    }
+
+    function renderStack(t) {
+        var stack = $('stack'), legend = $('stack-legend');
+        stack.innerHTML = ''; legend.innerHTML = '';
+        var parts = [
+            ['Recurring costs', t.costs, 'var(--s1)'],
+            ['Saving', t.xfer, 'var(--s2)'],
+            ['Left over', Math.max(0, t.left), 'var(--s3)']
+        ];
+        var total = parts.reduce(function (a, p) { return a + p[1]; }, 0);
+        if (!total) { stack.appendChild(el('div', { 'class': 'empty', style: 'width:100%' }, 'Add your paycheck and costs to see this.')); return; }
+        parts.forEach(function (p) {
+            if (p[1] <= 0) return;
+            var share = p[1] / total;
+            var seg = el('div', { 'class': 'seg-bar', style: 'flex:' + share + ' 1 0;background:' + p[2] });
+            var tipHtml = '<strong>' + p[0] + '</strong><br>' + $$(p[1]) + ' a month' +
+                (t.income ? '<br><span class="muted">' + pct(p[1] / t.income) + ' of take-home</span>' : '');
+            seg.addEventListener('pointermove', function (ev) { showTip(ev, tipHtml); });
+            seg.addEventListener('pointerleave', hideTip);
+            stack.appendChild(seg);
+        });
+        parts.forEach(function (p) {
+            var s = el('span');
+            s.appendChild(el('i', { style: 'background:' + p[2] }));
+            s.appendChild(document.createTextNode(p[0] + ' '));
+            s.appendChild(el('b', null, $$(p[1])));
+            legend.appendChild(s);
+        });
+        if (t.left < 0) {
+            var s = el('span');
+            s.innerHTML = '<span class="status bad" style="margin:0">Short</span>';
+            s.appendChild(document.createTextNode(' costs and saving exceed take-home by ' + $$(-t.left)));
+            legend.appendChild(s);
+        }
+    }
+
+    function check(name, value, level, word, why) {
+        var li = el('li');
+        li.appendChild(el('div', { 'class': 'check-name' }, name));
+        var v = el('div', { 'class': 'check-val' }, value);
+        v.appendChild(el('span', { 'class': 'status ' + level }, word));
+        li.appendChild(v);
+        li.appendChild(el('div', { 'class': 'check-why' }, why));
+        $('checks').appendChild(li);
+    }
+
+    function renderChecks(d, t) {
+        $('checks').innerHTML = '';
+        if (!t.income) {
+            check('Income', '—', 'none', 'Not set', 'Enter your take-home pay to see how things stack up.');
+            return;
+        }
+        var fixed = t.costs / t.income;
+        check('Recurring costs', pct(fixed) + ' of take-home',
+            fixed <= 0.5 ? 'good' : fixed <= 0.65 ? 'warn' : 'bad',
+            fixed <= 0.5 ? 'Good' : fixed <= 0.65 ? 'Watch' : 'High',
+            'Under half leaves room for everything else. Above about two thirds, one surprise bill hurts.');
+
+        var cushion = t.left / t.income;
+        check('Monthly cushion', (t.left < 0 ? '−' : '') + $$(Math.abs(t.left)),
+            cushion >= 0.1 ? 'good' : t.left >= 0 ? 'warn' : 'bad',
+            cushion >= 0.1 ? 'Good' : t.left >= 0 ? 'Tight' : 'Short',
+            'What is left after recurring costs and savings transfers, for groceries, fun and the unexpected (unless you list those as costs).');
+
+        if (t.k401) {
+            // There is no gross pay here, so the base is take-home plus your own
+            // pre-tax contribution. That is smaller than gross, so this reads high.
+            var rate = t.k401 / (t.income + t.kMine);
+            check('Retirement saving', '≈ ' + pct(rate) + ' of pay',
+                rate >= 0.15 ? 'good' : rate >= 0.1 ? 'warn' : 'bad',
+                rate >= 0.15 ? 'On track' : rate >= 0.1 ? 'OK' : 'Low',
+                'A common target is 15% including the match. Measured against take-home plus your 401(k) since gross pay is not entered, so the true share of gross is a bit lower.');
+        } else {
+            check('Retirement saving', '—', 'none', 'Not set', 'Add your 401(k) contribution per paycheck below.');
+        }
+
+        var spend = t.costs;
+        if (d.cash && spend) {
+            var months = d.cash / spend;
+            check('Emergency fund', (Math.round(months * 10) / 10) + ' months',
+                months >= 6 ? 'good' : months >= 3 ? 'warn' : 'bad',
+                months >= 6 ? 'Good' : months >= 3 ? 'OK' : 'Low',
+                'Cash savings divided by monthly recurring costs. Three to six months is the usual aim.');
+        } else {
+            check('Emergency fund', '—', 'none', 'Not set', 'Add your cash savings in the Income card to see how many months it covers.');
+        }
+    }
+
+    function renderCats(t) {
+        var box = $('by-cat'); box.innerHTML = '';
+        var rows = Object.keys(t.cats).map(function (k) { return [k, t.cats[k]]; })
+            .filter(function (r) { return r[1] > 0; })
+            .sort(function (a, b) { return b[1] - a[1]; });
+        $('costs-hint').textContent = state.data.bills.length ? $$(t.costs + t.xfer) + ' / mo in all' : '';
+        if (!rows.length) { box.appendChild(el('div', { 'class': 'empty' }, 'Nothing yet.')); return; }
+        var max = rows[0][1];
+        var table = el('table', { 'class': 'rank' });
+        table.innerHTML = '<thead><tr><th>Category</th><th>/ mo</th><th>/ yr</th><th>Share</th></tr></thead>';
+        var tb = el('tbody');
+        var all = t.costs + t.xfer;
+        rows.forEach(function (r) {
+            var tr = el('tr');
+            var td = el('td');
+            td.appendChild(el('div', { 'class': 'rank-bar', style: 'width:' + (r[1] / max * 100) + '%' }));
+            td.appendChild(el('span', { 'class': 'rank-name' }, r[0]));
+            tr.appendChild(td);
+            tr.appendChild(el('td', null, $$(r[1])));
+            tr.appendChild(el('td', null, $$(r[1] * 12)));
+            tr.appendChild(el('td', null, pct(r[1] / all)));
+            tb.appendChild(tr);
+        });
+        table.appendChild(tb);
+        box.appendChild(table);
+    }
+
+    // Future value with monthly compounding and a monthly contribution.
+    function project(balance, monthly, ratePct, years) {
+        var i = ratePct / 100 / 12, n = years * 12;
+        if (!i) return balance + monthly * n;
+        var g = Math.pow(1 + i, n);
+        return balance * g + monthly * (g - 1) / i;
+    }
+
+    function renderK401(d, t) {
+        var k = d.k401;
+        $('k-hint').textContent = t.k401 ? $$(t.k401) + ' / mo · ' + $$(t.k401 * 12) + ' / yr' : '';
+        var proj = $('proj'); proj.innerHTML = '';
+        [10, 20, 30].forEach(function (y) {
+            var box = el('div');
+            box.appendChild(el('b', null, (k.balance || t.k401) ? short$(project(k.balance, t.k401, k.ret, y)) : '—'));
+            box.appendChild(el('span', null, 'in ' + y + ' years'));
+            proj.appendChild(box);
+        });
+        drawHistory(k.history);
+
+        var h = $('k-history'); h.innerHTML = '';
+        h.hidden = !k.history.length;
+        h.appendChild(el('summary', null, k.history.length + ' logged balance' + (k.history.length === 1 ? '' : 's')));
+        k.history.slice().reverse().forEach(function (row) {
+            var line = el('div');
+            line.appendChild(el('span', null, row.d));
+            var right = el('span');
+            right.appendChild(document.createTextNode($$(row.b)));
+            var x = el('button', { 'class': 'x', type: 'button', title: 'Remove', 'aria-label': 'Remove ' + row.d }, '×');
+            x.addEventListener('click', function () {
+                d.k401.history = d.k401.history.filter(function (r) { return r !== row; });
+                renderComputed(); scheduleSave();
+            });
+            right.appendChild(x);
+            line.appendChild(right);
+            h.appendChild(line);
+        });
+    }
+
+    function drawHistory(hist) {
+        var box = $('k-chart'); box.innerHTML = '';
+        if (hist.length < 2) {
+            box.appendChild(el('div', { 'class': 'empty' }, hist.length ? 'Log your balance again later to see a trend.' : 'Log your balance now and then to see it grow.'));
+            return;
+        }
+        var W = Math.max(280, box.clientWidth || 600), H = 180, L = 52, R = 12, T = 10, B = 24;
+        var pts = hist.map(function (h) { return { t: Date.parse(h.d + 'T12:00:00'), b: h.b, d: h.d }; });
+        var t0 = pts[0].t, t1 = pts[pts.length - 1].t || t0 + 1;
+        var top = Math.max.apply(null, pts.map(function (p) { return p.b; })) || 1;
+        var step = Math.pow(10, Math.floor(Math.log10(top))) / 2;
+        top = Math.ceil(top * 1.05 / step) * step;
+        var x = function (v) { return L + (t1 === t0 ? 0.5 : (v - t0) / (t1 - t0)) * (W - L - R); };
+        var y = function (v) { return T + (1 - v / top) * (H - T - B); };
+
+        var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': '401(k) balance over time' });
+        var ax = el('g', { 'class': 'axis' });
+        for (var i = 0; i <= 4; i++) {
+            var v = top * i / 4;
+            ax.appendChild(el('line', { x1: L, x2: W - R, y1: y(v), y2: y(v) }));
+            ax.appendChild(el('text', { x: L - 8, y: y(v) + 3, 'text-anchor': 'end' }, short$(v)));
+        }
+        ax.appendChild(el('text', { x: L, y: H - 6 }, pts[0].d));
+        ax.appendChild(el('text', { x: W - R, y: H - 6, 'text-anchor': 'end' }, pts[pts.length - 1].d));
+        svg.appendChild(ax);
+
+        var dpath = pts.map(function (p, i) { return (i ? 'L' : 'M') + x(p.t).toFixed(1) + ' ' + y(p.b).toFixed(1); }).join(' ');
+        // Colors go in style, not presentation attributes, so var() resolves.
+        svg.appendChild(el('path', { d: dpath, style: 'fill:none;stroke:var(--s1);stroke-width:2;stroke-linejoin:round;stroke-linecap:round' }));
+        pts.forEach(function (p) {
+            svg.appendChild(el('circle', { cx: x(p.t), cy: y(p.b), r: 4, style: 'fill:var(--s1);stroke:var(--surface);stroke-width:2' }));
+        });
+
+        var cross = el('line', { y1: T, y2: H - B, style: 'stroke:var(--text-muted);stroke-width:1;stroke-dasharray:3 3', visibility: 'hidden' });
+        var dot = el('circle', { r: 6, style: 'fill:var(--s1);stroke:var(--surface);stroke-width:2', visibility: 'hidden' });
+        svg.appendChild(cross); svg.appendChild(dot);
+        var hit = el('rect', { x: L, y: T, width: W - L - R, height: H - T - B, fill: 'transparent' });
+        hit.addEventListener('pointermove', function (ev) {
+            var r = svg.getBoundingClientRect(), mx = (ev.clientX - r.left) * W / r.width;
+            var best = pts[0];
+            pts.forEach(function (p) { if (Math.abs(x(p.t) - mx) < Math.abs(x(best.t) - mx)) best = p; });
+            cross.setAttribute('x1', x(best.t)); cross.setAttribute('x2', x(best.t)); cross.setAttribute('visibility', 'visible');
+            dot.setAttribute('cx', x(best.t)); dot.setAttribute('cy', y(best.b)); dot.setAttribute('visibility', 'visible');
+            showTip(ev, '<strong>' + $$(best.b) + '</strong><br><span class="muted">' + esc(best.d) + '</span>');
+        });
+        hit.addEventListener('pointerleave', function () { cross.setAttribute('visibility', 'hidden'); dot.setAttribute('visibility', 'hidden'); hideTip(); });
+        svg.appendChild(hit);
+        box.appendChild(svg);
+    }
+
+    // ── Inputs. Built once per render(); edits update state in place and only
+    // rerun renderComputed(), so the field being typed in keeps focus. ──
+    function freqSelect(value) {
+        var s = el('select', { 'aria-label': 'How often' });
+        FREQS.forEach(function (f) { var o = el('option', { value: f[0] }, f[1]); if (f[0] === value) o.selected = true; s.appendChild(o); });
+        return s;
+    }
+
+    function rowEditor(list, r, kind) {
+        var row = el('div', { 'class': 'row' + (kind === 'income' ? ' income' : '') });
+        row.dataset.id = r.id;
+        var name = el('input', { type: 'text', 'class': 'name', maxlength: 60, placeholder: kind === 'income' ? 'Source' : 'Rent, phone, car…', 'aria-label': 'Name' });
+        name.value = r.name;
+        if (r.id === 'pay') { name.readOnly = true; name.value = 'Paycheck (take-home)'; }
+        var amt = el('input', { type: 'number', inputmode: 'decimal', min: 0, step: '0.01', placeholder: '0', 'aria-label': 'Amount' });
+        amt.value = r.amount || '';
+        var fq = freqSelect(r.freq);
+        var xs = el('div', { 'class': 'x-slot' });
+        var x = el('button', { 'class': 'x', type: 'button', title: 'Remove', 'aria-label': 'Remove' }, '×');
+        if (r.id === 'pay') x.disabled = true;
+        xs.appendChild(x);
+
+        row.appendChild(name);
+        row.appendChild(amt);
+        row.appendChild(fq);
+        var cat;
+        if (kind === 'bill') {
+            cat = el('select', { 'class': 'cat', 'aria-label': 'Category' });
+            CATEGORIES.forEach(function (c) { var o = el('option', { value: c }, c); if (c === r.cat) o.selected = true; cat.appendChild(o); });
+            row.appendChild(cat);
+        }
+        row.appendChild(el('div', { 'class': 'per-mo' }));
+        // Desktop column order: name, amount, how often, category, ×.
+        row.appendChild(xs);
+
+        function changed() {
+            if (r.id !== 'pay') r.name = name.value.slice(0, 60);
+            r.amount = num(amt.value);
+            r.freq = fq.value;
+            if (cat) r.cat = cat.value;
+            renderComputed(); scheduleSave();
+        }
+        name.addEventListener('input', changed);
+        amt.addEventListener('input', changed);
+        fq.addEventListener('change', changed);
+        if (cat) cat.addEventListener('change', changed);
+        x.addEventListener('click', function () {
+            if (r.name || r.amount) { if (!confirm('Remove ' + (r.name || 'this line') + '?')) return; }
+            var i = list.indexOf(r);
+            if (i >= 0) list.splice(i, 1);
+            render(); scheduleSave();
+        });
+        return row;
+    }
+
+    function head(cols, kind) {
+        var h = el('div', { 'class': 'row row-head' + (kind === 'income' ? ' income' : '') });
+        cols.forEach(function (c) { h.appendChild(el('div', null, c)); });
+        return h;
+    }
+
+    function renderInputs(d) {
+        var inc = $('income'); inc.innerHTML = '';
+        inc.appendChild(head(['Source', 'Amount', 'How often', ''], 'income'));
+        d.income.forEach(function (r) { inc.appendChild(rowEditor(d.income, r, 'income')); });
+
+        var bills = $('bills'); bills.innerHTML = '';
+        if (d.bills.length) bills.appendChild(head(['Cost', 'Amount', 'How often', 'Category', '']));
+        else bills.appendChild(el('div', { 'class': 'empty' }, 'No recurring costs yet.'));
+        d.bills.forEach(function (r) { bills.appendChild(rowEditor(d.bills, r, 'bill')); });
+
+        $('cash').value = d.cash || '';
+        $('k-bal').value = d.k401.balance || '';
+        $('k-mine').value = d.k401.mine || '';
+        $('k-match').value = d.k401.match || '';
+        $('k-ret').value = d.k401.ret;
+    }
+
+    // Phone layout hides the column heads, so each row says what it costs a month.
+    function renderPerMonth(d) {
+        [['income', d.income], ['bills', d.bills]].forEach(function (pair) {
+            pair[1].forEach(function (r) {
+                var row = $(pair[0]).querySelector('.row[data-id="' + r.id + '"] .per-mo');
+                if (row) row.textContent = r.amount ? $$(r.amount * PER_MONTH[r.freq]) + ' / mo' : '';
+            });
+        });
+    }
+
+    $('add-income').addEventListener('click', function () {
+        state.data.income.push({ id: uid(), name: '', amount: 0, freq: 'monthly' });
+        render();
+        var rows = $('income').querySelectorAll('.row .name'); rows[rows.length - 1].focus();
+    });
+    $('add-bill').addEventListener('click', function () {
+        state.data.bills.push({ id: uid(), name: '', amount: 0, freq: 'monthly', cat: 'Other' });
+        render();
+        var rows = $('bills').querySelectorAll('.row .name'); rows[rows.length - 1].focus();
+    });
+
+    function bindNum(id, apply) {
+        $(id).addEventListener('input', function () { apply(this.value); renderComputed(); scheduleSave(); });
+    }
+    bindNum('cash', function (v) { state.data.cash = num(v); });
+    bindNum('k-bal', function (v) { state.data.k401.balance = num(v); });
+    bindNum('k-mine', function (v) { state.data.k401.mine = num(v); });
+    bindNum('k-match', function (v) { state.data.k401.match = num(v); });
+    bindNum('k-ret', function (v) { v = parseFloat(v); state.data.k401.ret = isFinite(v) ? Math.max(0, Math.min(20, v)) : 0; });
+
+    $('log-bal').addEventListener('click', function () {
+        var k = state.data.k401;
+        if (!k.balance) { $('k-bal').focus(); return; }
+        var d = today();
+        k.history = k.history.filter(function (h) { return h.d !== d; });
+        k.history.push({ d: d, b: k.balance });
+        k.history.sort(function (a, b) { return a.d < b.d ? -1 : 1; });
+        renderComputed(); scheduleSave();
+    });
+
+    // ── Backup & restore. The file is plain JSON, deliberately: it is the way
+    // back in if the passphrase changes, and it should open without this page. ──
+    $('export').addEventListener('click', function () {
+        var blob = new Blob([JSON.stringify(state.data, null, 2)], { type: 'application/json' });
+        var a = el('a', { href: URL.createObjectURL(blob), download: 'finance-backup-' + today() + '.json' });
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    });
+    $('import').addEventListener('click', function () { $('import-file').click(); });
+    $('import-file').addEventListener('change', function () {
+        var f = this.files[0]; this.value = '';
+        if (!f) return;
+        f.text().then(function (txt) {
+            var o = JSON.parse(txt);
+            if (!o || !Array.isArray(o.income) || !Array.isArray(o.bills)) throw new Error('shape');
+            if (!confirm('Replace everything here with ' + f.name + '?')) return;
+            state.data = normalize(o);
+            $('notices').innerHTML = '';
+            render(); scheduleSave();
+        }).catch(function () { alert('That file is not a Finance backup.'); });
+    });
+
+    var resizeTimer;
+    addEventListener('resize', function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(function () { if (state.data) drawHistory(state.data.k401.history); }, 150); });
+    addEventListener('beforeunload', function (e) { if (state.dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+    // ── Start: reuse keys from this tab, or from "Remember on this device" ──
+    var saved = null;
+    try { saved = JSON.parse(get('sessionStorage', 'finance_keys') || get('localStorage', 'finance_keys') || 'null'); } catch (e) {}
+    if (saved && saved.raw && saved.access && window.crypto && crypto.subtle) {
+        $('signin').hidden = true;
+        sync('Loading…');
+        tryKeys(saved, !!get('localStorage', 'finance_keys'));
+    } else {
+        showSignin('');
+    }
+})();
+</script>
+
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+
+<script>
+// Anonymous page-view count (see /privacy.html): no cookies, nothing stored on
+// this device. Skipped for Do Not Track, Global Privacy Control, automated
+// browsers, and any device opted out from the stats page.
+(function () {
+    try {
+        var n = navigator, de = document.documentElement;
+        if (!n.sendBeacon || n.webdriver || n.globalPrivacyControl || n.doNotTrack === '1') return;
+        try { if (localStorage.getItem('an_optout') === '1') return; } catch (e) {}
+        var mq = function (q) { return !!(window.matchMedia && matchMedia(q).matches); };
+        var s = Math.min(screen.width, screen.height), t = de.getAttribute('data-theme');
+        n.sendBeacon('/api.php?action=an_hit', JSON.stringify({
+            p: location.pathname,
+            r: document.referrer,
+            d: mq('(pointer: coarse)') ? (s < 600 ? 'mobile' : 'tablet') : 'desktop',
+            i: mq('(display-mode: standalone)') || n.standalone === true,
+            t: t === 'light' || t === 'dark' ? t : (mq('(prefers-color-scheme: dark)') ? 'dark' : 'light'),
+            l: n.language
+        }));
+    } catch (e) {}
+})();
+</script>
+
+</body>
+</html>
