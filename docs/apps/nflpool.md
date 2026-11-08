@@ -101,8 +101,7 @@ Operator endpoints are excluded from the public reference. Full detail in
   columns as the pool's printed sheet (date/time Pacific, favourite, underdog
   with "at" on the home side, spread, pick, score), the picked team circled
   and the confidence number in the PICK column. `Export sheet` sits at the
-  foot of an expanded player; `Export all` in the Standings title prints every
-  sheet one per page, by name. It is front-end only: the sheet is built into a
+  foot of an expanded player. It is front-end only: the sheet is built into a
   hidden `#print-sheet` element and handed to `window.print()`, which is also
   where every browser and phone offers Save as PDF, so there is no PDF library.
   The document title is swapped for the dialog so the suggested file name reads
