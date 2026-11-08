@@ -399,6 +399,59 @@
         @keyframes spin { to { transform: rotate(360deg); } }
         .loading { display: flex; align-items: center; gap: 12px; }
 
+        /* Export buttons. The per-sheet one sits at the foot of an expanded
+           pick list; the all-sheets one is text-sized to sit in a card title. */
+        .pickactions { display: flex; justify-content: flex-end; padding-top: 6px; }
+        button.small { font-size: 11px; padding: 6px 11px; }
+        .title-right { display: inline-flex; align-items: baseline; gap: 12px; }
+        .linkbtn {
+            font: inherit; letter-spacing: inherit; text-transform: inherit;
+            color: var(--text-secondary); background: none; border: none; padding: 0;
+            cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+        }
+        .linkbtn:hover { color: var(--text-primary); }
+
+        /* ── PRINTABLE SHEET ──
+           A copy of the paper pick sheet with the picks circled and the
+           confidence numbers written in, built only for the print dialog
+           (which is also how a phone or browser saves a PDF). Never shown on
+           screen. Fixed black on white whatever the theme, because it is paper.
+           The layout follows the pool's own sheet column for column — the same
+           sheet cp_scan reads — so an exported copy reads like a filled one. */
+        #print-sheet { display: none; }
+        @page { size: letter portrait; margin: 0.45in 0.6in; }
+        @media print {
+            body { padding: 0 !important; background: #fff !important; color: #000 !important; }
+            body > *:not(#print-sheet) { display: none !important; }
+            #print-sheet { display: block; }
+        }
+        .ps {
+            font-family: Calibri, Carlito, 'Segoe UI', Arial, sans-serif; font-size: 10pt;
+            color: #000; background: #fff;
+            -webkit-print-color-adjust: exact; print-color-adjust: exact;
+        }
+        .ps + .ps { break-before: page; }
+        .ps-name { display: flex; align-items: baseline; gap: 10px; height: 0.95in; }
+        .ps-title { text-align: center; font-weight: 700; font-size: 13pt; margin-bottom: 7px; }
+        .ps table { width: 100%; border-collapse: collapse; table-layout: fixed; border: 2px solid #000; }
+        .ps th, .ps td { border: 1px solid #000; text-align: center; vertical-align: middle; padding: 0 4px; }
+        .ps th { font-weight: 700; font-size: 9.5pt; height: 0.3in; }
+        .ps td { height: 0.46in; }
+        .ps-total { display: flex; justify-content: flex-end; align-items: center; }
+        .ps-total span { width: 12.6%; text-align: center; }
+        .ps-total .ps-box { height: 0.46in; border: 2px solid #000; border-top: none; }
+        .ps-foot { text-align: center; font-style: italic; font-size: 9pt; line-height: 1.45; margin-top: 8px; }
+        /* What a player adds to the printed sheet is in pen: a circle round
+           the team picked, and the confidence number in the PICK column. */
+        .ps-ink {
+            color: #1f3c9c; font-size: 15pt;
+            font-family: 'Bradley Hand', 'Segoe Print', 'Marker Felt', 'Comic Sans MS', cursive;
+        }
+        .ps-circ {
+            display: inline-block; padding: 3px 10px; margin: -5px 0;
+            border: 2px solid #1f3c9c; border-radius: 50%; transform: rotate(-2deg);
+        }
+
         footer { text-align: center; padding: 28px 16px 40px; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
         footer a { color: var(--text-muted); }
 
@@ -450,7 +503,7 @@
     </section>
 
     <section class="card hidden" id="standings-card">
-        <div class="card-title"><span>Standings</span><span id="standings-note"></span></div>
+        <div class="card-title"><span>Standings</span><span class="title-right"><span id="standings-note"></span><button class="linkbtn hidden" id="export-all" type="button" title="Every sheet, one per page. Choose Save as PDF in the print dialog.">Export all</button></span></div>
         <div id="standings"></div>
     </section>
 
@@ -492,6 +545,9 @@
         </div>
     </div>
 </div>
+
+<!-- Filled-in copies of the paper sheet, for the print dialog only. -->
+<div id="print-sheet" aria-hidden="true"></div>
 
 <!-- Two inputs on purpose. 'capture' does not add the camera as an option, it
      forces it and takes the photo library away, so one input cannot serve both
@@ -697,6 +753,7 @@ function renderStandings(d) {
     note.textContent = d.standings.length
         ? d.standings.length + (d.standings.length === 1 ? ' sheet' : ' sheets') + (anyLive ? ' · live' : '')
         : '';
+    $('export-all').classList.toggle('hidden', !d.standings.length);
 
     if (!d.standings.length) {
         $('standings').innerHTML = '<p class="msg">No sheets uploaded yet. The board below is live either way.</p>';
@@ -772,9 +829,22 @@ function renderStandings(d) {
             if (!ev.target.closest('.picklist')) toggle();
         });
         el.addEventListener('keydown', ev => {
+            // Keys pressed on a button inside the row belong to that button.
+            if (ev.target !== el) return;
             if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggle(); }
             // Keyboard users cannot long-press, so give them the usual key.
             if (ev.key === 'Delete' || ev.key === 'Backspace') { ev.preventDefault(); askDelete(id); }
+        });
+    });
+
+    // The export button lives inside a row that arms a delete on a long press,
+    // so a press on the button must never reach the row's handlers.
+    $('standings').querySelectorAll('[data-export]').forEach(b => {
+        ['mousedown', 'touchstart', 'contextmenu'].forEach(t =>
+            b.addEventListener(t, e => e.stopPropagation(), { passive: true }));
+        b.addEventListener('click', () => {
+            const s = d.standings.find(x => x.id === Number(b.dataset.export));
+            if (s) exportSheets([s]);
         });
     });
 }
@@ -859,8 +929,101 @@ function renderPicks(s, games) {
             ${tag}
         </div>`;
     }).join('');
-    return '<div class="picklist">' + rows + '</div>';
+    const exp = `<div class="pickactions">
+        <button class="ghost small" type="button" data-export="${s.id}"
+                title="A filled-in copy of the paper sheet. Choose Save as PDF in the print dialog.">Export sheet</button>
+    </div>`;
+    return '<div class="picklist">' + rows + exp + '</div>';
 }
+
+// ── Exporting a sheet ────────────────────────────────────────────────────
+// Kickoff the way the paper sheet prints it — "Sun Nov 8 at 10:00 AM" — on a
+// Pacific clock, since the sheet's column is headed PST.
+function sheetKickoff(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    try {
+        const p = {};
+        new Intl.DateTimeFormat('en-US', {
+            timeZone: PACIFIC, weekday: 'short', month: 'short', day: 'numeric',
+            hour: 'numeric', minute: '2-digit', hour12: true,
+        }).formatToParts(d).forEach(x => { p[x.type] = x.value; });
+        return `${p.weekday} ${p.month} ${p.day} at ${p.hour}:${p.minute} ${p.dayPeriod}`;
+    } catch (e) {
+        return kickoffLabel(iso);
+    }
+}
+
+/**
+ * One page laid out like the pool's paper sheet: favourite and underdog in
+ * their own columns with "at" marking the home side, the picked team circled,
+ * and the confidence number in the PICK column. SCORE and TOTAL stay blank, as
+ * they are on a sheet when it is handed in.
+ */
+function sheetHtml(d, s) {
+    const byGame = {};
+    s.picks.forEach(p => { byGame[p.game_id] = p; });
+    const n = d.games.length;
+
+    const rows = d.games.map(g => {
+        const p   = byGame[g.id];
+        const fav = g.favorite === 'home' ? 'home' : 'away';
+        const dog = fav === 'home' ? 'away' : 'home';
+        const team = side => {
+            const t = esc((side === 'home' ? 'at ' : '') + (side === 'home' ? g.home_name : g.away_name));
+            return p && p.pick === side ? `<span class="ps-circ">${t}</span>` : t;
+        };
+        return `<tr>
+            <td>${esc(sheetKickoff(g.kickoff))}</td>
+            <td>${team(fav)}</td>
+            <td>${team(dog)}</td>
+            <td>${g.spread === 0 ? 'PK' : g.spread}</td>
+            <td class="ps-ink">${p ? p.confidence : ''}</td>
+            <td></td>
+        </tr>`;
+    }).join('');
+
+    return `<section class="ps">
+        <div class="ps-name"><span>NAME:</span><span class="ps-ink">${esc(s.player_name)}</span></div>
+        <div class="ps-title">Week ${d.week.week}</div>
+        <table>
+            <colgroup><col style="width:27.4%"><col style="width:18.2%"><col style="width:18.2%">
+                      <col style="width:11%"><col style="width:12.6%"><col style="width:12.6%"></colgroup>
+            <thead><tr><th>DATE / TIME (PST)</th><th>FAVORITE</th><th>UNDERDOG</th>
+                       <th>SPREAD</th><th>PICK</th><th>SCORE</th></tr></thead>
+            <tbody>${rows}</tbody>
+        </table>
+        <div class="ps-total"><span>TOTAL</span><span class="ps-box"></span></div>
+        <div class="ps-foot">Number of Games: ${n}<br>Points Possible: ${n * (n + 1) / 2}</div>
+    </section>`;
+}
+
+/**
+ * Hand the sheets to the print dialog, one per page — the dialog is also where
+ * every browser and phone offers Save as PDF, so there is nothing to bundle.
+ * The document title becomes the PDF's suggested file name for the moment the
+ * dialog is open, matching how the pool names its own sheets.
+ */
+function exportSheets(entries) {
+    const d = state.data;
+    if (!d || !entries.length) return;
+    $('print-sheet').innerHTML = entries.map(s => sheetHtml(d, s)).join('');
+
+    const title = document.title;
+    const who = entries.length === 1 ? ' - ' + entries[0].player_name.trim() : '';
+    document.title = `${d.week.season} - Week ${d.week.week} - Football Pool${who}`;
+    const restore = () => { document.title = title; window.removeEventListener('afterprint', restore); };
+    window.addEventListener('afterprint', restore);
+    window.print();
+}
+
+$('export-all').addEventListener('click', () => {
+    // By name rather than by rank: a stack of paper sheets is filed that way.
+    const all = ((state.data && state.data.standings) || []).slice()
+        .sort((a, b) => a.player_name.localeCompare(b.player_name, undefined, { sensitivity: 'base' }));
+    exportSheets(all);
+});
 
 function renderBoard(d) {
     const liveCount = d.games.filter(g => g.state === 'in').length;
