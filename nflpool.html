@@ -399,6 +399,10 @@
         @keyframes spin { to { transform: rotate(360deg); } }
         .loading { display: flex; align-items: center; gap: 12px; }
 
+        /* Entering picks by hand, under the board once the week exists. */
+        .board-actions { border-top: 1px solid var(--border); padding-top: 14px; margin-top: 2px; }
+        .board-actions button { width: 100%; }
+
         /* The export button, at the foot of an expanded pick list. */
         .pickactions { display: flex; justify-content: flex-end; padding-top: 6px; }
         button.small { font-size: 11px; padding: 6px 11px; }
@@ -502,6 +506,9 @@
         <div class="card-title"><span>Games</span><span id="board-note"></span></div>
         <div class="banner hidden" id="score-warning" style="margin-bottom:12px"></div>
         <div id="board"></div>
+        <div class="board-actions">
+            <button class="primary" id="make-picks" type="button">Make picks</button>
+        </div>
     </section>
 
 </div>
@@ -567,6 +574,7 @@ let state = {
     mode:   'entry',  // 'setup' when this upload also defines the week
     player: '',
     pendingToken: null,   // set when reviewing a sheet that arrived by text
+    manual: false,    // true when picks are being entered by hand, not read off paper
     open:   null,     // expanded standings entry id
     busy:   false,
 };
@@ -1022,6 +1030,8 @@ function renderBoard(d) {
         stale.className = 'banner hidden';
     }
 
+    $('make-picks').textContent = 'Make picks for Week ' + d.week.week;
+
     $('board').innerHTML = d.games.map(g => {
         const fav = g.favorite === 'home' ? g.home_name : g.away_name;
         const line = g.spread === 0 ? 'Pick-em' : esc(fav) + ' -' + g.spread;
@@ -1058,6 +1068,23 @@ function renderBoard(d) {
         </div>`;
     }).join('');
 }
+
+// ── Making picks by hand ─────────────────────────────────────────────────
+// Only reachable once a sheet has set up the week — the button lives in the
+// board card, which is hidden until then — because without a template there
+// are no matchups or spreads to pick against. Opens the same review grid an
+// uploaded sheet goes through, just with nothing filled in, so validation,
+// the confidence chips and the replace-an-existing-sheet warning all apply.
+$('make-picks').addEventListener('click', () => {
+    if (!state.data || !state.data.games.length) return;
+    state.mode         = 'entry';
+    state.manual       = true;
+    state.pendingToken = null;
+    state.rows         = buildRows([]);
+    state.player       = lastPlayer();
+    openOverlay('Make your picks', '');
+    renderReview('', []);
+});
 
 // ── Upload + scan ────────────────────────────────────────────────────────
 $('upload-btn').addEventListener('click', () => $('file').click());
@@ -1103,6 +1130,7 @@ async function scanSheet(ev) {
         state.mode   = (r.week_exists && state.data) ? 'entry' : 'setup';
         state.rows   = buildRows(r.rows);
         state.player = r.player_name || lastPlayer();
+        state.manual = false;
         renderReview(r.note, r.warnings || []);
     } catch (e) {
         openOverlay('Could not read that', `<div class="banner bad">${esc(e.message)}</div>`);
@@ -1153,6 +1181,7 @@ function closeOverlay() {
     document.body.style.overflow = '';
     state.rows = null;
     state.pendingToken = null;
+    state.manual = false;
     schedulePoll();
 }
 $('review-close').addEventListener('click', closeOverlay);
@@ -1165,13 +1194,17 @@ function lastPlayer() {
 // ── Review grid ──────────────────────────────────────────────────────────
 function renderReview(note, warnings) {
     const setup = state.mode === 'setup';
-    $('review-title').textContent = setup ? 'Set up this week' : 'Check the sheet';
+    $('review-title').textContent = setup ? 'Set up this week'
+        : state.manual ? 'Make your picks' : 'Check the sheet';
 
     const issues = [];
     if (note) issues.push(note);
     warnings.forEach(w => issues.push(w));
 
-    const intro = setup
+    const n = state.rows.length;
+    const intro = state.manual
+        ? `<p class="msg">Tap the team you pick in each game of Week ${state.week} and give it a confidence from 1 to ${n} — ${n} for the one you are surest of. Each number is used once.</p>`
+        : setup
         ? `<p class="msg">This is the first sheet for Week ${state.week}, so these matchups and spreads become the week. Fix anything that was misread — every score is worked out from these lines.</p>`
         : `<p class="msg">Every game in Week ${state.week} is listed. Check the marks and confidence numbers against the paper before saving.</p>`;
 

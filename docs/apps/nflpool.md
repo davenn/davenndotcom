@@ -12,7 +12,11 @@ confidence, a wrong one earns nothing. Highest total wins the week.
 
 This is the part the app exists for, and there are three routes:
 
-1. **Fill the sheet in the app** — pick and rank every game by hand.
+1. **Fill the sheet in the app** — pick and rank every game by hand, from
+   `Make picks for Week N` under the board. It only appears once a sheet has
+   set up the week, since there are no matchups or spreads to pick against
+   before that, and it opens the same review grid as an upload with nothing
+   filled in.
 2. **Photograph a filled paper sheet** and upload it (`cp_scan`).
 3. **Text a photo of the sheet in**, handled by `cp_sms` as a Twilio webhook.
 
