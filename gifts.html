@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Gifts — davenn.com</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="The people you buy for and the gift ideas you have for them.">
+<link rel="manifest" href="/manifest-gifts.json">
+<meta name="theme-color" content="#111110">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Gifts">
+<link rel="apple-touch-icon" href="/icons/gifts.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+<script>
+    // Stamp the theme before first paint so there is no flash of the wrong one.
+    (function () {
+        var t;
+        try { t = localStorage.getItem('gifts_theme'); } catch (e) {}
+        if (t !== 'light' && t !== 'dark') {
+            t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', t);
+    })();
+</script>
+<style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root, [data-theme="light"] {
+        color-scheme: light;
+        --page: #f8f6f2; --surface: #ffffff; --surface-2: #f2efe9; --border: #e5e0d6;
+        --text-primary: #1d1f24; --text-secondary: #52514e; --text-muted: #8a8a85;
+        --accent: #c4372f; --accent-soft: rgba(196,55,47,0.09);
+        --wash: rgba(196,55,47,0.07);
+    }
+    [data-theme="dark"] {
+        color-scheme: dark;
+        --page: #0d0c0c; --surface: #171515; --surface-2: #201d1d; --border: #2f2a2a;
+        --text-primary: #eeeae6; --text-secondary: #c0bab4; --text-muted: #8a8580;
+        --accent: #ef6b5f; --accent-soft: rgba(239,107,95,0.13);
+        --wash: rgba(239,107,95,0.08);
+    }
+    :root {
+        /* Status hues are fixed, never themed, and always paired with a word. */
+        --bought: #2f8a4c; --given: #6a55c9; --bad: #d13a2c;
+        --nav-bg: #111110; --nav-border: rgba(255,255,255,0.08);
+        --font-disp: 'Syne', sans-serif;
+        --font-ui: system-ui, -apple-system, 'Segoe UI', sans-serif;
+        --font-mono: 'DM Mono', ui-monospace, monospace;
+        --nav-h: 52px;
+    }
+
+    body {
+        font-family: var(--font-ui); background: var(--page); color: var(--text-primary);
+        -webkit-font-smoothing: antialiased;
+        padding-top: calc(var(--nav-h) + env(safe-area-inset-top));
+    }
+    body::before {
+        content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+        background:
+            radial-gradient(55vmax 38vmax at 0% 0%, var(--wash), transparent 70%),
+            radial-gradient(50vmax 40vmax at 100% 70%, var(--wash), transparent 70%);
+    }
+    button { font: inherit; }
+
+    /* ── NAV ── */
+    nav {
+        position: fixed; top: 0; left: 0; right: 0;
+        height: calc(var(--nav-h) + env(safe-area-inset-top));
+        padding: env(safe-area-inset-top) 1.25rem 0;
+        background: var(--nav-bg); border-bottom: 1px solid var(--nav-border);
+        display: flex; align-items: center; justify-content: space-between; z-index: 200;
+    }
+    .nav-logo { font-family: var(--font-mono); font-size: 13px; color: rgba(255,255,255,0.4); text-decoration: none; }
+    .nav-logo strong { color: #fff; }
+    .nav-right { display: flex; align-items: center; gap: 1rem; }
+    .nav-user { font-family: var(--font-mono); font-size: 11.5px; color: rgba(255,255,255,0.55); max-width: 30vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .nav-link {
+        font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;
+        color: rgba(255,255,255,0.5); background: none; border: none; cursor: pointer; padding: 4px 0;
+    }
+    .nav-link:hover { color: #fff; }
+    .nav-link[hidden], .nav-user[hidden] { display: none; }
+    .btn-install {
+        display: none; align-items: center;
+        font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;
+        color: rgba(255,255,255,0.5); background: none;
+        border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 4px 10px; cursor: pointer;
+    }
+    .btn-install.ready { display: flex; }
+    .btn-install:hover { color: rgba(255,255,255,0.9); border-color: rgba(255,255,255,0.4); }
+    .theme-toggle { width: 44px; height: 24px; cursor: pointer; background: none; border: none; padding: 0; flex: none; }
+    .theme-toggle-track { width: 44px; height: 24px; border-radius: 12px; background: #333; border: 1px solid #555; display: flex; align-items: center; padding: 0 3px; }
+    [data-theme="light"] .theme-toggle-track { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); }
+    .theme-toggle-thumb { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; transition: transform 0.2s; }
+    [data-theme="light"] .theme-toggle-thumb { transform: translateX(20px); background: #fff; }
+    [data-theme="dark"]  .theme-toggle-thumb { transform: translateX(0);    background: #666; }
+
+    main { max-width: 760px; margin: 0 auto; padding: 32px 16px 80px; }
+
+    /* ── HEADER ── */
+    .eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
+    h1 { font-family: var(--font-disp); font-size: clamp(2.2rem, 8vw, 3rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.02; }
+    .sub { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-secondary); line-height: 1.7; margin-top: 12px; max-width: 540px; }
+
+    .summary { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+    .summary:empty { display: none; }
+    .stat {
+        font-family: var(--font-mono); font-size: 11.5px; color: var(--text-secondary);
+        background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px;
+    }
+    .stat b { color: var(--text-primary); font-weight: 500; }
+
+    /* ── TOOLBAR ── */
+    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 20px 0 16px; }
+    .search {
+        flex: 1 1 200px; min-width: 0; height: 36px; font: inherit; font-size: 14px; color: var(--text-primary);
+        background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0 12px;
+    }
+    .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); }
+    .seg button {
+        font-family: var(--font-mono); font-size: 11.5px; padding: 0 12px; height: 34px; border: none; background: none;
+        color: var(--text-secondary); cursor: pointer; white-space: nowrap;
+    }
+    .seg button + button { border-left: 1px solid var(--border); }
+    .seg button[aria-pressed="true"] { background: var(--text-primary); color: var(--page); }
+    select {
+        font-family: var(--font-mono); font-size: 11.5px; height: 36px; padding: 0 10px; border-radius: 8px;
+        border: 1px solid var(--border); background: var(--surface); color: var(--text-primary); cursor: pointer;
+    }
+    .btn-primary {
+        font-family: var(--font-mono); font-size: 11.5px; height: 36px; padding: 0 14px; border-radius: 8px; cursor: pointer; white-space: nowrap;
+        border: 1px solid var(--accent); background: var(--accent); color: #fff;
+    }
+    .btn-primary:hover { opacity: 0.88; }
+    .btn-primary:disabled { opacity: 0.6; cursor: progress; }
+    .btn-quiet {
+        font-family: var(--font-mono); font-size: 11.5px; height: 36px; padding: 0 14px; border-radius: 8px; cursor: pointer;
+        border: 1px solid var(--border); background: var(--surface); color: var(--text-primary);
+    }
+    .btn-quiet:hover { border-color: var(--text-muted); }
+    .btn-danger {
+        font-family: var(--font-mono); font-size: 11.5px; padding: 0; cursor: pointer; margin-right: auto;
+        background: none; border: none; color: var(--bad); text-decoration: underline; text-underline-offset: 3px;
+    }
+    input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible {
+        outline: 2px solid var(--accent); outline-offset: 1px;
+    }
+
+    /* ── PEOPLE ── */
+    .list { display: flex; flex-direction: column; gap: 14px; }
+    .empty { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-muted); text-align: center; padding: 40px 12px; line-height: 1.7; }
+    .empty .btn-primary { margin-top: 14px; }
+
+    .person { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 16px 12px; }
+    .person.flash { animation: flash 1.2s ease; }
+    @keyframes flash { 0% { box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 1px var(--accent); } 100% { box-shadow: none; } }
+    @media (prefers-reduced-motion: reduce) { .person.flash { animation: none; } }
+    .p-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+    .p-name { font-family: var(--font-disp); font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; }
+    .p-flag { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; }
+    .p-flag.need { color: var(--accent); }
+    .p-flag.got { color: var(--bought); }
+    .p-edit {
+        margin-left: auto; font-family: var(--font-mono); font-size: 11px; padding: 2px 0; cursor: pointer;
+        background: none; border: none; color: var(--text-muted); text-decoration: underline; text-underline-offset: 3px;
+    }
+    .p-edit:hover { color: var(--text-primary); }
+    .p-meta { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-secondary); margin-top: 4px; }
+    .p-meta .soon { color: var(--accent); }
+    .p-note { font-size: 13.5px; color: var(--text-secondary); line-height: 1.55; margin-top: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+    .ideas { list-style: none; margin-top: 12px; border-top: 1px solid var(--border); }
+    .idea { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+    .idea-body { flex: 1; min-width: 0; }
+    .idea-title { font-size: 14.5px; line-height: 1.4; overflow-wrap: anywhere; }
+    .idea-title a { color: inherit; text-decoration: underline; text-decoration-color: var(--text-muted); text-underline-offset: 3px; }
+    .idea-title a:hover { text-decoration-color: var(--accent); }
+    .idea-title .ext { font-size: 11px; color: var(--text-muted); }
+    .idea-sub { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); margin-top: 3px; overflow-wrap: anywhere; white-space: pre-wrap; }
+    .idea.is-bought .idea-title { font-weight: 500; }
+    .idea-edit {
+        flex: none; width: 30px; height: 26px; border-radius: 6px; cursor: pointer;
+        background: none; border: 1px solid transparent; color: var(--text-muted); font-size: 14px; line-height: 1;
+    }
+    .idea-edit:hover { border-color: var(--border); color: var(--text-primary); }
+
+    /* The status pill is a button: one tap moves an idea along idea → bought → given. */
+    .pill {
+        flex: none; min-width: 64px; margin-top: 1px;
+        font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase;
+        padding: 4px 8px; border-radius: 999px; cursor: pointer;
+        border: 1px solid var(--border); background: var(--surface-2); color: var(--text-secondary);
+    }
+    .pill:hover { border-color: var(--text-muted); }
+    .pill.s-bought { background: var(--bought); border-color: var(--bought); color: #fff; }
+    .pill.s-given  { background: var(--given);  border-color: var(--given);  color: #fff; }
+    .pill:disabled { opacity: 0.6; cursor: progress; }
+
+    .no-ideas { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-muted); padding: 10px 0; border-bottom: 1px solid var(--border); }
+
+    .given-box { margin-top: 8px; }
+    .given-box summary { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); cursor: pointer; padding: 4px 0; }
+    .given-box summary:hover { color: var(--text-primary); }
+    .given-box .ideas { margin-top: 4px; }
+    .given-box .idea-title { color: var(--text-secondary); }
+
+    .quick { display: flex; gap: 8px; margin-top: 12px; }
+    .quick input {
+        flex: 1; min-width: 0; height: 36px; font: inherit; font-size: 14px; color: var(--text-primary);
+        background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 0 12px;
+    }
+    .quick input::placeholder { color: var(--text-muted); }
+
+    /* ── SIGN IN ── */
+    .auth { max-width: 380px; margin: 28px 0 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+    .auth[hidden] { display: none; }
+    .auth p { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); line-height: 1.65; margin-bottom: 16px; }
+    .auth .seg { margin-bottom: 16px; }
+    .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+    .field[hidden] { display: none; }
+    .field label { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+    .field input, .field textarea, .field select {
+        font: inherit; font-size: 14.5px; color: var(--text-primary); background: var(--surface-2);
+        border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; width: 100%;
+    }
+    .field select { height: auto; font-family: var(--font-ui); }
+    .field textarea { resize: vertical; min-height: 70px; line-height: 1.5; }
+    .field .hint { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .auth-err, .dlg-err { font-family: var(--font-mono); font-size: 11.5px; color: var(--bad); margin-bottom: 12px; line-height: 1.5; }
+    .auth-err:empty, .dlg-err:empty { display: none; }
+    .auth .btn-primary { width: 100%; }
+
+    /* ── DIALOGS ── */
+    dialog {
+        margin: auto; width: min(440px, calc(100vw - 24px)); max-height: calc(100dvh - 24px);
+        background: var(--surface); color: var(--text-primary);
+        border: 1px solid var(--border); border-radius: 14px; padding: 20px;
+    }
+    dialog::backdrop { background: rgba(0,0,0,0.5); }
+    dialog h2 { font-family: var(--font-disp); font-size: 1.25rem; font-weight: 700; margin-bottom: 16px; }
+    .dlg-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+    .dlg-actions .btn-danger[hidden] { display: none; }
+
+    /* ── TOAST ── */
+    .toast {
+        position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px);
+        max-width: calc(100vw - 32px); background: var(--text-primary); color: var(--page);
+        font-family: var(--font-mono); font-size: 12px; line-height: 1.5; padding: 10px 14px; border-radius: 8px;
+        opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; z-index: 300;
+    }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    .toast.bad { background: var(--bad); color: #fff; }
+
+    .foot { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); line-height: 1.7; margin-top: 28px; }
+
+    @media (max-width: 560px) {
+        .nav-user { display: none; }
+        .toolbar select { flex: 1; }
+        .search, .quick input, .field input, .field textarea, .field select { font-size: 16px; }
+    }
+</style>
+</head>
+<body>
+
+<nav>
+    <a class="nav-logo" href="index.html"><strong>davenn</strong>dotcom</a>
+    <div class="nav-right">
+        <span class="nav-user" id="nav-user" hidden></span>
+        <button class="nav-link" id="btn-signout" type="button" hidden>Sign out</button>
+        <button class="theme-toggle" id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
+            <div class="theme-toggle-track"><div class="theme-toggle-thumb" id="toggle-icon">🌙</div></div>
+        </button>
+        <button class="btn-install" id="btn-install" type="button">⊕ Install</button>
+    </div>
+</nav>
+
+<main>
+    <p class="eyebrow">Only you can see this list</p>
+    <h1>Gifts</h1>
+    <p class="sub">Everyone you buy for, and every idea you have had for them. Tap a status to move an idea along from idea to bought to given.</p>
+
+    <!-- Signed out -->
+    <section class="auth" id="auth" hidden>
+        <p>Sign in with your davenn.com account, the same one Toolshare and Daily Tasks use. Your list is tied to it, so it follows you to every device and nobody else can see it.</p>
+        <div class="seg" role="group" aria-label="Account">
+            <button type="button" id="tab-login" aria-pressed="true">Sign in</button>
+            <button type="button" id="tab-register" aria-pressed="false">Create account</button>
+        </div>
+        <form id="auth-form" autocomplete="on">
+            <div class="field"><label for="a-user">Username</label><input id="a-user" autocomplete="username" autocapitalize="off" required></div>
+            <div class="field reg" hidden><label for="a-name">Display name</label><input id="a-name" autocomplete="name"></div>
+            <div class="field reg" hidden><label for="a-email">Email</label><input id="a-email" type="email" autocomplete="email"></div>
+            <div class="field"><label for="a-pass">Password</label><input id="a-pass" type="password" autocomplete="current-password" required></div>
+            <p class="auth-err" id="auth-err" role="alert"></p>
+            <button class="btn-primary" id="auth-submit" type="submit">Sign in</button>
+        </form>
+    </section>
+
+    <!-- Signed in -->
+    <section id="app" hidden>
+        <div class="summary" id="summary"></div>
+        <div class="toolbar">
+            <input class="search" id="search" type="search" placeholder="Find a person or idea" aria-label="Find a person or idea">
+            <div class="seg" id="filter" role="group" aria-label="Show">
+                <button type="button" data-f="all">All</button>
+                <button type="button" data-f="need">Needs a gift</button>
+                <button type="button" data-f="got">Got one</button>
+            </div>
+            <select id="sort" aria-label="Sort people by">
+                <option value="name">By name</option>
+                <option value="birthday">Next birthday</option>
+                <option value="ideas">Most ideas</option>
+            </select>
+            <button class="btn-primary" id="btn-add-person" type="button">+ Person</button>
+        </div>
+        <div class="list" id="list"></div>
+        <p class="foot">"Got one" means at least one idea is marked bought and not yet given. Given gifts fold away under each person with the date, so you will not give the same thing twice.</p>
+    </section>
+</main>
+
+<dialog id="dlg-person">
+    <form id="form-person" method="dialog">
+        <h2 id="dp-title">Add a person</h2>
+        <div class="field"><label for="dp-name">Name</label><input id="dp-name" maxlength="80" required></div>
+        <div class="row2">
+            <div class="field">
+                <label for="dp-month">Birthday</label>
+                <select id="dp-month">
+                    <option value="">Month</option>
+                    <option value="01">January</option><option value="02">February</option><option value="03">March</option>
+                    <option value="04">April</option><option value="05">May</option><option value="06">June</option>
+                    <option value="07">July</option><option value="08">August</option><option value="09">September</option>
+                    <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+                </select>
+            </div>
+            <div class="field"><label for="dp-day">Day</label><input id="dp-day" type="number" min="1" max="31" inputmode="numeric" placeholder="Day"></div>
+        </div>
+        <div class="field">
+            <label for="dp-note">Notes</label>
+            <textarea id="dp-note" maxlength="600" placeholder="Sizes, favourite colours, what they are into, what they already have"></textarea>
+        </div>
+        <p class="dlg-err" id="dp-err" role="alert"></p>
+        <div class="dlg-actions">
+            <button class="btn-danger" id="dp-delete" type="button" hidden>Remove person</button>
+            <button class="btn-quiet" type="button" data-close>Cancel</button>
+            <button class="btn-primary" id="dp-save" type="submit">Save</button>
+        </div>
+    </form>
+</dialog>
+
+<dialog id="dlg-idea">
+    <form id="form-idea" method="dialog">
+        <h2>Edit idea</h2>
+        <div class="field"><label for="di-title">Idea</label><input id="di-title" maxlength="200" required></div>
+        <div class="field"><label for="di-link">Link</label><input id="di-link" type="text" maxlength="600" placeholder="https://" inputmode="url" autocapitalize="off" spellcheck="false"></div>
+        <div class="row2">
+            <div class="field"><label for="di-price">Price ($)</label><input id="di-price" inputmode="decimal" placeholder="0.00"></div>
+            <div class="field">
+                <label for="di-status">Status</label>
+                <select id="di-status">
+                    <option value="idea">Idea</option>
+                    <option value="bought">Bought</option>
+                    <option value="given">Given</option>
+                </select>
+            </div>
+        </div>
+        <div class="field"><label for="di-person">For</label><select id="di-person"></select></div>
+        <div class="field"><label for="di-note">Notes</label><textarea id="di-note" maxlength="600" placeholder="Size, colour, where you saw it"></textarea></div>
+        <p class="dlg-err" id="di-err" role="alert"></p>
+        <div class="dlg-actions">
+            <button class="btn-danger" id="di-delete" type="button">Delete idea</button>
+            <button class="btn-quiet" type="button" data-close>Cancel</button>
+            <button class="btn-primary" id="di-save" type="submit">Save</button>
+        </div>
+    </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+    'use strict';
+
+    var API = '/api.php';
+    // Shared with Toolshare and Daily Tasks: one sign-in covers all three.
+    var TOKEN_KEY = 'tb_token', USER_KEY = 'tb_user';
+    // The last list loaded, so the page opens instantly and can still be read offline.
+    var CACHE_KEY = 'gifts_cache';
+    var SORT_KEY = 'gifts_sort', FILTER_KEY = 'gifts_filter';
+
+    var STATUS_NEXT = { idea: 'bought', bought: 'given', given: 'idea' };
+    var STATUS_WORD = { idea: 'Idea', bought: 'Bought', given: 'Given' };
+    var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    function $(id) { return document.getElementById(id); }
+    function store(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
+    function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+    function money(n) {
+        return '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 });
+    }
+
+    // ── Theme ──
+    var icon = $('toggle-icon');
+    icon.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '🌙' : '☀️';
+    $('theme-toggle').addEventListener('click', function () {
+        var t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+        icon.textContent = t === 'dark' ? '🌙' : '☀️';
+        store('gifts_theme', t);
+    });
+
+    // ── Toast ──
+    var toastTimer;
+    function toast(msg, bad) {
+        var el = $('toast');
+        el.textContent = msg;
+        el.classList.toggle('bad', !!bad);
+        el.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { el.classList.remove('show'); }, bad ? 4500 : 2200);
+    }
+
+    // ── State ──
+    var token = load(TOKEN_KEY);
+    var user = null;
+    try { user = JSON.parse(load(USER_KEY)); } catch (e) {}
+    if (!token || !user) { token = null; user = null; }
+
+    var people = [], ideas = [];
+    var loaded = false; // true once the server's list (or a cached copy) is in hand
+    var filter = load(FILTER_KEY) || 'all';
+    var sort = load(SORT_KEY) || 'name';
+    var query = '';
+
+    // ── API ──
+    // Resolves with the JSON body on success; rejects with an Error whose
+    // message is fit to show. A 401 means the shared session ended (for
+    // example, signed out from Toolshare), so it drops back to the sign-in form.
+    function api(action, body) {
+        var opts = { headers: {} };
+        if (token) opts.headers['X-Auth-Token'] = token;
+        if (body !== undefined) {
+            opts.method = 'POST';
+            opts.headers['Content-Type'] = 'application/json';
+            opts.body = JSON.stringify(body);
+        }
+        return fetch(API + '?action=' + action, opts).then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (j) {
+                if (r.status === 401 && token && action !== 'tb_login') {
+                    signedOut();
+                    throw new Error('Your sign-in has ended. Sign in again.');
+                }
+                if (!r.ok || !j.success) throw new Error(j.error || 'Something went wrong. Try again.');
+                return j;
+            });
+        }, function () {
+            throw new Error('Could not reach davenn.com. Check your connection.');
+        });
+    }
+
+    // ── Sign in ──
+    var mode = 'login';
+    function setMode(m) {
+        mode = m;
+        $('tab-login').setAttribute('aria-pressed', m === 'login');
+        $('tab-register').setAttribute('aria-pressed', m === 'register');
+        document.querySelectorAll('.field.reg').forEach(function (f) { f.hidden = m !== 'register'; });
+        $('a-name').required = $('a-email').required = m === 'register';
+        $('a-pass').setAttribute('autocomplete', m === 'register' ? 'new-password' : 'current-password');
+        $('auth-submit').textContent = m === 'register' ? 'Create account' : 'Sign in';
+        $('auth-err').textContent = '';
+    }
+    $('tab-login').addEventListener('click', function () { setMode('login'); });
+    $('tab-register').addEventListener('click', function () { setMode('register'); });
+
+    $('auth-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var btn = $('auth-submit');
+        var body = { username: $('a-user').value.trim(), password: $('a-pass').value };
+        if (mode === 'register') { body.display_name = $('a-name').value.trim(); body.email = $('a-email').value.trim(); }
+        btn.disabled = true;
+        $('auth-err').textContent = '';
+        api(mode === 'register' ? 'tb_register' : 'tb_login', body).then(function (res) {
+            token = res.token; user = res.user;
+            store(TOKEN_KEY, token);
+            store(USER_KEY, JSON.stringify(user));
+            $('a-pass').value = '';
+            signedIn();
+        }).catch(function (err) {
+            $('auth-err').textContent = err.message;
+        }).then(function () { btn.disabled = false; });
+    });
+
+    $('btn-signout').addEventListener('click', function () {
+        // Ends this device's session, which Toolshare and Daily Tasks share.
+        api('tb_logout', {}).catch(function () {});
+        store(TOKEN_KEY, null);
+        store(USER_KEY, null);
+        signedOut();
+        toast('Signed out.');
+    });
+
+    function signedOut() {
+        token = null; user = null;
+        people = []; ideas = [];
+        store(CACHE_KEY, null);
+        $('app').hidden = true;
+        $('auth').hidden = false;
+        $('nav-user').hidden = true;
+        $('btn-signout').hidden = true;
+    }
+
+    function signedIn() {
+        $('auth').hidden = true;
+        $('app').hidden = false;
+        $('nav-user').textContent = user.display_name || user.username;
+        $('nav-user').hidden = false;
+        $('btn-signout').hidden = false;
+        var cached = null;
+        try { cached = JSON.parse(load(CACHE_KEY)); } catch (e) {}
+        loaded = false;
+        if (cached && cached.uid === user.id) { people = cached.people; ideas = cached.ideas; loaded = true; }
+        render();
+        refresh();
+    }
+
+    function refresh() {
+        return api('gf_list').then(function (res) {
+            people = res.people; ideas = res.ideas; loaded = true;
+            save();
+            render();
+        }).catch(function (err) {
+            if (!token) return;
+            toast(err.message, true);
+            if (!loaded) $('list').innerHTML = '<div class="empty">Could not load your list.<br>' + esc(err.message) + '</div>';
+        });
+    }
+
+    function save() {
+        store(CACHE_KEY, JSON.stringify({ uid: user.id, people: people, ideas: ideas }));
+    }
+
+    // ── Derived ──
+    function personById(id) { for (var i = 0; i < people.length; i++) if (people[i].id === id) return people[i]; return null; }
+    function ideasFor(pid) { return ideas.filter(function (i) { return i.person_id === pid; }); }
+
+    // Days until the next birthday (0 = today), or null if unknown. A Feb 29
+    // birthday lands on Mar 1 in other years, which is how Date rolls it.
+    function daysToBirthday(b) {
+        if (!b) return null;
+        var m = +b.slice(0, 2) - 1, d = +b.slice(3, 5);
+        var now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        var next = new Date(today.getFullYear(), m, d);
+        if (next < today) next = new Date(today.getFullYear() + 1, m, d);
+        return Math.round((next - today) / 86400000);
+    }
+    function birthdayText(b) {
+        var n = daysToBirthday(b);
+        if (n === null) return '';
+        var when = n === 0 ? 'today' : n === 1 ? 'tomorrow' : 'in ' + n + ' days';
+        return '🎂 ' + MONTHS[+b.slice(0, 2) - 1] + ' ' + (+b.slice(3, 5)) + ' · <span' + (n <= 30 ? ' class="soon"' : '') + '>' + when + '</span>';
+    }
+    function hasBought(pid) { return ideas.some(function (i) { return i.person_id === pid && i.status === 'bought'; }); }
+
+    function matches(p) {
+        if (!query) return true;
+        var q = query.toLowerCase();
+        if (p.name.toLowerCase().indexOf(q) >= 0 || p.note.toLowerCase().indexOf(q) >= 0) return true;
+        return ideasFor(p.id).some(function (i) { return (i.title + ' ' + i.note).toLowerCase().indexOf(q) >= 0; });
+    }
+
+    // ── Render ──
+    function render() {
+        document.querySelectorAll('#filter button').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.f === filter); });
+        $('sort').value = sort;
+        renderSummary();
+
+        var list = $('list');
+        if (!people.length && !loaded) {
+            list.innerHTML = '<div class="empty">Loading your list…</div>';
+            return;
+        }
+        if (!people.length) {
+            list.innerHTML = '<div class="empty">No one on your list yet.<br>Start with the first person you are buying for.<br>' +
+                '<button class="btn-primary" type="button" data-act="add-person">+ Add a person</button></div>';
+            return;
+        }
+
+        var shown = people.filter(function (p) {
+            if (filter === 'need' && hasBought(p.id)) return false;
+            if (filter === 'got' && !hasBought(p.id)) return false;
+            return matches(p);
+        });
+        shown.sort(function (a, b) {
+            if (sort === 'birthday') {
+                var da = daysToBirthday(a.birthday), db = daysToBirthday(b.birthday);
+                if (da !== db) return da === null ? 1 : db === null ? -1 : da - db;
+            } else if (sort === 'ideas') {
+                var na = ideasFor(a.id).filter(function (i) { return i.status !== 'given'; }).length;
+                var nb = ideasFor(b.id).filter(function (i) { return i.status !== 'given'; }).length;
+                if (na !== nb) return nb - na;
+            }
+            return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+        });
+
+        if (!shown.length) {
+            list.innerHTML = '<div class="empty">' + (query ? 'Nothing matches "' + esc(query) + '".' :
+                filter === 'need' ? 'Everyone has a gift. Nice work.' : 'No one has a bought gift yet.') + '</div>';
+            return;
+        }
+        list.innerHTML = shown.map(personHtml).join('');
+    }
+
+    function renderSummary() {
+        var year = new Date().getFullYear();
+        var open = 0, bought = 0, spent = 0;
+        ideas.forEach(function (i) {
+            if (i.status === 'idea') open++;
+            if (i.status === 'bought') bought++;
+            if (i.status !== 'idea' && i.price && new Date(i.status_at).getFullYear() === year) spent += i.price;
+        });
+        var need = people.filter(function (p) { return !hasBought(p.id); }).length;
+        $('summary').innerHTML = !people.length ? '' : [
+            '<b>' + people.length + '</b> ' + (people.length === 1 ? 'person' : 'people'),
+            '<b>' + need + '</b> still need a gift',
+            '<b>' + open + '</b> open idea' + (open === 1 ? '' : 's'),
+            '<b>' + bought + '</b> bought, not given',
+            '<b>' + money(spent) + '</b> spent in ' + year,
+        ].map(function (s) { return '<span class="stat">' + s + '</span>'; }).join('');
+    }
+
+    function ideaHtml(i) {
+        var title = i.link
+            ? '<a href="' + esc(i.link) + '" target="_blank" rel="noopener noreferrer">' + esc(i.title) + '</a> <span class="ext" aria-hidden="true">↗</span>'
+            : esc(i.title);
+        var sub = [];
+        if (i.price != null) sub.push(money(i.price));
+        if (i.status === 'given') { var d = new Date(i.status_at); sub.push('given ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear()); }
+        if (i.status === 'bought') { var b = new Date(i.status_at); sub.push('bought ' + MONTHS[b.getMonth()] + ' ' + b.getDate()); }
+        if (i.note) sub.push(esc(i.note));
+        return '<li class="idea is-' + i.status + '">' +
+            '<button class="pill s-' + i.status + '" type="button" data-act="cycle" data-id="' + i.id + '" ' +
+                'title="Mark as ' + STATUS_WORD[STATUS_NEXT[i.status]].toLowerCase() + '" aria-label="' + STATUS_WORD[i.status] + '. Mark as ' + STATUS_WORD[STATUS_NEXT[i.status]].toLowerCase() + '">' +
+                STATUS_WORD[i.status] + '</button>' +
+            '<div class="idea-body"><div class="idea-title">' + title + '</div>' +
+                (sub.length ? '<div class="idea-sub">' + sub.join(' · ') + '</div>' : '') + '</div>' +
+            '<button class="idea-edit" type="button" data-act="edit-idea" data-id="' + i.id + '" aria-label="Edit ' + esc(i.title) + '" title="Edit">✎</button>' +
+        '</li>';
+    }
+
+    function personHtml(p) {
+        var all = ideasFor(p.id);
+        // Bought first (it is what you are holding), then open ideas, oldest first.
+        var current = all.filter(function (i) { return i.status !== 'given'; })
+            .sort(function (a, b) { return (a.status === 'bought' ? 0 : 1) - (b.status === 'bought' ? 0 : 1) || a.id - b.id; });
+        var given = all.filter(function (i) { return i.status === 'given'; })
+            .sort(function (a, b) { return b.status_at - a.status_at; });
+        var got = hasBought(p.id);
+        var meta = birthdayText(p.birthday);
+
+        return '<article class="person" id="person-' + p.id + '">' +
+            '<div class="p-head">' +
+                '<h2 class="p-name">' + esc(p.name) + '</h2>' +
+                '<span class="p-flag ' + (got ? 'got' : 'need') + '">' + (got ? '✓ Got one' : 'Needs a gift') + '</span>' +
+                '<button class="p-edit" type="button" data-act="edit-person" data-id="' + p.id + '">Edit</button>' +
+            '</div>' +
+            (meta ? '<div class="p-meta">' + meta + '</div>' : '') +
+            (p.note ? '<div class="p-note">' + esc(p.note) + '</div>' : '') +
+            (current.length
+                ? '<ul class="ideas">' + current.map(ideaHtml).join('') + '</ul>'
+                : '<div class="ideas"><div class="no-ideas">No ideas yet.</div></div>') +
+            (given.length
+                ? '<details class="given-box"><summary>Given before (' + given.length + ')</summary><ul class="ideas">' + given.map(ideaHtml).join('') + '</ul></details>'
+                : '') +
+            '<form class="quick" data-pid="' + p.id + '" autocomplete="off">' +
+                '<input type="text" maxlength="800" placeholder="Add an idea for ' + esc(p.name) + ', or paste a link" aria-label="New idea for ' + esc(p.name) + '">' +
+                '<button class="btn-quiet" type="submit">Add</button>' +
+            '</form>' +
+        '</article>';
+    }
+
+    function flash(pid) {
+        var el = $('person-' + pid);
+        if (!el) return;
+        el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+    }
+
+    // ── Toolbar ──
+    $('search').addEventListener('input', function () { query = this.value.trim(); render(); });
+    $('filter').addEventListener('click', function (e) {
+        var b = e.target.closest('button'); if (!b) return;
+        filter = b.dataset.f; store(FILTER_KEY, filter); render();
+    });
+    $('sort').addEventListener('change', function () { sort = this.value; store(SORT_KEY, sort); render(); });
+    $('btn-add-person').addEventListener('click', function () { openPerson(null); });
+
+    // ── List actions ──
+    $('list').addEventListener('click', function (e) {
+        var b = e.target.closest('[data-act]'); if (!b) return;
+        var act = b.dataset.act, id = +b.dataset.id;
+        if (act === 'add-person') openPerson(null);
+        if (act === 'edit-person') openPerson(personById(id));
+        if (act === 'edit-idea') openIdea(ideas.filter(function (i) { return i.id === id; })[0]);
+        if (act === 'cycle') cycle(b, id);
+    });
+
+    function cycle(btn, id) {
+        var i = ideas.filter(function (x) { return x.id === id; })[0];
+        if (!i) return;
+        var next = STATUS_NEXT[i.status];
+        btn.disabled = true;
+        api('gf_idea_save', Object.assign({}, i, { status: next })).then(function (res) {
+            replaceIdea(res.idea);
+            render();
+            toast(next === 'bought' ? 'Bought: ' + i.title : next === 'given' ? 'Given. It is filed under Given before.' : 'Back to an idea.');
+        }).catch(function (err) { btn.disabled = false; toast(err.message, true); });
+    }
+
+    // Quick add. A pasted link becomes the idea's link, and whatever text came
+    // with it becomes the name; a bare link is named after its site until edited.
+    $('list').addEventListener('submit', function (e) {
+        var f = e.target.closest('.quick'); if (!f) return;
+        e.preventDefault();
+        var input = f.querySelector('input'), btn = f.querySelector('button');
+        var text = input.value.trim();
+        if (!text) { input.focus(); return; }
+        var link = '', m = text.match(/https?:\/\/\S+/i);
+        if (m) {
+            link = m[0];
+            text = (text.slice(0, m.index) + ' ' + text.slice(m.index + link.length)).replace(/\s+/g, ' ').trim();
+            if (!text) { try { text = 'Something from ' + new URL(link).hostname.replace(/^www\./, ''); } catch (err) { text = 'Saved link'; } }
+        }
+        var pid = +f.dataset.pid;
+        btn.disabled = input.disabled = true;
+        api('gf_idea_save', { person_id: pid, title: text, link: link, status: 'idea' }).then(function (res) {
+            ideas.push(res.idea);
+            save();
+            render();
+            var again = document.querySelector('.quick[data-pid="' + pid + '"] input');
+            if (again) again.focus();
+        }).catch(function (err) {
+            btn.disabled = input.disabled = false;
+            toast(err.message, true);
+        });
+    });
+
+    // "amazon.com/thing" is how links get typed by hand; give it the scheme the
+    // server requires. Anything with a scheme already is left for the server
+    // to accept or refuse.
+    function withScheme(link) {
+        return link && !/^[a-z][a-z0-9+.-]*:/i.test(link) ? 'https://' + link : link;
+    }
+
+    function replaceIdea(n) {
+        ideas = ideas.map(function (i) { return i.id === n.id ? n : i; });
+        save();
+    }
+
+    // ── Dialogs ──
+    document.querySelectorAll('dialog [data-close]').forEach(function (b) {
+        b.addEventListener('click', function () { b.closest('dialog').close(); });
+    });
+
+    var editingPerson = null;
+    function openPerson(p) {
+        editingPerson = p;
+        $('dp-title').textContent = p ? 'Edit ' + p.name : 'Add a person';
+        $('dp-name').value = p ? p.name : '';
+        $('dp-month').value = p && p.birthday ? p.birthday.slice(0, 2) : '';
+        $('dp-day').value = p && p.birthday ? +p.birthday.slice(3, 5) : '';
+        $('dp-note').value = p ? p.note : '';
+        $('dp-delete').hidden = !p;
+        $('dp-err').textContent = '';
+        $('dlg-person').showModal();
+        if (!p) $('dp-name').focus();
+    }
+
+    $('form-person').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var month = $('dp-month').value, day = $('dp-day').value.trim(), birthday = '';
+        if (month || day) {
+            var d = +day;
+            var max = new Date(2000, +month, 0).getDate();
+            if (!month || !day || d < 1 || d > max || d % 1) {
+                $('dp-err').textContent = 'Pick a month and a day that exists in it, or leave both empty.';
+                return;
+            }
+            birthday = month + '-' + (d < 10 ? '0' : '') + d;
+        }
+        var body = { name: $('dp-name').value.trim(), note: $('dp-note').value.trim(), birthday: birthday };
+        if (editingPerson) body.id = editingPerson.id;
+        $('dp-save').disabled = true;
+        api('gf_person_save', body).then(function (res) {
+            var p = res.person;
+            if (editingPerson) people = people.map(function (x) { return x.id === p.id ? p : x; });
+            else people.push(p);
+            save();
+            $('dlg-person').close();
+            if (!editingPerson && filter === 'got') { filter = 'all'; store(FILTER_KEY, filter); }
+            query = ''; $('search').value = '';
+            render();
+            var card = $('person-' + p.id);
+            if (card) {
+                card.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                flash(p.id);
+                if (!editingPerson) card.querySelector('.quick input').focus({ preventScroll: true });
+            }
+        }).catch(function (err) {
+            $('dp-err').textContent = err.message;
+        }).then(function () { $('dp-save').disabled = false; });
+    });
+
+    $('dp-delete').addEventListener('click', function () {
+        var p = editingPerson; if (!p) return;
+        var n = ideasFor(p.id).length;
+        if (!confirm('Remove ' + p.name + (n ? ' and their ' + n + ' idea' + (n === 1 ? '' : 's') : '') + '? This cannot be undone.')) return;
+        api('gf_person_delete', { id: p.id }).then(function () {
+            people = people.filter(function (x) { return x.id !== p.id; });
+            ideas = ideas.filter(function (i) { return i.person_id !== p.id; });
+            save();
+            $('dlg-person').close();
+            render();
+            toast('Removed ' + p.name + '.');
+        }).catch(function (err) { $('dp-err').textContent = err.message; });
+    });
+
+    var editingIdea = null;
+    function openIdea(i) {
+        if (!i) return;
+        editingIdea = i;
+        $('di-title').value = i.title;
+        $('di-link').value = i.link;
+        $('di-price').value = i.price != null ? i.price : '';
+        $('di-status').value = i.status;
+        $('di-note').value = i.note;
+        $('di-person').innerHTML = people.slice().sort(function (a, b) { return a.name.localeCompare(b.name); })
+            .map(function (p) { return '<option value="' + p.id + '">' + esc(p.name) + '</option>'; }).join('');
+        $('di-person').value = i.person_id;
+        $('di-err').textContent = '';
+        $('dlg-idea').showModal();
+    }
+
+    $('form-idea').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var i = editingIdea; if (!i) return;
+        $('di-save').disabled = true;
+        api('gf_idea_save', {
+            id: i.id,
+            person_id: +$('di-person').value,
+            title: $('di-title').value.trim(),
+            link: withScheme($('di-link').value.trim()),
+            price: $('di-price').value.trim(),
+            note: $('di-note').value.trim(),
+            status: $('di-status').value,
+        }).then(function (res) {
+            replaceIdea(res.idea);
+            $('dlg-idea').close();
+            render();
+            flash(res.idea.person_id);
+        }).catch(function (err) {
+            $('di-err').textContent = err.message;
+        }).then(function () { $('di-save').disabled = false; });
+    });
+
+    $('di-delete').addEventListener('click', function () {
+        var i = editingIdea; if (!i) return;
+        if (!confirm('Delete "' + i.title + '"? This cannot be undone.')) return;
+        api('gf_idea_delete', { id: i.id }).then(function () {
+            ideas = ideas.filter(function (x) { return x.id !== i.id; });
+            save();
+            $('dlg-idea').close();
+            render();
+            toast('Deleted.');
+        }).catch(function (err) { $('di-err').textContent = err.message; });
+    });
+
+    // ── Start ──
+    if (user) signedIn(); else signedOut();
+})();
+</script>
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+<script>
+let _installEvt = null;
+const installBtn = document.getElementById('btn-install');
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _installEvt = e;
+  installBtn.classList.add('ready');
+});
+window.addEventListener('appinstalled', () => {
+  _installEvt = null;
+  installBtn.classList.remove('ready');
+});
+installBtn.addEventListener('click', () => {
+  if (!_installEvt) return;
+  _installEvt.prompt();
+  _installEvt.userChoice.then(() => { _installEvt = null; installBtn.classList.remove('ready'); });
+});
+</script>
+<script>
+// Anonymous page-view count (see /privacy.html): no cookies, nothing stored on
+// this device. Skipped for Do Not Track, Global Privacy Control, automated
+// browsers, and any device opted out from the stats page.
+(function () {
+    try {
+        var n = navigator, de = document.documentElement;
+        if (!n.sendBeacon || n.webdriver || n.globalPrivacyControl || n.doNotTrack === '1') return;
+        try { if (localStorage.getItem('an_optout') === '1') return; } catch (e) {}
+        var mq = function (q) { return !!(window.matchMedia && matchMedia(q).matches); };
+        var s = Math.min(screen.width, screen.height), t = de.getAttribute('data-theme');
+        n.sendBeacon('/api.php?action=an_hit', JSON.stringify({
+            p: location.pathname,
+            r: document.referrer,
+            d: mq('(pointer: coarse)') ? (s < 600 ? 'mobile' : 'tablet') : 'desktop',
+            i: mq('(display-mode: standalone)') || n.standalone === true,
+            t: t === 'light' || t === 'dark' ? t : (mq('(prefers-color-scheme: dark)') ? 'dark' : 'light'),
+            l: n.language
+        }));
+    } catch (e) {}
+})();
+</script>
+
+</body>
+</html>

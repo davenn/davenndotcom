@@ -23,6 +23,7 @@ fits together see [`../../CLAUDE.md`](../../CLAUDE.md).
 | Cribbage | [cribbage.md](cribbage.md) | none |
 | Cali's Movie List | [movielist.md](movielist.md) | added movies, Claude drafting |
 | Sign Spotter | [signspotter.md](signspotter.md) | none |
+| Gifts (unlisted) | [gifts.md](gifts.md) | people, gift ideas (Toolshare accounts) |
 | Stats (unlisted) | [stats.md](stats.md) | page views, API usage, city lookup |
 | Finance (unlisted) | [finance.md](finance.md) | one encrypted vault |
 

@@ -1,0 +1,15 @@
+{
+  "name": "Gifts",
+  "short_name": "Gifts",
+  "description": "The people you buy for and the gift ideas you have for them",
+  "id": "/gifts.html",
+  "scope": "/gifts.html",
+  "start_url": "/gifts.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#111110",
+  "background_color": "#111110",
+  "icons": [
+    { "src": "/icons/gifts.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

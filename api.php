@@ -359,6 +359,40 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS fn_vault (
     updated_at DATETIME    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 )");
 
+// Gifts: the people someone buys for, one row each, owned by a Toolshare
+// account (tb_users) and visible only to it. birthday is 'MM-DD' with no year,
+// since the page only needs to count down to the next one; NULL when unknown.
+$pdo->exec("CREATE TABLE IF NOT EXISTS gf_people (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    user_id    INT          NOT NULL,
+    name       VARCHAR(80)  NOT NULL,
+    note       VARCHAR(600) NOT NULL DEFAULT '',
+    birthday   CHAR(5)      DEFAULT NULL,
+    created_at DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_user (user_id),
+    FOREIGN KEY (user_id) REFERENCES tb_users(id) ON DELETE CASCADE
+)");
+
+// Gift ideas, each for one gf_people row. status runs idea -> bought -> given;
+// status_at is when it last changed, so a given gift remembers when it was
+// given and next year's list can avoid repeating it. user_id is repeated here
+// so every query can be scoped to the owner without a join.
+$pdo->exec("CREATE TABLE IF NOT EXISTS gf_ideas (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    user_id    INT           NOT NULL,
+    person_id  INT           NOT NULL,
+    title      VARCHAR(200)  NOT NULL,
+    link       VARCHAR(600)  NOT NULL DEFAULT '',
+    price      DECIMAL(9,2)  DEFAULT NULL,
+    note       VARCHAR(600)  NOT NULL DEFAULT '',
+    status     VARCHAR(8)    NOT NULL DEFAULT 'idea',
+    status_at  DATETIME      DEFAULT CURRENT_TIMESTAMP,
+    created_at DATETIME      DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_user (user_id),
+    FOREIGN KEY (user_id)   REFERENCES tb_users(id)  ON DELETE CASCADE,
+    FOREIGN KEY (person_id) REFERENCES gf_people(id) ON DELETE CASCADE
+)");
+
 // Analytics: one row per page view, sent by the beacon at the bottom of every
 // page. No IP and no cookie — vid is a hash of IP + user agent + a salt that is
 // replaced every UTC day, so it counts unique visitors within a day and cannot
@@ -4790,6 +4824,155 @@ if ($method === 'POST' && $action === 'fn_save') {
         ->execute([$blob, $cur + 1]);
     $pdo->commit();
     echo json_encode(['success' => true, 'version' => $cur + 1, 'updated_at' => time() * 1000]);
+    exit;
+}
+
+// ══════════════════════════════════════════════════════════════
+// GIFTS (unlisted; Toolshare accounts, each list private to its owner)
+// ══════════════════════════════════════════════════════════════
+
+// The shapes the page works with. Ids and prices come back as numbers, and a
+// timestamp as epoch ms, so the page never has to parse MySQL's formats.
+function gfPerson(array $r): array {
+    return [
+        'id'       => (int)$r['id'],
+        'name'     => $r['name'],
+        'note'     => $r['note'],
+        'birthday' => $r['birthday'],
+    ];
+}
+function gfIdea(array $r): array {
+    return [
+        'id'        => (int)$r['id'],
+        'person_id' => (int)$r['person_id'],
+        'title'     => $r['title'],
+        'link'      => $r['link'],
+        'price'     => $r['price'] === null ? null : (float)$r['price'],
+        'note'      => $r['note'],
+        'status'    => $r['status'],
+        'status_at' => (int)$r['status_ts'] * 1000,
+    ];
+}
+const GF_IDEA_COLS = "id, person_id, title, link, price, note, status, UNIX_TIMESTAMP(status_at) AS status_ts";
+
+// The person with this id if the signed-in user owns it, else a 404 that ends
+// the request. Every write that names a person goes through here, so one
+// account can never reach another account's list by guessing ids.
+function gfOwnedPerson(PDO $pdo, int $uid, int $id): array {
+    $st = $pdo->prepare("SELECT * FROM gf_people WHERE id = ? AND user_id = ?");
+    $st->execute([$id, $uid]);
+    $p = $st->fetch();
+    if (!$p) { http_response_code(404); echo json_encode(['error' => 'That person is not on your list.']); exit; }
+    return $p;
+}
+
+// GET ?action=gf_list  header: X-Auth-Token
+// The signed-in user's whole list in one request: people by name, and ideas
+// oldest first. The page groups ideas under people itself.
+if ($method === 'GET' && $action === 'gf_list') {
+    $me = requireAuth($pdo);
+    $st = $pdo->prepare("SELECT * FROM gf_people WHERE user_id = ? ORDER BY name");
+    $st->execute([$me['id']]);
+    $people = array_map('gfPerson', $st->fetchAll());
+    $st = $pdo->prepare("SELECT " . GF_IDEA_COLS . " FROM gf_ideas WHERE user_id = ? ORDER BY id");
+    $st->execute([$me['id']]);
+    echo json_encode(['success' => true, 'people' => $people, 'ideas' => array_map('gfIdea', $st->fetchAll())]);
+    exit;
+}
+
+// POST ?action=gf_person_save  {id?, name, note, birthday}  header: X-Auth-Token
+// Adds a person (no id) or replaces one's details (id). birthday is 'MM-DD',
+// or empty to leave it unknown; Feb 29 is allowed.
+if ($method === 'POST' && $action === 'gf_person_save') {
+    $me = requireAuth($pdo);
+    $b  = json_decode(file_get_contents('php://input'), true) ?: [];
+    $name = mb_substr(trim((string)($b['name'] ?? '')), 0, 80);
+    if ($name === '') { http_response_code(400); echo json_encode(['error' => 'A person needs a name.']); exit; }
+    $note = mb_substr(trim((string)($b['note'] ?? '')), 0, 600);
+    $bday = trim((string)($b['birthday'] ?? ''));
+    if ($bday !== '' && (!preg_match('/^(\d\d)-(\d\d)$/', $bday, $m) || !checkdate((int)$m[1], (int)$m[2], 2000))) {
+        http_response_code(400); echo json_encode(['error' => 'That birthday is not a real date.']); exit;
+    }
+    $bday = $bday !== '' ? $bday : null;
+
+    $id = (int)($b['id'] ?? 0);
+    if ($id) {
+        gfOwnedPerson($pdo, (int)$me['id'], $id);
+        $pdo->prepare("UPDATE gf_people SET name = ?, note = ?, birthday = ? WHERE id = ?")->execute([$name, $note, $bday, $id]);
+    } else {
+        $pdo->prepare("INSERT INTO gf_people (user_id, name, note, birthday) VALUES (?, ?, ?, ?)")->execute([$me['id'], $name, $note, $bday]);
+        $id = (int)$pdo->lastInsertId();
+    }
+    echo json_encode(['success' => true, 'person' => gfPerson(gfOwnedPerson($pdo, (int)$me['id'], $id))]);
+    exit;
+}
+
+// POST ?action=gf_person_delete  {id}  header: X-Auth-Token
+// Removes a person and, through the foreign key, every idea filed under them.
+if ($method === 'POST' && $action === 'gf_person_delete') {
+    $me = requireAuth($pdo);
+    $b  = json_decode(file_get_contents('php://input'), true) ?: [];
+    $st = $pdo->prepare("DELETE FROM gf_people WHERE id = ? AND user_id = ?");
+    $st->execute([(int)($b['id'] ?? 0), $me['id']]);
+    if (!$st->rowCount()) { http_response_code(404); echo json_encode(['error' => 'That person is not on your list.']); exit; }
+    echo json_encode(['success' => true]);
+    exit;
+}
+
+// POST ?action=gf_idea_save  {id?, person_id, title, link, price, note, status}  header: X-Auth-Token
+// Adds an idea (no id) or replaces one (id), which can also move it to another
+// person. link must be http(s) so it is safe to render as a link; price is
+// optional. status_at moves only when status actually changes, so re-saving a
+// given gift's note keeps the date it was given.
+if ($method === 'POST' && $action === 'gf_idea_save') {
+    $me  = requireAuth($pdo);
+    $uid = (int)$me['id'];
+    $b   = json_decode(file_get_contents('php://input'), true) ?: [];
+    $pid = (int)gfOwnedPerson($pdo, $uid, (int)($b['person_id'] ?? 0))['id'];
+
+    $title = mb_substr(trim((string)($b['title'] ?? '')), 0, 200);
+    if ($title === '') { http_response_code(400); echo json_encode(['error' => 'An idea needs a name.']); exit; }
+    $link = trim((string)($b['link'] ?? ''));
+    if ($link !== '' && !preg_match('#^https?://[^\s"<>]{1,590}$#i', $link)) {
+        http_response_code(400); echo json_encode(['error' => 'The link has to start with http:// or https://, or be left empty.']); exit;
+    }
+    $price = trim(str_replace(['$', ','], '', (string)($b['price'] ?? '')));
+    if ($price !== '' && (!is_numeric($price) || (float)$price < 0 || (float)$price >= 10000000)) {
+        http_response_code(400); echo json_encode(['error' => 'The price has to be a number, or left empty.']); exit;
+    }
+    $price  = $price !== '' ? round((float)$price, 2) : null;
+    $note   = mb_substr(trim((string)($b['note'] ?? '')), 0, 600);
+    $status = in_array($b['status'] ?? '', ['idea', 'bought', 'given'], true) ? $b['status'] : 'idea';
+
+    $id = (int)($b['id'] ?? 0);
+    if ($id) {
+        // status_at is assigned before status, so the comparison sees the old value.
+        $st = $pdo->prepare("UPDATE gf_ideas SET person_id = ?, title = ?, link = ?, price = ?, note = ?,
+                                 status_at = IF(status = ?, status_at, NOW()), status = ?
+                             WHERE id = ? AND user_id = ?");
+        $st->execute([$pid, $title, $link, $price, $note, $status, $status, $id, $uid]);
+        $chk = $pdo->prepare("SELECT 1 FROM gf_ideas WHERE id = ? AND user_id = ?");
+        $chk->execute([$id, $uid]);
+        if (!$chk->fetch()) { http_response_code(404); echo json_encode(['error' => 'That idea is not on your list.']); exit; }
+    } else {
+        $pdo->prepare("INSERT INTO gf_ideas (user_id, person_id, title, link, price, note, status) VALUES (?, ?, ?, ?, ?, ?, ?)")
+            ->execute([$uid, $pid, $title, $link, $price, $note, $status]);
+        $id = (int)$pdo->lastInsertId();
+    }
+    $st = $pdo->prepare("SELECT " . GF_IDEA_COLS . " FROM gf_ideas WHERE id = ?");
+    $st->execute([$id]);
+    echo json_encode(['success' => true, 'idea' => gfIdea($st->fetch())]);
+    exit;
+}
+
+// POST ?action=gf_idea_delete  {id}  header: X-Auth-Token
+if ($method === 'POST' && $action === 'gf_idea_delete') {
+    $me = requireAuth($pdo);
+    $b  = json_decode(file_get_contents('php://input'), true) ?: [];
+    $st = $pdo->prepare("DELETE FROM gf_ideas WHERE id = ? AND user_id = ?");
+    $st->execute([(int)($b['id'] ?? 0), $me['id']]);
+    if (!$st->rowCount()) { http_response_code(404); echo json_encode(['error' => 'That idea is not on your list.']); exit; }
+    echo json_encode(['success' => true]);
     exit;
 }
 

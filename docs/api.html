@@ -179,7 +179,7 @@
     <h1>API Reference</h1>
     <p class="lede">Every app on davenn.com is served by a single <code class="inline">api.php</code>. Endpoints are selected by an <code class="inline">action</code> query parameter and always return JSON.</p>
     <div class="base">https://davenn.com/api.php?action=&lt;action&gt;</div>
-    <p class="counts">79 endpoints · 38 tables</p>
+    <p class="counts">84 endpoints · 40 tables</p>
 
     <div class="filter-row">
         <input type="search" id="filter" placeholder="Filter endpoints…" aria-label="Filter endpoints">
@@ -1426,6 +1426,83 @@
         </div>
     </section>
     <section class="grp">
+        <h2 class="tag">Gifts</h2>
+        <div class="op post" id="post-gf_idea_delete" data-search="gf_idea_delete post gifts ">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=gf_idea_delete</span>
+                <span class="op-sum"></span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">{id}  header: X-Auth-Token</p>
+            </div>
+        </div>
+        <div class="op post" id="post-gf_idea_save" data-search="gf_idea_save post gifts adds an idea (no id) or replaces one (id), which can also move it to another">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=gf_idea_save</span>
+                <span class="op-sum">Adds an idea (no id) or replaces one (id), which can also move it to another</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">Adds an idea (no id) or replaces one (id), which can also move it to another person. link must be http(s) so it is safe to render as a link; price is optional. status_at moves only when status actually changes, so re-saving a given gift's note keeps the date it was given.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">{id?, person_id, title, link, price, note, status}  header: X-Auth-Token</p>
+            </div>
+        </div>
+        <div class="op get" id="get-gf_list" data-search="gf_list get gifts the signed-in user's whole list in one request: people by name, and ideas">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=gf_list</span>
+                <span class="op-sum">The signed-in user's whole list in one request: people by name, and ideas</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">The signed-in user's whole list in one request: people by name, and ideas oldest first. The page groups ideas under people itself.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">header: X-Auth-Token</p>
+            </div>
+        </div>
+        <div class="op post" id="post-gf_person_delete" data-search="gf_person_delete post gifts removes a person and, through the foreign key, every idea filed under them.">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=gf_person_delete</span>
+                <span class="op-sum">Removes a person and, through the foreign key, every idea filed under them.</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">Removes a person and, through the foreign key, every idea filed under them.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">{id}  header: X-Auth-Token</p>
+            </div>
+        </div>
+        <div class="op post" id="post-gf_person_save" data-search="gf_person_save post gifts adds a person (no id) or replaces one's details (id). birthday is 'mm-dd',">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=gf_person_save</span>
+                <span class="op-sum">Adds a person (no id) or replaces one's details (id). birthday is 'MM-DD',</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">Adds a person (no id) or replaces one's details (id). birthday is 'MM-DD', or empty to leave it unknown; Feb 29 is allowed.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">{id?, name, note, birthday}  header: X-Auth-Token</p>
+            </div>
+        </div>
+    </section>
+    <section class="grp">
         <h2 class="tag">Update Notifications</h2>
         <div class="op get" id="get-resetTestPhone" data-search="resettestphone get update notifications removes the operator's own test phone from the list so sign-up can be tested">
             <button class="op-head" type="button" aria-expanded="false">
@@ -1752,6 +1829,30 @@ watched_at DATETIME    DEFAULT CURRENT_TIMESTAMP</code></pre>
 ciphertext MEDIUMTEXT  NOT NULL
 version    INT         NOT NULL DEFAULT 0
 updated_at DATETIME    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP</code></pre>
+        <p class="group">Gifts</p>
+        <h3>gf_people</h3>
+        <pre><code>id         INT AUTO_INCREMENT PRIMARY KEY
+user_id    INT          NOT NULL
+name       VARCHAR(80)  NOT NULL
+note       VARCHAR(600) NOT NULL DEFAULT ''
+birthday   CHAR(5)      DEFAULT NULL
+created_at DATETIME     DEFAULT CURRENT_TIMESTAMP
+KEY idx_user (user_id)
+FOREIGN KEY (user_id) REFERENCES tb_users(id) ON DELETE CASCADE</code></pre>
+        <h3>gf_ideas</h3>
+        <pre><code>id         INT AUTO_INCREMENT PRIMARY KEY
+user_id    INT           NOT NULL
+person_id  INT           NOT NULL
+title      VARCHAR(200)  NOT NULL
+link       VARCHAR(600)  NOT NULL DEFAULT ''
+price      DECIMAL(9,2)  DEFAULT NULL
+note       VARCHAR(600)  NOT NULL DEFAULT ''
+status     VARCHAR(8)    NOT NULL DEFAULT 'idea'
+status_at  DATETIME      DEFAULT CURRENT_TIMESTAMP
+created_at DATETIME      DEFAULT CURRENT_TIMESTAMP
+KEY idx_user (user_id)
+FOREIGN KEY (user_id)   REFERENCES tb_users(id)  ON DELETE CASCADE
+FOREIGN KEY (person_id) REFERENCES gf_people(id) ON DELETE CASCADE</code></pre>
         <p class="group">Update Notifications</p>
         <h3>subscribers</h3>
         <pre><code>id            INT AUTO_INCREMENT PRIMARY KEY

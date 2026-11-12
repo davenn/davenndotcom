@@ -32,6 +32,7 @@ Browser ──► /appname.html  (self-contained: HTML + CSS + JS)
 | `<app>.html` | One file per app; see the inventory below |
 | `stats.html` | Analytics dashboard. **Unlisted** — deliberately not on the home grid |
 | `finance.html` | Owner's private finance tracker. **Unlisted**, like Stats |
+| `gifts.html` | Private gift-idea list. **Unlisted** — not on the home grid, `noindex` |
 | `api.php` | The entire backend. Every app, every endpoint |
 | `manifest-<app>.json` | PWA manifest, one per installable app |
 | `sw.js` | Single service worker shared by all apps |
@@ -63,6 +64,7 @@ Browser ──► /appname.html  (self-contained: HTML + CSS + JS)
 | Sign Spotter | `signspotter.html` | — | local only |
 | Cribbage | `cribbage.html` | — | local only |
 | Cali's Movie List | `movielist.html` | `ml_movies` `ml_watched` `ml_draft_log` | — (anyone can add, remove or check off; drafts rate-limited per IP) |
+| Gifts (unlisted) | `gifts.html` | `gf_people` `gf_ideas` | `X-Auth-Token` (Toolshare accounts); every row scoped to its owner |
 | Legal | `privacy.html`, `terms.html` | — | static |
 | Finance | `finance.html` | `fn_vault` | `X-Admin-Secret` (the Stats secret; the vault is also encrypted in the browser with a key derived from it) |
 | Stats | `stats.html`, plus the beacon on every page | `an_hits` `an_daily` `an_salt` `an_api` `an_ai` `an_fixed_costs` `an_cache` | `X-Admin-Secret` to read; beacon open |
@@ -80,7 +82,7 @@ before deploying for exactly this reason. Never push PHP you have not linted.
   Add new endpoints in the same shape, grouped with their app's other branches.
 - **Table prefixes** namespace each app: `tb_` Toolshare, `ft_` Flight Tracker,
   `bg_` glucose, `dt_` Daily Tasks, `cp_` Confidence Pool, `xc_` WildcatsXC,
-  `ml_` Cali's Movie List, `fn_` Finance, `an_` analytics. Unprefixed tables (`meetings`, `track_sessions`, `subscribers`, `fb_scores`, `reaction_scores`)
+  `ml_` Cali's Movie List, `fn_` Finance, `gf_` Gifts, `an_` analytics. Unprefixed tables (`meetings`, `track_sessions`, `subscribers`, `fb_scores`, `reaction_scores`)
   predate the convention — leave their names alone.
 - **Schema is self-migrating.** Every request runs the `CREATE TABLE IF NOT
   EXISTS` block at the top of the file. To add a table, add it there. There are
@@ -93,7 +95,8 @@ before deploying for exactly this reason. Never push PHP you have not linted.
     `ftRequireAuth()` matches a single `token` column on `ft_users`. A Toolshare
     token is meaningless to Flight Tracker and vice versa. Daily Tasks'
     cross-device sync (`dt_get_tasks`, `dt_save_tasks`) reuses Toolshare
-    accounts via `requireAuth()` — its leaderboard endpoints stay open
+    accounts via `requireAuth()` — its leaderboard endpoints stay open.
+    Gifts (`gf_*`) uses Toolshare accounts the same way, for every endpoint
   - `X-BG-Token` → `bgRequireRead()`, a single shared read token for glucose
   - `X-XC-PIN` → `xcRequirePin()`, one shared team PIN for every WildcatsXC
     endpoint, checked against `XC_PIN` in `.env` and rate-limited per IP in
