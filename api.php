@@ -3108,13 +3108,20 @@ if ($method === 'POST' && $action === 'cp_save_week') {
     exit;
 }
 
-// POST ?action=cp_save_entry  {season, week, player_name, picks:[{game_id,pick,confidence}]}
+// POST ?action=cp_save_entry  {season, week, player_name, picks:[{game_id,pick,confidence}], entry_id?}
+// Without entry_id it upserts on (week, name), so a re-uploaded sheet replaces
+// that player's picks. With entry_id it is an edit of that one saved sheet
+// (the long-press Edit in the standings): the entry keeps its id and takes the
+// new name and picks together, so fixing a misspelt name cannot leave the old
+// sheet behind. Renaming onto another player's sheet is refused rather than
+// silently replacing theirs.
 if ($method === 'POST' && $action === 'cp_save_entry') {
     $body   = json_decode(file_get_contents('php://input'), true);
     $season = intval($body['season'] ?? 0);
     $week_n = intval($body['week']   ?? 0);
     $name   = trim((string)($body['player_name'] ?? ''));
     $picks  = is_array($body['picks'] ?? null) ? $body['picks'] : [];
+    $edit_id = intval($body['entry_id'] ?? 0);
 
     if ($name === '' || mb_strlen($name) > 60) {
         http_response_code(400); echo json_encode(['error' => 'Enter a name for this sheet.']); exit;
@@ -3153,20 +3160,40 @@ if ($method === 'POST' && $action === 'cp_save_entry') {
     }
     if (!$clean) { http_response_code(400); echo json_encode(['error' => 'No picks to save.']); exit; }
 
+    if ($edit_id) {
+        $own = $pdo->prepare("SELECT id FROM cp_entries WHERE id = ? AND week_id = ?");
+        $own->execute([$edit_id, $week['id']]);
+        if (!$own->fetchColumn()) {
+            http_response_code(404); echo json_encode(['error' => 'That sheet no longer exists. Refresh and try again.']); exit;
+        }
+        $clash = $pdo->prepare("SELECT player_name FROM cp_entries WHERE week_id = ? AND player_name = ? AND id <> ?");
+        $clash->execute([$week['id'], $name, $edit_id]);
+        $other = $clash->fetchColumn();
+        if ($other !== false) {
+            http_response_code(409); echo json_encode(['error' => $other . ' already has a sheet this week. Pick a different name.']); exit;
+        }
+    }
+
     $pdo->beginTransaction();
     try {
-        $find = $pdo->prepare("SELECT id FROM cp_entries WHERE week_id = ? AND player_name = ?");
-        $find->execute([$week['id'], $name]);
-        $entry_id = $find->fetchColumn();
-        if ($entry_id) {
-            // Re-uploading a sheet replaces that player's picks rather than
-            // stacking a second entry beside the first.
-            $entry_id = (int)$entry_id;
+        if ($edit_id) {
+            $entry_id = $edit_id;
+            $pdo->prepare("UPDATE cp_entries SET player_name = ? WHERE id = ?")->execute([$name, $entry_id]);
             $pdo->prepare("DELETE FROM cp_picks WHERE entry_id = ?")->execute([$entry_id]);
         } else {
-            $pdo->prepare("INSERT INTO cp_entries (week_id, player_name) VALUES (?,?)")
-                ->execute([$week['id'], $name]);
-            $entry_id = (int)$pdo->lastInsertId();
+            $find = $pdo->prepare("SELECT id FROM cp_entries WHERE week_id = ? AND player_name = ?");
+            $find->execute([$week['id'], $name]);
+            $entry_id = $find->fetchColumn();
+            if ($entry_id) {
+                // Re-uploading a sheet replaces that player's picks rather than
+                // stacking a second entry beside the first.
+                $entry_id = (int)$entry_id;
+                $pdo->prepare("DELETE FROM cp_picks WHERE entry_id = ?")->execute([$entry_id]);
+            } else {
+                $pdo->prepare("INSERT INTO cp_entries (week_id, player_name) VALUES (?,?)")
+                    ->execute([$week['id'], $name]);
+                $entry_id = (int)$pdo->lastInsertId();
+            }
         }
         $ins = $pdo->prepare("INSERT INTO cp_picks (entry_id, game_id, pick, confidence) VALUES (?,?,?,?)");
         foreach ($clean as $p) $ins->execute([$entry_id, $p['game_id'], $p['pick'], $p['confidence']]);

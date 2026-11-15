@@ -98,8 +98,15 @@ Operator endpoints are excluded from the public reference. Full detail in
   the board does not mean re-identifying yourself.
 - Team logos are keyed off abbreviations normalised in `cpTeamAbbr()`, which
   exists because the feed is not consistent about them.
-- Deleting an entry is behind a long press plus a confirm — on a phone, next
-  to a scrollable board, a single tap was too easy to hit by accident.
+- A long press (or right-click) on a standings row opens a menu: **Edit
+  picks** or **Delete picks**. Both sit behind the press because on a phone,
+  next to a scrollable board, a single tap was too easy to hit by accident;
+  delete then asks again. Keyboard: `E` edits, `Delete` deletes.
+- **Editing** reuses the review grid with the saved picks filled in, and saves
+  through `cp_save_entry` with the entry's id. That updates the sheet in place,
+  so the name can be corrected too; renaming onto another player's sheet is
+  refused (409) rather than replacing it. Picks stay editable after kickoff,
+  the same as re-uploading a sheet always was.
 - Uploaded sheet photos accumulate; `cp_purge_photos` clears them.
 - **Exporting a sheet** turns saved picks back into the paper sheet: same
   columns as the pool's printed sheet (date/time Pacific, favourite, underdog

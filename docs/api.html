@@ -929,18 +929,19 @@
                 </tbody></table></div>
             </div>
         </div>
-        <div class="op post" id="post-cp_save_entry" data-search="cp_save_entry post confidence pool ">
+        <div class="op post" id="post-cp_save_entry" data-search="cp_save_entry post confidence pool without entry_id it upserts on (week, name), so a re-uploaded sheet replaces">
             <button class="op-head" type="button" aria-expanded="false">
                 <span class="method">POST</span>
                 <span class="op-path">?action=cp_save_entry</span>
-                <span class="op-sum"></span>
+                <span class="op-sum">Without entry_id it upserts on (week, name), so a re-uploaded sheet replaces</span>
                 <span class="caret">▶</span>
             </button>
             <div class="op-body" hidden>
+                <p class="op-desc">Without entry_id it upserts on (week, name), so a re-uploaded sheet replaces that player's picks. With entry_id it is an edit of that one saved sheet (the long-press Edit in the standings): the entry keeps its id and takes the new name and picks together, so fixing a misspelt name cannot leave the old sheet behind. Renaming onto another player's sheet is refused rather than silently replacing theirs.</p>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
                 <h4>Takes</h4>
-                <p class="op-desc">{season, week, player_name, picks:[{game_id,pick,confidence}]}</p>
+                <p class="op-desc">{season, week, player_name, picks:[{game_id,pick,confidence}], entry_id?}</p>
             </div>
         </div>
         <div class="op post" id="post-cp_save_week" data-search="cp_save_week post confidence pool creates the week, or updates the spreads on one that already has entries.">
