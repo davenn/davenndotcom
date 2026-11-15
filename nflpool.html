@@ -384,6 +384,9 @@
         }
         .modal-title { font-size: 17px; font-weight: 600; }
         .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+        /* The long-press menu: one full-width button per thing a sheet can do. */
+        .modal-menu { display: grid; gap: 8px; }
+        .modal-menu button { width: 100%; }
         button.danger {
             font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em;
             padding: 10px 14px; border-radius: 9px; cursor: pointer;
@@ -544,6 +547,19 @@
     </div>
 </div>
 
+<!-- What a long press on a standings row opens. Delete still goes through the
+     confirm above; Edit opens the review grid with the saved picks filled in. -->
+<div class="modal hidden" id="entry-menu" role="dialog" aria-modal="true" aria-labelledby="entry-menu-title">
+    <div class="modal-box">
+        <div class="modal-title" id="entry-menu-title">Picks</div>
+        <div class="modal-menu">
+            <button class="primary" id="entry-edit" type="button">Edit picks</button>
+            <button class="danger" id="entry-delete" type="button">Delete picks</button>
+            <button class="ghost" id="entry-cancel" type="button">Cancel</button>
+        </div>
+    </div>
+</div>
+
 <!-- Filled-in copies of the paper sheet, for the print dialog only. -->
 <div id="print-sheet" aria-hidden="true"></div>
 
@@ -557,10 +573,10 @@
 <script>
 const API = '/api.php';
 
-// How long a name has to be held before the delete prompt appears. Longer than
-// the ~500ms the OS uses for its own long-press, because what is behind this
-// one is destructive and unrecoverable — it should take a moment that feels
-// deliberate rather than something a resting thumb can set off.
+// How long a name has to be held before the edit/delete menu appears. Longer
+// than the ~500ms the OS uses for its own long-press, because one of the things
+// behind it is destructive and unrecoverable — it should take a moment that
+// feels deliberate rather than something a resting thumb can set off.
 const LONG_PRESS_MS = 800;
 
 const $ = id => document.getElementById(id);
@@ -575,6 +591,7 @@ let state = {
     player: '',
     pendingToken: null,   // set when reviewing a sheet that arrived by text
     manual: false,    // true when picks are being entered by hand, not read off paper
+    editing: null,    // entry id when the review grid is editing a saved sheet
     open:   null,     // expanded standings entry id
     busy:   false,
 };
@@ -787,7 +804,7 @@ function renderStandings(d) {
             renderStandings(state.data);
         };
 
-        // Press and hold to delete a sheet. The timer is cancelled by any real
+        // Press and hold for the edit/delete menu. The timer is cancelled by any real
         // scroll, so flicking the list past a name never arms it, and `held`
         // swallows the click that a touch releases so the row does not also
         // expand behind the dialog.
@@ -798,7 +815,7 @@ function renderStandings(d) {
             timer = setTimeout(() => {
                 timer = null; held = true;
                 el.classList.remove('pressing');
-                askDelete(id);
+                openEntryMenu(id);
             }, LONG_PRESS_MS);
         };
         const cancel = () => {
@@ -820,7 +837,7 @@ function renderStandings(d) {
         el.addEventListener('mouseleave', cancel);
 
         // Right-click is the desktop equivalent of holding a finger down.
-        el.addEventListener('contextmenu', e => { e.preventDefault(); cancel(); askDelete(id); });
+        el.addEventListener('contextmenu', e => { e.preventDefault(); cancel(); openEntryMenu(id); });
 
         el.addEventListener('click', ev => {
             if (held) { held = false; return; }
@@ -830,12 +847,13 @@ function renderStandings(d) {
             // Keys pressed on a button inside the row belong to that button.
             if (ev.target !== el) return;
             if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggle(); }
-            // Keyboard users cannot long-press, so give them the usual key.
+            // Keyboard users cannot long-press, so give them the usual keys.
             if (ev.key === 'Delete' || ev.key === 'Backspace') { ev.preventDefault(); askDelete(id); }
+            if (ev.key === 'e' || ev.key === 'E') { ev.preventDefault(); editEntry(id); }
         });
     });
 
-    // The export button lives inside a row that arms a delete on a long press,
+    // The export button lives inside a row that opens a menu on a long press,
     // so a press on the button must never reach the row's handlers.
     $('standings').querySelectorAll('[data-export]').forEach(b => {
         ['mousedown', 'touchstart', 'contextmenu'].forEach(t =>
@@ -845,6 +863,49 @@ function renderStandings(d) {
             if (s) exportSheet(s);
         });
     });
+}
+
+// ── Long-press menu ──────────────────────────────────────────────────────
+let menuEntry = null;
+
+function findEntry(entryId) {
+    return ((state.data && state.data.standings) || []).find(x => x.id === entryId);
+}
+
+function openEntryMenu(entryId) {
+    const s = findEntry(entryId);
+    if (!s) return;
+    menuEntry = entryId;
+    $('entry-menu-title').textContent = `${s.player_name}'s picks`;
+    $('entry-menu').classList.remove('hidden');
+    $('entry-edit').focus();
+}
+
+function closeEntryMenu() {
+    menuEntry = null;
+    $('entry-menu').classList.add('hidden');
+}
+
+$('entry-cancel').addEventListener('click', closeEntryMenu);
+$('entry-menu').addEventListener('click', e => { if (e.target === $('entry-menu')) closeEntryMenu(); });
+$('entry-edit').addEventListener('click', () => { const id = menuEntry; closeEntryMenu(); editEntry(id); });
+$('entry-delete').addEventListener('click', () => { const id = menuEntry; closeEntryMenu(); askDelete(id); });
+
+// ── Editing a sheet ──────────────────────────────────────────────────────
+// The same review grid as an upload or hand entry, filled in from the saved
+// picks. Saving sends the entry's id, so cp_save_entry updates that sheet in
+// place — the name can be corrected too without leaving the old one behind.
+function editEntry(entryId) {
+    const s = findEntry(entryId);
+    if (!s || !state.data || !state.data.games.length) return;
+    state.mode         = 'entry';
+    state.manual       = true;
+    state.pendingToken = null;
+    state.editing      = entryId;
+    state.rows         = buildRows(s.picks);
+    state.player       = s.player_name;
+    openOverlay('Edit picks', '');
+    renderReview('', []);
 }
 
 // ── Deleting a sheet ─────────────────────────────────────────────────────
@@ -871,7 +932,9 @@ $('confirm-no').addEventListener('click', closeConfirm);
 // A tap on the backdrop, but not inside the box, dismisses.
 $('confirm').addEventListener('click', e => { if (e.target === $('confirm')) closeConfirm(); });
 document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && !$('confirm').classList.contains('hidden')) closeConfirm();
+    if (e.key !== 'Escape') return;
+    if (!$('confirm').classList.contains('hidden')) closeConfirm();
+    if (!$('entry-menu').classList.contains('hidden')) closeEntryMenu();
 });
 
 $('confirm-yes').addEventListener('click', async () => {
@@ -1182,6 +1245,7 @@ function closeOverlay() {
     state.rows = null;
     state.pendingToken = null;
     state.manual = false;
+    state.editing = null;
     schedulePoll();
 }
 $('review-close').addEventListener('click', closeOverlay);
@@ -1195,6 +1259,7 @@ function lastPlayer() {
 function renderReview(note, warnings) {
     const setup = state.mode === 'setup';
     $('review-title').textContent = setup ? 'Set up this week'
+        : state.editing ? 'Edit picks'
         : state.manual ? 'Make your picks' : 'Check the sheet';
 
     const issues = [];
@@ -1202,7 +1267,9 @@ function renderReview(note, warnings) {
     warnings.forEach(w => issues.push(w));
 
     const n = state.rows.length;
-    const intro = state.manual
+    const intro = state.editing
+        ? `<p class="msg">Change any team or confidence number for Week ${state.week}, then save. Each number from 1 to ${n} is used once.</p>`
+        : state.manual
         ? `<p class="msg">Tap the team you pick in each game of Week ${state.week} and give it a confidence from 1 to ${n} — ${n} for the one you are surest of. Each number is used once.</p>`
         : setup
         ? `<p class="msg">This is the first sheet for Week ${state.week}, so these matchups and spreads become the week. Fix anything that was misread — every score is worked out from these lines.</p>`
@@ -1389,14 +1456,24 @@ function validate() {
     // corrected re-upload is a normal thing to want, so it must stay possible.
     // Matched case-insensitively because the database collation is, so "dave"
     // would overwrite "Dave" without ever looking like a collision here.
+    //
+    // Editing a saved sheet is the exception: that sheet is not a collision
+    // with itself, and renaming it onto someone else's is refused by the
+    // server, so here it is a problem rather than a warning.
     const typed    = state.player.trim();
     const existing = typed
         ? ((state.data && state.data.standings) || [])
-            .find(s => s.player_name.trim().toLowerCase() === typed.toLowerCase())
+            .find(s => s.id !== state.editing
+                    && s.player_name.trim().toLowerCase() === typed.toLowerCase())
         : null;
+    if (existing && state.editing) {
+        problems.push(existing.player_name + ' already has a sheet for Week ' + state.week + '. Pick a different name.');
+        box.className = 'banner bad';
+        box.innerHTML = '<ul>' + [...new Set(problems)].map(p => '<li>' + esc(p) + '</li>').join('') + '</ul>';
+    }
 
     const taken = $('name-taken');
-    if (existing) {
+    if (existing && !state.editing) {
         taken.className = 'banner warn';
         taken.innerHTML = '<strong>' + esc(existing.player_name) + ' already has a sheet for Week '
             + state.week + '.</strong> Saving replaces those ' + existing.picks.length
@@ -1405,7 +1482,7 @@ function validate() {
         taken.className = 'banner warn hidden';
     }
     // Say on the button what the button will actually do.
-    $('save').textContent = existing ? 'Replace picks' : 'Save picks';
+    $('save').textContent = state.editing ? 'Save changes' : existing ? 'Replace picks' : 'Save picks';
 
     $('save').disabled = problems.length > 0 || state.busy;
     return problems.length === 0;
@@ -1448,10 +1525,15 @@ $('save').addEventListener('click', async () => {
                 week:        state.week,
                 player_name: state.player.trim(),
                 picks:       picks,
+                ...(state.editing ? { entry_id: state.editing } : {}),
             }),
         });
 
-        try { localStorage.setItem('nflpool_player', state.player.trim()); } catch (e) {}
+        // Editing is often someone else's sheet, so it must not change whose
+        // name this device fills in next time.
+        if (!state.editing) {
+            try { localStorage.setItem('nflpool_player', state.player.trim()); } catch (e) {}
+        }
 
         // A texted sheet is single use: retire the staged copy so the link in
         // the reply cannot re-open it. Failing here is not worth blocking on —
