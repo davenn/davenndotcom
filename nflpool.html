@@ -980,9 +980,9 @@ function renderPicks(s, games) {
         // favourite's number regardless would misreport half the rows.
         const line = g.spread === 0 ? 'PK'
                    : (p.pick === g.favorite ? '-' : '+') + g.spread;
-        // Before kickoff the tag shows what was staked on the game, so the
-        // list reads as the sheet itself rather than a column of "Not started".
-        let tag = '<span class="tag">Confidence ' + p.confidence + '</span>';
+        // Before kickoff the tag shows just the number staked on the game, so
+        // the list reads as the sheet itself rather than a column of "Not started".
+        let tag = '<span class="tag" title="Confidence ' + p.confidence + '">' + p.confidence + '</span>';
         if (p.result === 'win'   && p.final) tag = '<span class="tag win">Won ' + p.confidence + '</span>';
         if (p.result === 'loss'  && p.final) tag = '<span class="tag loss">Lost ' + p.confidence + '</span>';
         if (p.result === 'push'  && p.final) tag = '<span class="tag push">Push, no points</span>';
