@@ -179,7 +179,7 @@
     <h1>API Reference</h1>
     <p class="lede">Every app on davenn.com is served by a single <code class="inline">api.php</code>. Endpoints are selected by an <code class="inline">action</code> query parameter and always return JSON.</p>
     <div class="base">https://davenn.com/api.php?action=&lt;action&gt;</div>
-    <p class="counts">84 endpoints · 40 tables</p>
+    <p class="counts">84 endpoints · 41 tables</p>
 
     <div class="filter-row">
         <input type="search" id="filter" placeholder="Filter endpoints…" aria-label="Filter endpoints">
@@ -1698,6 +1698,12 @@ detail     VARCHAR(60)  DEFAULT NULL
 kickoff    DATETIME     DEFAULT NULL
 UNIQUE KEY uk_week_order (week_id, sort_order)
 FOREIGN KEY (week_id) REFERENCES cp_weeks(id) ON DELETE CASCADE</code></pre>
+        <h3>cp_records</h3>
+        <pre><code>season     INT          NOT NULL
+team       VARCHAR(8)   NOT NULL
+record     VARCHAR(12)  NOT NULL
+updated_at DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+PRIMARY KEY (season, team)</code></pre>
         <h3>cp_entries</h3>
         <pre><code>id          INT AUTO_INCREMENT PRIMARY KEY
 week_id     INT          NOT NULL

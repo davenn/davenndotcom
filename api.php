@@ -2391,6 +2391,18 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS cp_games (
     FOREIGN KEY (week_id) REFERENCES cp_weeks(id) ON DELETE CASCADE
 )");
 
+// Each team's season record ("7-2", "6-2-1") as ESPN last reported it, shown
+// beside the team names while picks are made or edited. Keyed by season and
+// team rather than stored on cp_games because a record is a fact about the
+// team, and a new table self-migrates where new columns would need an ALTER.
+$pdo->exec("CREATE TABLE IF NOT EXISTS cp_records (
+    season     INT          NOT NULL,
+    team       VARCHAR(8)   NOT NULL,
+    record     VARCHAR(12)  NOT NULL,
+    updated_at DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (season, team)
+)");
+
 $pdo->exec("CREATE TABLE IF NOT EXISTS cp_entries (
     id          INT AUTO_INCREMENT PRIMARY KEY,
     week_id     INT          NOT NULL,
@@ -2624,6 +2636,21 @@ function cpFetchEspn(int $season, int $week): array {
     return ['events' => null, 'error' => $err ?: 'no data from ESPN'];
 }
 
+/**
+ * A competitor's season record from an ESPN scoreboard entry. ESPN lists
+ * several (overall, home, road); the overall one is typed 'total'. Anything
+ * not shaped like W-L or W-L-T is dropped rather than shown.
+ */
+function cpRecordFrom($records): ?string {
+    if (!is_array($records) || !$records) return null;
+    $pick = $records[0];
+    foreach ($records as $r) {
+        if (($r['type'] ?? '') === 'total' || strtolower((string)($r['name'] ?? '')) === 'overall') { $pick = $r; break; }
+    }
+    $sum = trim((string)($pick['summary'] ?? ''));
+    return preg_match('/^\d{1,2}-\d{1,2}(-\d{1,2})?$/', $sum) ? $sum : null;
+}
+
 /** Record (or clear) why the last score refresh did not land. */
 function cpNoteScoreError(PDO $pdo, $week_id, ?string $err): void {
     $pdo->prepare("UPDATE cp_weeks SET scores_error = ? WHERE id = ?")
@@ -2645,7 +2672,7 @@ function cpRefreshScores(PDO $pdo, array $week, bool $force = false): void {
     $fetch = cpFetchEspn((int)$week['season'], (int)$week['week']);
     if ($fetch['events'] === null) { cpNoteScoreError($pdo, $week['id'], $fetch['error']); return; }
 
-    $live = [];
+    $live = []; $records = [];
     foreach ($fetch['events'] as $ev) {
         $comp = $ev['competitions'][0] ?? null;
         if (!$comp) continue;
@@ -2654,6 +2681,8 @@ function cpRefreshScores(PDO $pdo, array $week, bool $force = false): void {
             $side = ($c['homeAway'] ?? '') === 'home' ? 'home' : 'away';
             $row[$side]           = cpTeamAbbr((string)($c['team']['abbreviation'] ?? ''));
             $row[$side . 'Score'] = (int)($c['score'] ?? 0);
+            $rec = cpRecordFrom($c['records'] ?? null);
+            if ($rec !== null && $row[$side] !== '') $records[$row[$side]] = $rec;
         }
         $state = $ev['status']['type']['state'] ?? 'pre';
         $row['state']   = in_array($state, ['pre', 'in', 'post'], true) ? $state : 'pre';
@@ -2663,6 +2692,18 @@ function cpRefreshScores(PDO $pdo, array $week, bool $force = false): void {
             $live[$row['away'] . '@' . $row['home']] = $row;
         }
     }
+    // Saved before the match-up check below: a record is still right even when
+    // the sheet's games fail to line up with ESPN's week.
+    if ($records) {
+        $vals = []; $args = [];
+        foreach ($records as $team => $rec) {
+            $vals[] = '(?,?,?)';
+            array_push($args, (int)$week['season'], $team, $rec);
+        }
+        $pdo->prepare("INSERT INTO cp_records (season, team, record) VALUES " . implode(',', $vals)
+                    . " ON DUPLICATE KEY UPDATE record = VALUES(record)")->execute($args);
+    }
+
     if (!$live) { cpNoteScoreError($pdo, $week['id'], 'ESPN returned no usable games'); return; }
 
     $up = $pdo->prepare("UPDATE cp_games SET espn_id=?, away_score=?, home_score=?, state=?, detail=?, kickoff=? WHERE id=?");
@@ -2692,6 +2733,10 @@ function cpWeekPayload(PDO $pdo, array $week): array {
     $gs->execute([$week['id']]);
     $games = $gs->fetchAll();
 
+    $rs = $pdo->prepare("SELECT team, record FROM cp_records WHERE season = ?");
+    $rs->execute([(int)$week['season']]);
+    $record_of = $rs->fetchAll(PDO::FETCH_KEY_PAIR);
+
     $cover = []; $state_of = []; $order_of = []; $out_games = [];
     foreach ($games as $g) {
         $c = cpCover($g);
@@ -2705,6 +2750,8 @@ function cpWeekPayload(PDO $pdo, array $week): array {
             'home'       => $g['home_team'],
             'away_name'  => $teams[$g['away_team']][1] ?? $g['away_team'],
             'home_name'  => $teams[$g['home_team']][1] ?? $g['home_team'],
+            'away_record' => $record_of[$g['away_team']] ?? null,
+            'home_record' => $record_of[$g['home_team']] ?? null,
             'favorite'   => $g['favorite'],
             'spread'     => (float)$g['spread'],
             'away_score' => (int)$g['away_score'],
