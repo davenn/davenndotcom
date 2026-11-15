@@ -340,6 +340,9 @@
             padding: 9px 8px; cursor: pointer; text-align: left; color: var(--text-primary);
             font-family: var(--font-ui); font-size: 14px; line-height: 1.3;
         }
+        /* The team's season record, small, right after its name. */
+        .side .rec { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-left: 4px; white-space: nowrap; }
+        .side[aria-pressed="true"] .rec { color: var(--page); opacity: 0.7; }
         .side small { display: block; font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); margin-top: 3px; }
         .side[aria-pressed="true"] {
             background: var(--text-primary); color: var(--page); border-color: var(--text-primary);
@@ -977,7 +980,9 @@ function renderPicks(s, games) {
         // favourite's number regardless would misreport half the rows.
         const line = g.spread === 0 ? 'PK'
                    : (p.pick === g.favorite ? '-' : '+') + g.spread;
-        let tag = '<span class="tag">Not started</span>';
+        // Before kickoff the tag shows what was staked on the game, so the
+        // list reads as the sheet itself rather than a column of "Not started".
+        let tag = '<span class="tag">Confidence ' + p.confidence + '</span>';
         if (p.result === 'win'   && p.final) tag = '<span class="tag win">Won ' + p.confidence + '</span>';
         if (p.result === 'loss'  && p.final) tag = '<span class="tag loss">Lost ' + p.confidence + '</span>';
         if (p.result === 'push'  && p.final) tag = '<span class="tag push">Push, no points</span>';
@@ -1226,6 +1231,7 @@ function buildRows(scanRows) {
             game_id: g.id,
             away: g.away, home: g.home,
             away_name: g.away_name, home_name: g.home_name,
+            away_record: g.away_record || '', home_record: g.home_record || '',
             favorite: g.favorite, spread: g.spread,
             pick: r.pick || '', confidence: r.confidence || 0,
         };
@@ -1334,6 +1340,11 @@ function renderRows() {
                        data-spread="${i}" value="${r.spread}" aria-label="Spread, game ${i + 1}">
             </div>` : '';
 
+        // Records come from the week's games, so a sheet that is setting the
+        // week up has none yet and shows just the names.
+        const rec = side => r[side + '_record']
+            ? ` <span class="rec">(${esc(r[side + '_record'])})</span>` : '';
+
         const unknown = (!known && !setup)
             ? `<div class="rowbad">This matchup is not in this week and will be skipped.</div>` : '';
 
@@ -1341,11 +1352,11 @@ function renderRows() {
             <div class="rpick">
                 <button class="side" type="button" data-pick="${i}" data-side="away"
                         ${known ? '' : 'disabled'} aria-pressed="${r.pick === 'away'}">
-                    ${esc(r.away_name || '—')}<small>away <span data-sp="${i}-away">${awaySpread}</span></small>
+                    ${esc(r.away_name || '—')}${rec('away')}<small>away <span data-sp="${i}-away">${awaySpread}</span></small>
                 </button>
                 <button class="side" type="button" data-pick="${i}" data-side="home"
                         ${known ? '' : 'disabled'} aria-pressed="${r.pick === 'home'}">
-                    ${esc(r.home_name || '—')}<small>home <span data-sp="${i}-home">${homeSpread}</span></small>
+                    ${esc(r.home_name || '—')}${rec('home')}<small>home <span data-sp="${i}-home">${homeSpread}</span></small>
                 </button>
                 <input class="conf" type="number" inputmode="numeric" min="0" max="${n}"
                        data-conf="${i}" value="${r.confidence || ''}" placeholder="–"

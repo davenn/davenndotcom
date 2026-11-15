@@ -107,6 +107,12 @@ Operator endpoints are excluded from the public reference. Full detail in
   so the name can be corrected too; renaming onto another player's sheet is
   refused (409) rather than replacing it. Picks stay editable after kickoff,
   the same as re-uploading a sheet always was.
+- **Team records** — each team's season record ("7-2") shows small beside
+  its name in the pick grid (making, scanning or editing picks). The score
+  refresh reads it off the same ESPN scoreboard and saves it in `cp_records`,
+  one row per season and team, and `cp_week` adds `away_record` and
+  `home_record` to each game. A sheet that is setting up a new week has no
+  records yet, because there are no games to hang them on until it saves.
 - Uploaded sheet photos accumulate; `cp_purge_photos` clears them.
 - **Exporting a sheet** turns saved picks back into the paper sheet: same
   columns as the pool's printed sheet (date/time Pacific, favourite, underdog
