@@ -2,7 +2,8 @@
 
 A private list of the people you buy for and the gift ideas you have for each
 of them. Every idea moves from **idea** to **bought** to **given**, and given
-gifts are kept with the date, so next year's list can avoid repeats.
+gifts are kept, so next year's list can avoid repeats. It is meant to stay
+simple: a person is just a name, and each card shows only that person's ideas.
 
 **File:** [`gifts.html`](../../gifts.html)
 **Tables:** `gf_people`, `gf_ideas`
@@ -30,8 +31,10 @@ back to the sign-in form rather than showing an error.
 
 ## Data
 
-`gf_people` holds a name, a free-text note (sizes, interests) and an optional
-birthday stored as `MM-DD` with no year, which is all the countdown needs.
+`gf_people` holds a name. It also has a `note` and a `birthday` (`MM-DD`)
+column, and `gf_person_save` still accepts both, but the page stopped
+collecting them when it was simplified to name-only, so it sends neither and
+they stay empty. Renaming a person from the page clears them if they were set.
 `gf_ideas` holds a title, an http(s) link, an optional price, a note and the
 status. `status_at` changes only when the status does, so editing a given
 gift's note keeps the date it was given. Removing a person removes their ideas
@@ -44,15 +47,23 @@ the network; each returns the saved row and the page swaps it in.
 
 ## On the page
 
+**Layout.** On a phone: four stats in a row, then search, filter and
+**+ Person**, then the people as small cards, two to a row (three from 640px).
+From 1000px it follows the WildcatsXC meets view: stats and controls sit in a
+280px column on the left that stays in view while scrolling, and the cards fill
+the right. People are always in name order.
+
+- **A card** is the person's name (tap it to rename or remove them), whether
+  they still need a gift, one line per idea, and an add box at the bottom.
 - **Status pill** on each idea is a button that cycles idea → bought → given →
-  idea. The edit dialog sets it directly, and can move an idea to someone else.
-- **Quick add** under each person takes a line of text. A pasted link becomes
-  the idea's link and the rest of the line its name; a bare link is named after
-  its site until edited.
+  idea. Tapping the idea's name opens the edit dialog for its link, price,
+  status, notes, or to move it to someone else. ↗ opens the link.
+- **Quick add** takes a line of text. A pasted link becomes the idea's link and
+  the rest of the line its name; a bare link is named after its site until
+  edited.
 - **Needs a gift / Got one** filters on whether a person has an idea marked
   bought (and not yet given). Given gifts fold into "Given before" under each
   person, newest first.
-- **Spent in YEAR** in the summary adds the price of everything marked bought or
-  given during the current calendar year.
-- Sort (name, next birthday, most open ideas) and filter are remembered per
-  device under `gifts_sort` and `gifts_filter`.
+- **Spent in YEAR** adds the price of everything marked bought or given during
+  the current calendar year, rounded to the dollar. The filter is remembered
+  per device under `gifts_filter`.

@@ -99,34 +99,43 @@
     [data-theme="light"] .theme-toggle-thumb { transform: translateX(20px); background: #fff; }
     [data-theme="dark"]  .theme-toggle-thumb { transform: translateX(0);    background: #666; }
 
-    main { max-width: 760px; margin: 0 auto; padding: 32px 16px 80px; }
+    main { max-width: 760px; margin: 0 auto; padding: 28px 16px 80px; }
 
     /* ── HEADER ── */
     .eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
     h1 { font-family: var(--font-disp); font-size: clamp(2.2rem, 8vw, 3rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.02; }
-    .sub { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-secondary); line-height: 1.7; margin-top: 12px; max-width: 540px; }
+    .sub { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-secondary); line-height: 1.7; margin-top: 10px; max-width: 540px; }
 
-    .summary { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+    /* ── LAYOUT ──
+       Phone: stats, then the controls, then the people. From 1000px it
+       follows the WildcatsXC meets view: stats and controls in a narrow
+       column held in view on the left, the people beside it. */
+    .layout { margin-top: 20px; }
+    .layout[hidden] { display: none; }
+    .side { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+
+    .summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
     .summary:empty { display: none; }
-    .stat {
-        font-family: var(--font-mono); font-size: 11.5px; color: var(--text-secondary);
-        background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px;
-    }
-    .stat b { color: var(--text-primary); font-weight: 500; }
+    .stat { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 7px 8px; }
+    .stat b { display: block; font-family: var(--font-disp); font-size: 1.15rem; font-weight: 700; line-height: 1.1; white-space: nowrap; }
+    .stat span { display: block; font-family: var(--font-mono); font-size: 9.5px; line-height: 1.3; color: var(--text-secondary); margin-top: 2px; }
+    .stat.need b { color: var(--accent); }
 
     /* ── TOOLBAR ── */
-    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 20px 0 16px; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     .search {
-        flex: 1 1 200px; min-width: 0; height: 36px; font: inherit; font-size: 14px; color: var(--text-primary);
+        flex: 1 1 100%; min-width: 0; height: 36px; font: inherit; font-size: 14px; color: var(--text-primary);
         background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0 12px;
     }
     .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); }
     .seg button {
-        font-family: var(--font-mono); font-size: 11.5px; padding: 0 12px; height: 34px; border: none; background: none;
+        font-family: var(--font-mono); font-size: 11.5px; padding: 0 11px; height: 34px; border: none; background: none;
         color: var(--text-secondary); cursor: pointer; white-space: nowrap;
     }
     .seg button + button { border-left: 1px solid var(--border); }
     .seg button[aria-pressed="true"] { background: var(--text-primary); color: var(--page); }
+    #filter { flex: 1; }
+    #filter button { flex: 1; }
     select {
         font-family: var(--font-mono); font-size: 11.5px; height: 36px; padding: 0 10px; border-radius: 8px;
         border: 1px solid var(--border); background: var(--surface); color: var(--text-primary); cursor: pointer;
@@ -150,49 +159,45 @@
         outline: 2px solid var(--accent); outline-offset: 1px;
     }
 
-    /* ── PEOPLE ── */
-    .list { display: flex; flex-direction: column; gap: 14px; }
-    .empty { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-muted); text-align: center; padding: 40px 12px; line-height: 1.7; }
+    /* ── PEOPLE: small cards, two to a row even on a phone ── */
+    .list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .empty { grid-column: 1 / -1; font-family: var(--font-mono); font-size: 12.5px; color: var(--text-muted); text-align: center; padding: 40px 12px; line-height: 1.7; }
     .empty .btn-primary { margin-top: 14px; }
 
-    .person { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 16px 12px; }
+    /* A column, so the add box sits at the bottom of every card in a row. */
+    .person {
+        display: flex; flex-direction: column; min-width: 0;
+        background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 10px 8px;
+    }
     .person.flash { animation: flash 1.2s ease; }
     @keyframes flash { 0% { box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 1px var(--accent); } 100% { box-shadow: none; } }
     @media (prefers-reduced-motion: reduce) { .person.flash { animation: none; } }
-    .p-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-    .p-name { font-family: var(--font-disp); font-size: 1.3rem; font-weight: 700; letter-spacing: -0.01em; }
-    .p-flag { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; }
+    .p-name {
+        align-self: flex-start; max-width: 100%; text-align: left; cursor: pointer;
+        background: none; border: none; padding: 0; color: inherit;
+        font-family: var(--font-disp); font-size: 1.05rem; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere;
+    }
+    .p-name:hover { text-decoration: underline; text-decoration-color: var(--text-muted); text-underline-offset: 3px; }
+    .p-flag { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; margin-top: 3px; }
     .p-flag.need { color: var(--accent); }
     .p-flag.got { color: var(--bought); }
-    .p-edit {
-        margin-left: auto; font-family: var(--font-mono); font-size: 11px; padding: 2px 0; cursor: pointer;
-        background: none; border: none; color: var(--text-muted); text-decoration: underline; text-underline-offset: 3px;
-    }
-    .p-edit:hover { color: var(--text-primary); }
-    .p-meta { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-secondary); margin-top: 4px; }
-    .p-meta .soon { color: var(--accent); }
-    .p-note { font-size: 13.5px; color: var(--text-secondary); line-height: 1.55; margin-top: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
 
-    .ideas { list-style: none; margin-top: 12px; border-top: 1px solid var(--border); }
-    .idea { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
-    .idea-body { flex: 1; min-width: 0; }
-    .idea-title { font-size: 14.5px; line-height: 1.4; overflow-wrap: anywhere; }
-    .idea-title a { color: inherit; text-decoration: underline; text-decoration-color: var(--text-muted); text-underline-offset: 3px; }
-    .idea-title a:hover { text-decoration-color: var(--accent); }
-    .idea-title .ext { font-size: 11px; color: var(--text-muted); }
-    .idea-sub { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); margin-top: 3px; overflow-wrap: anywhere; white-space: pre-wrap; }
-    .idea.is-bought .idea-title { font-weight: 500; }
-    .idea-edit {
-        flex: none; width: 30px; height: 26px; border-radius: 6px; cursor: pointer;
-        background: none; border: 1px solid transparent; color: var(--text-muted); font-size: 14px; line-height: 1;
+    .ideas { list-style: none; margin-top: 8px; }
+    .idea { display: flex; align-items: flex-start; gap: 6px; padding: 3px 0; }
+    .idea-title {
+        flex: 0 1 auto; min-width: 0; text-align: left; cursor: pointer; background: none; border: none; padding: 0; color: inherit;
+        font-family: var(--font-ui); font-size: 13px; line-height: 1.35; overflow-wrap: anywhere;
     }
-    .idea-edit:hover { border-color: var(--border); color: var(--text-primary); }
+    .idea-title:hover { text-decoration: underline; text-decoration-color: var(--text-muted); text-underline-offset: 3px; }
+    .idea-price { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); white-space: nowrap; }
+    .idea-link { flex: none; font-size: 12px; line-height: 1.35; color: var(--text-muted); text-decoration: none; padding: 0 2px; }
+    .idea-link:hover { color: var(--accent); }
 
     /* The status pill is a button: one tap moves an idea along idea → bought → given. */
     .pill {
-        flex: none; min-width: 64px; margin-top: 1px;
-        font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase;
-        padding: 4px 8px; border-radius: 999px; cursor: pointer;
+        flex: none; margin-top: 1px;
+        font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.05em; text-transform: uppercase;
+        padding: 2px 6px; border-radius: 999px; cursor: pointer;
         border: 1px solid var(--border); background: var(--surface-2); color: var(--text-secondary);
     }
     .pill:hover { border-color: var(--text-muted); }
@@ -200,20 +205,47 @@
     .pill.s-given  { background: var(--given);  border-color: var(--given);  color: #fff; }
     .pill:disabled { opacity: 0.6; cursor: progress; }
 
-    .no-ideas { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-muted); padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .no-ideas { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); margin-top: 8px; }
 
-    .given-box { margin-top: 8px; }
-    .given-box summary { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); cursor: pointer; padding: 4px 0; }
+    .given-box { margin-top: 4px; }
+    .given-box summary { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); cursor: pointer; padding: 3px 0; }
     .given-box summary:hover { color: var(--text-primary); }
-    .given-box .ideas { margin-top: 4px; }
+    .given-box .ideas { margin-top: 2px; }
     .given-box .idea-title { color: var(--text-secondary); }
 
-    .quick { display: flex; gap: 8px; margin-top: 12px; }
+    .quick { display: flex; gap: 4px; margin-top: auto; padding-top: 8px; }
     .quick input {
-        flex: 1; min-width: 0; height: 36px; font: inherit; font-size: 14px; color: var(--text-primary);
-        background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 0 12px;
+        flex: 1; min-width: 0; height: 30px; font: inherit; font-size: 13px; color: var(--text-primary);
+        background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 0 8px;
     }
     .quick input::placeholder { color: var(--text-muted); }
+    .quick button {
+        flex: none; width: 30px; height: 30px; padding: 0; border-radius: 6px; cursor: pointer;
+        border: 1px solid var(--border); background: var(--surface); color: var(--text-primary); font-size: 16px; line-height: 1;
+    }
+    .quick button:hover { border-color: var(--text-muted); }
+
+    @media (min-width: 480px) and (max-width: 999px) {
+        .search { flex-basis: 200px; }
+        #filter { flex: none; }
+    }
+    @media (min-width: 640px) and (max-width: 999px) {
+        .list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (min-width: 1000px) {
+        main { max-width: 1180px; padding: 36px 28px 80px; }
+        .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 24px; align-items: start; }
+        .side { position: sticky; top: calc(var(--nav-h) + 18px); margin-bottom: 0; }
+        #filter, #btn-add-person { flex: 1 1 100%; }
+        .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .stat { padding: 8px 10px; }
+        .stat b { font-size: 1.3rem; }
+        .stat span { font-size: 10.5px; }
+        .list { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+        .person { padding: 12px 12px 10px; }
+        .p-name { font-size: 1.15rem; }
+        .idea-title { font-size: 13.5px; }
+    }
 
     /* ── SIGN IN ── */
     .auth { max-width: 380px; margin: 28px 0 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
@@ -256,11 +288,9 @@
     .toast.show { opacity: 1; transform: translate(-50%, 0); }
     .toast.bad { background: var(--bad); color: #fff; }
 
-    .foot { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); line-height: 1.7; margin-top: 28px; }
-
     @media (max-width: 560px) {
         .nav-user { display: none; }
-        .toolbar select { flex: 1; }
+        /* 16px keeps iOS from zooming the page when a box is tapped. */
         .search, .quick input, .field input, .field textarea, .field select { font-size: 16px; }
     }
 </style>
@@ -282,7 +312,7 @@
 <main>
     <p class="eyebrow">Only you can see this list</p>
     <h1>Gifts</h1>
-    <p class="sub">Everyone you buy for, and every idea you have had for them. Tap a status to move an idea along from idea to bought to given.</p>
+    <p class="sub">Who you are buying for, and your ideas for them. Tap a status to move it along.</p>
 
     <!-- Signed out -->
     <section class="auth" id="auth" hidden>
@@ -302,48 +332,27 @@
     </section>
 
     <!-- Signed in -->
-    <section id="app" hidden>
-        <div class="summary" id="summary"></div>
-        <div class="toolbar">
-            <input class="search" id="search" type="search" placeholder="Find a person or idea" aria-label="Find a person or idea">
-            <div class="seg" id="filter" role="group" aria-label="Show">
-                <button type="button" data-f="all">All</button>
-                <button type="button" data-f="need">Needs a gift</button>
-                <button type="button" data-f="got">Got one</button>
+    <section id="app" class="layout" hidden>
+        <aside class="side">
+            <div class="summary" id="summary"></div>
+            <div class="toolbar">
+                <input class="search" id="search" type="search" placeholder="Find a person or idea" aria-label="Find a person or idea">
+                <div class="seg" id="filter" role="group" aria-label="Show">
+                    <button type="button" data-f="all">All</button>
+                    <button type="button" data-f="need">Needs a gift</button>
+                    <button type="button" data-f="got">Got one</button>
+                </div>
+                <button class="btn-primary" id="btn-add-person" type="button">+ Person</button>
             </div>
-            <select id="sort" aria-label="Sort people by">
-                <option value="name">By name</option>
-                <option value="birthday">Next birthday</option>
-                <option value="ideas">Most ideas</option>
-            </select>
-            <button class="btn-primary" id="btn-add-person" type="button">+ Person</button>
-        </div>
+        </aside>
         <div class="list" id="list"></div>
-        <p class="foot">"Got one" means at least one idea is marked bought and not yet given. Given gifts fold away under each person with the date, so you will not give the same thing twice.</p>
     </section>
 </main>
 
 <dialog id="dlg-person">
     <form id="form-person" method="dialog">
         <h2 id="dp-title">Add a person</h2>
-        <div class="field"><label for="dp-name">Name</label><input id="dp-name" maxlength="80" required></div>
-        <div class="row2">
-            <div class="field">
-                <label for="dp-month">Birthday</label>
-                <select id="dp-month">
-                    <option value="">Month</option>
-                    <option value="01">January</option><option value="02">February</option><option value="03">March</option>
-                    <option value="04">April</option><option value="05">May</option><option value="06">June</option>
-                    <option value="07">July</option><option value="08">August</option><option value="09">September</option>
-                    <option value="10">October</option><option value="11">November</option><option value="12">December</option>
-                </select>
-            </div>
-            <div class="field"><label for="dp-day">Day</label><input id="dp-day" type="number" min="1" max="31" inputmode="numeric" placeholder="Day"></div>
-        </div>
-        <div class="field">
-            <label for="dp-note">Notes</label>
-            <textarea id="dp-note" maxlength="600" placeholder="Sizes, favourite colours, what they are into, what they already have"></textarea>
-        </div>
+        <div class="field"><label for="dp-name">Name</label><input id="dp-name" maxlength="80" autocomplete="off" required></div>
         <p class="dlg-err" id="dp-err" role="alert"></p>
         <div class="dlg-actions">
             <button class="btn-danger" id="dp-delete" type="button" hidden>Remove person</button>
@@ -391,11 +400,10 @@
     var TOKEN_KEY = 'tb_token', USER_KEY = 'tb_user';
     // The last list loaded, so the page opens instantly and can still be read offline.
     var CACHE_KEY = 'gifts_cache';
-    var SORT_KEY = 'gifts_sort', FILTER_KEY = 'gifts_filter';
+    var FILTER_KEY = 'gifts_filter';
 
     var STATUS_NEXT = { idea: 'bought', bought: 'given', given: 'idea' };
     var STATUS_WORD = { idea: 'Idea', bought: 'Bought', given: 'Given' };
-    var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
     function $(id) { return document.getElementById(id); }
     function store(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
@@ -439,7 +447,6 @@
     var people = [], ideas = [];
     var loaded = false; // true once the server's list (or a cached copy) is in hand
     var filter = load(FILTER_KEY) || 'all';
-    var sort = load(SORT_KEY) || 'name';
     var query = '';
 
     // ── API ──
@@ -554,35 +561,18 @@
     function personById(id) { for (var i = 0; i < people.length; i++) if (people[i].id === id) return people[i]; return null; }
     function ideasFor(pid) { return ideas.filter(function (i) { return i.person_id === pid; }); }
 
-    // Days until the next birthday (0 = today), or null if unknown. A Feb 29
-    // birthday lands on Mar 1 in other years, which is how Date rolls it.
-    function daysToBirthday(b) {
-        if (!b) return null;
-        var m = +b.slice(0, 2) - 1, d = +b.slice(3, 5);
-        var now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        var next = new Date(today.getFullYear(), m, d);
-        if (next < today) next = new Date(today.getFullYear() + 1, m, d);
-        return Math.round((next - today) / 86400000);
-    }
-    function birthdayText(b) {
-        var n = daysToBirthday(b);
-        if (n === null) return '';
-        var when = n === 0 ? 'today' : n === 1 ? 'tomorrow' : 'in ' + n + ' days';
-        return '🎂 ' + MONTHS[+b.slice(0, 2) - 1] + ' ' + (+b.slice(3, 5)) + ' · <span' + (n <= 30 ? ' class="soon"' : '') + '>' + when + '</span>';
-    }
     function hasBought(pid) { return ideas.some(function (i) { return i.person_id === pid && i.status === 'bought'; }); }
 
     function matches(p) {
         if (!query) return true;
         var q = query.toLowerCase();
-        if (p.name.toLowerCase().indexOf(q) >= 0 || p.note.toLowerCase().indexOf(q) >= 0) return true;
+        if (p.name.toLowerCase().indexOf(q) >= 0) return true;
         return ideasFor(p.id).some(function (i) { return (i.title + ' ' + i.note).toLowerCase().indexOf(q) >= 0; });
     }
 
     // ── Render ──
     function render() {
         document.querySelectorAll('#filter button').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.f === filter); });
-        $('sort').value = sort;
         renderSummary();
 
         var list = $('list');
@@ -591,7 +581,7 @@
             return;
         }
         if (!people.length) {
-            list.innerHTML = '<div class="empty">No one on your list yet.<br>Start with the first person you are buying for.<br>' +
+            list.innerHTML = '<div class="empty">No one on your list yet.<br>' +
                 '<button class="btn-primary" type="button" data-act="add-person">+ Add a person</button></div>';
             return;
         }
@@ -600,18 +590,7 @@
             if (filter === 'need' && hasBought(p.id)) return false;
             if (filter === 'got' && !hasBought(p.id)) return false;
             return matches(p);
-        });
-        shown.sort(function (a, b) {
-            if (sort === 'birthday') {
-                var da = daysToBirthday(a.birthday), db = daysToBirthday(b.birthday);
-                if (da !== db) return da === null ? 1 : db === null ? -1 : da - db;
-            } else if (sort === 'ideas') {
-                var na = ideasFor(a.id).filter(function (i) { return i.status !== 'given'; }).length;
-                var nb = ideasFor(b.id).filter(function (i) { return i.status !== 'given'; }).length;
-                if (na !== nb) return nb - na;
-            }
-            return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
-        });
+        }).sort(function (a, b) { return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }); });
 
         if (!shown.length) {
             list.innerHTML = '<div class="empty">' + (query ? 'Nothing matches "' + esc(query) + '".' :
@@ -623,38 +602,33 @@
 
     function renderSummary() {
         var year = new Date().getFullYear();
-        var open = 0, bought = 0, spent = 0;
+        var open = 0, spent = 0;
         ideas.forEach(function (i) {
             if (i.status === 'idea') open++;
-            if (i.status === 'bought') bought++;
             if (i.status !== 'idea' && i.price && new Date(i.status_at).getFullYear() === year) spent += i.price;
         });
         var need = people.filter(function (p) { return !hasBought(p.id); }).length;
-        $('summary').innerHTML = !people.length ? '' : [
-            '<b>' + people.length + '</b> ' + (people.length === 1 ? 'person' : 'people'),
-            '<b>' + need + '</b> still need a gift',
-            '<b>' + open + '</b> open idea' + (open === 1 ? '' : 's'),
-            '<b>' + bought + '</b> bought, not given',
-            '<b>' + money(spent) + '</b> spent in ' + year,
-        ].map(function (s) { return '<span class="stat">' + s + '</span>'; }).join('');
+        var stat = function (n, label, cls) {
+            return '<div class="stat' + (cls ? ' ' + cls : '') + '"><b>' + n + '</b><span>' + label + '</span></div>';
+        };
+        $('summary').innerHTML = !people.length ? '' :
+            stat(people.length, people.length === 1 ? 'person' : 'people') +
+            stat(need, 'need a gift', need ? 'need' : '') +
+            stat(open, open === 1 ? 'idea' : 'ideas') +
+            stat('$' + Math.round(spent).toLocaleString('en-US'), 'spent in ' + year);
     }
 
+    // One line per idea: the status pill (tap to move it along), the name
+    // (tap to edit), the price, and an arrow that opens the link.
     function ideaHtml(i) {
-        var title = i.link
-            ? '<a href="' + esc(i.link) + '" target="_blank" rel="noopener noreferrer">' + esc(i.title) + '</a> <span class="ext" aria-hidden="true">↗</span>'
-            : esc(i.title);
-        var sub = [];
-        if (i.price != null) sub.push(money(i.price));
-        if (i.status === 'given') { var d = new Date(i.status_at); sub.push('given ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear()); }
-        if (i.status === 'bought') { var b = new Date(i.status_at); sub.push('bought ' + MONTHS[b.getMonth()] + ' ' + b.getDate()); }
-        if (i.note) sub.push(esc(i.note));
-        return '<li class="idea is-' + i.status + '">' +
+        var next = STATUS_WORD[STATUS_NEXT[i.status]].toLowerCase();
+        return '<li class="idea">' +
             '<button class="pill s-' + i.status + '" type="button" data-act="cycle" data-id="' + i.id + '" ' +
-                'title="Mark as ' + STATUS_WORD[STATUS_NEXT[i.status]].toLowerCase() + '" aria-label="' + STATUS_WORD[i.status] + '. Mark as ' + STATUS_WORD[STATUS_NEXT[i.status]].toLowerCase() + '">' +
+                'title="Mark as ' + next + '" aria-label="' + STATUS_WORD[i.status] + '. Mark as ' + next + '">' +
                 STATUS_WORD[i.status] + '</button>' +
-            '<div class="idea-body"><div class="idea-title">' + title + '</div>' +
-                (sub.length ? '<div class="idea-sub">' + sub.join(' · ') + '</div>' : '') + '</div>' +
-            '<button class="idea-edit" type="button" data-act="edit-idea" data-id="' + i.id + '" aria-label="Edit ' + esc(i.title) + '" title="Edit">✎</button>' +
+            '<button class="idea-title" type="button" data-act="edit-idea" data-id="' + i.id + '" title="Edit">' + esc(i.title) +
+                (i.price != null ? ' <span class="idea-price">' + money(i.price) + '</span>' : '') + '</button>' +
+            (i.link ? '<a class="idea-link" href="' + esc(i.link) + '" target="_blank" rel="noopener noreferrer" title="Open link" aria-label="Open link for ' + esc(i.title) + '">↗</a>' : '') +
         '</li>';
     }
 
@@ -666,25 +640,19 @@
         var given = all.filter(function (i) { return i.status === 'given'; })
             .sort(function (a, b) { return b.status_at - a.status_at; });
         var got = hasBought(p.id);
-        var meta = birthdayText(p.birthday);
 
         return '<article class="person" id="person-' + p.id + '">' +
-            '<div class="p-head">' +
-                '<h2 class="p-name">' + esc(p.name) + '</h2>' +
-                '<span class="p-flag ' + (got ? 'got' : 'need') + '">' + (got ? '✓ Got one' : 'Needs a gift') + '</span>' +
-                '<button class="p-edit" type="button" data-act="edit-person" data-id="' + p.id + '">Edit</button>' +
-            '</div>' +
-            (meta ? '<div class="p-meta">' + meta + '</div>' : '') +
-            (p.note ? '<div class="p-note">' + esc(p.note) + '</div>' : '') +
+            '<button class="p-name" type="button" data-act="edit-person" data-id="' + p.id + '" title="Rename or remove">' + esc(p.name) + '</button>' +
+            '<span class="p-flag ' + (got ? 'got' : 'need') + '">' + (got ? '✓ Got one' : 'Needs a gift') + '</span>' +
             (current.length
                 ? '<ul class="ideas">' + current.map(ideaHtml).join('') + '</ul>'
-                : '<div class="ideas"><div class="no-ideas">No ideas yet.</div></div>') +
+                : '<div class="no-ideas">No ideas yet</div>') +
             (given.length
                 ? '<details class="given-box"><summary>Given before (' + given.length + ')</summary><ul class="ideas">' + given.map(ideaHtml).join('') + '</ul></details>'
                 : '') +
             '<form class="quick" data-pid="' + p.id + '" autocomplete="off">' +
-                '<input type="text" maxlength="800" placeholder="Add an idea for ' + esc(p.name) + ', or paste a link" aria-label="New idea for ' + esc(p.name) + '">' +
-                '<button class="btn-quiet" type="submit">Add</button>' +
+                '<input type="text" maxlength="800" placeholder="Add an idea" aria-label="New idea for ' + esc(p.name) + '">' +
+                '<button type="submit" aria-label="Add idea for ' + esc(p.name) + '">+</button>' +
             '</form>' +
         '</article>';
     }
@@ -701,7 +669,6 @@
         var b = e.target.closest('button'); if (!b) return;
         filter = b.dataset.f; store(FILTER_KEY, filter); render();
     });
-    $('sort').addEventListener('change', function () { sort = this.value; store(SORT_KEY, sort); render(); });
     $('btn-add-person').addEventListener('click', function () { openPerson(null); });
 
     // ── List actions ──
@@ -774,11 +741,8 @@
     var editingPerson = null;
     function openPerson(p) {
         editingPerson = p;
-        $('dp-title').textContent = p ? 'Edit ' + p.name : 'Add a person';
+        $('dp-title').textContent = p ? 'Rename ' + p.name : 'Add a person';
         $('dp-name').value = p ? p.name : '';
-        $('dp-month').value = p && p.birthday ? p.birthday.slice(0, 2) : '';
-        $('dp-day').value = p && p.birthday ? +p.birthday.slice(3, 5) : '';
-        $('dp-note').value = p ? p.note : '';
         $('dp-delete').hidden = !p;
         $('dp-err').textContent = '';
         $('dlg-person').showModal();
@@ -787,17 +751,9 @@
 
     $('form-person').addEventListener('submit', function (e) {
         e.preventDefault();
-        var month = $('dp-month').value, day = $('dp-day').value.trim(), birthday = '';
-        if (month || day) {
-            var d = +day;
-            var max = new Date(2000, +month, 0).getDate();
-            if (!month || !day || d < 1 || d > max || d % 1) {
-                $('dp-err').textContent = 'Pick a month and a day that exists in it, or leave both empty.';
-                return;
-            }
-            birthday = month + '-' + (d < 10 ? '0' : '') + d;
-        }
-        var body = { name: $('dp-name').value.trim(), note: $('dp-note').value.trim(), birthday: birthday };
+        // A person is just a name. gf_person_save still takes a note and a
+        // birthday, which the page no longer collects, so they stay empty.
+        var body = { name: $('dp-name').value.trim() };
         if (editingPerson) body.id = editingPerson.id;
         $('dp-save').disabled = true;
         api('gf_person_save', body).then(function (res) {
