@@ -371,47 +371,9 @@
   </div>
 </section>
 
-<section id="lows" class="lv-section">
-  <h2 class="lv-h2">Lows</h2>
-  <p class="lv-note">A low is counted when glucose stays under 70 mg/dL for at least 15 minutes, and ends after 15 minutes back above it (2023 international consensus on CGM events).</p>
-  <p class="lv-finding" data-read lang="en">
-    <b data-draw="v" data-source="episodes" data-field="lows" data-row="0" data-fmt="int">—</b> lows in the period, about
-    <b data-draw="v" data-source="episodes" data-field="lows_per_week" data-row="0" data-fmt="dec1">—</b> a week.
-    They were short: a median of <b data-draw="v" data-source="episodes" data-field="low_median_minutes" data-row="0" data-fmt="int">—</b> minutes, and none longer than
-    <b data-draw="v" data-source="episodes" data-field="low_longest_minutes" data-row="0" data-fmt="int">—</b>. The median lowest reading was
-    <b data-draw="v" data-source="episodes" data-field="low_median_nadir" data-row="0" data-fmt="dec1">—</b> mg/dL.
-    <b data-draw="v" data-source="episodes" data-field="lows_touching_54" data-row="0" data-fmt="int">—</b> of them dipped under 54 at their lowest, but only
-    <b data-draw="v" data-source="episodes" data-field="level_2_lows" data-row="0" data-fmt="int">—</b> stayed under 54 for 15 minutes or more, and
-    <b data-draw="v" data-source="episodes" data-field="level_2_flagged" data-row="0" data-fmt="int">—</b> of those happened during a sensor compression that was logged at the time, so it was probably not a real low.
-  </p>
-  <p class="lv-finding" data-read lang="en">
-    <b>When:</b> <b data-draw="v" data-source="episodes" data-field="lows_2_to_6pm" data-row="0" data-fmt="int">—</b> began between 2 and 6 pm,
-    <b data-draw="v" data-source="episodes" data-field="lows_2_to_6pm_weekday" data-row="0" data-fmt="int">—</b> of them on weekdays, and
-    <b data-draw="v" data-source="episodes" data-field="lows_8pm_to_1am" data-row="0" data-fmt="int">—</b> began between 8 pm and 1 am.
-  </p>
-  <p class="lv-finding" data-read lang="en">
-    <b>Not a sign of over-correcting:</b> <b data-draw="v" data-source="episodes" data-field="lows_after_250_pct" data-row="0" data-fmt="pct">—</b> of lows came within 3 hours of a reading over 250,
-    against <b data-draw="v" data-source="episodes" data-field="baseline_after_250_pct" data-row="0" data-fmt="pct">—</b> of all moments in the period.
-    And <b data-draw="v" data-source="episodes" data-field="lows_rebound_250_pct" data-row="0" data-fmt="pct">—</b> were followed by a reading over 250 within 2 hours,
-    about the same as at any moment (<b data-draw="v" data-source="episodes" data-field="baseline_rebound_250_pct" data-row="0" data-fmt="pct">—</b>), so treating lows does not look like it causes rebound highs.
-  </p>
-</section>
-
-<section id="highs" class="lv-section">
-  <h2 class="lv-h2">Highs</h2>
-  <p class="lv-note">Counted the same way: over 250 mg/dL for at least 15 minutes.</p>
-  <p class="lv-finding" data-read lang="en">
-    <b data-draw="v" data-source="episodes" data-field="highs" data-row="0" data-fmt="int">—</b> highs over 250, about
-    <b data-draw="v" data-source="episodes" data-field="highs_per_day" data-row="0" data-fmt="dec1">—</b> a day, lasting a median of
-    <b data-draw="v" data-source="episodes" data-field="high_median_minutes" data-row="0" data-fmt="int">—</b> minutes.
-    <b data-draw="v" data-source="episodes" data-field="highs_over_2h" data-row="0" data-fmt="int">—</b> lasted 2 hours or more, the longest
-    <b data-draw="v" data-source="episodes" data-field="high_longest_minutes" data-row="0" data-fmt="int">—</b> minutes, and
-    <b data-draw="v" data-source="episodes" data-field="highs_at_sensor_max" data-row="0" data-fmt="int">—</b> reached the sensor's ceiling (shown as HIGH, over 400).
-    <b data-draw="v" data-source="episodes" data-field="highs_lunch_12_to_2pm" data-row="0" data-fmt="int">—</b> started between noon and 2 pm,
-    <b data-draw="v" data-source="episodes" data-field="highs_evening_6_to_10pm" data-row="0" data-fmt="int">—</b> between 6 and 10 pm, and
-    <b data-draw="v" data-source="episodes" data-field="highs_breakfast_8_to_9am" data-row="0" data-fmt="int">—</b> in the 8 am hour.
-  </p>
-  <h3 class="lv-h3">When lows and highs start, by hour</h3>
+<section id="starts" class="lv-section">
+  <h2 class="lv-h2">When lows and highs start, by hour</h2>
+  <p class="lv-note">A low is glucose under 70 mg/dL for at least 15 minutes, and a high is over 250 mg/dL for at least 15 minutes (2023 international consensus on CGM events).</p>
   <div class="lv-chart lv-starts" data-draw="starts" data-source="hours">—</div>
   <ul class="lv-legend">
     <li><i class="lv-sw lv-c-vh"></i>Highs over 250 starting in the hour</li>
@@ -423,18 +385,6 @@
   <h2 class="lv-h2">Trend over the period</h2>
   <div class="lv-chart lv-weeks" data-draw="weeks" data-source="periods">—</div>
   <p class="lv-note">Weeks run Monday to Sunday. The first and last weeks are partial and drawn lighter.</p>
-  <p class="lv-finding" data-read lang="en">
-    Time in range rose from <b data-draw="v" data-source="periods" data-field="in_range" data-where="period=2026-09" data-fmt="pct">—</b> in September to
-    <b data-draw="v" data-source="periods" data-field="in_range" data-where="period=2026-10" data-fmt="pct">—</b> in October and
-    <b data-draw="v" data-source="periods" data-field="in_range" data-where="period=2026-11" data-fmt="pct">—</b> in November.
-    The best full week, <span data-draw="v" data-source="periods" data-field="label" data-where="period=wk2026-11-09">—</span>, reached
-    <b data-draw="v" data-source="periods" data-field="in_range" data-where="period=wk2026-11-09" data-fmt="pct">—</b> with only
-    <b data-draw="v" data-source="periods" data-field="very_high" data-where="period=wk2026-11-09" data-fmt="pct">—</b> over 250.
-    The hardest, <span data-draw="v" data-source="periods" data-field="label" data-where="period=wk2026-10-19">—</span>, was
-    <b data-draw="v" data-source="periods" data-field="in_range" data-where="period=wk2026-10-19" data-fmt="pct">—</b> with
-    <b data-draw="v" data-source="periods" data-field="very_high" data-where="period=wk2026-10-19" data-fmt="pct">—</b> over 250.
-    The days since Nov 20 have run higher again.
-  </p>
   <div class="lv-scroll">
     <table class="lv-table" id="periods-table" data-source="periods" data-row-key="period">
       <thead><tr>
@@ -935,7 +885,7 @@ dash.draw('blocks', (tbody) => {
 dash.draw('periodsTable', (tbody) => {
   const d = dash.data('periods');
   if (d.status !== 'ok') { tbody.replaceChildren(); return; }
-  const order = ['first30', 'last30', '2026-09', '2026-10', '2026-11', 'weekday', 'weekend'];
+  const order = ['2026-09', '2026-10', '2026-11', 'weekday', 'weekend'];
   const rows = order.map((k) => d.data.find((r) => r.period === k)).filter(Boolean);
   fillTable(tbody, rows, 'period', [
     { f: 'label' }, { f: 'days', num: true, fmt: (v) => String(Math.round(v)) },
