@@ -235,6 +235,38 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS bg_events (
     INDEX idx_start (start_at)
 )");
 
+// Insulin pump records, pulled from Glooko by the davenn-mcp poller: boluses,
+// basal segments, pod events, alarms and Omnipod 5 mode intervals. source_id is
+// stable per Glooko record, so re-sending a window updates rows rather than
+// adding them. raw keeps each record as Glooko sent it: the API is unofficial
+// and its fields carry no guarantee, so a wrong mapping can be re-derived from
+// what is stored instead of fetched again.
+$pdo->exec("CREATE TABLE IF NOT EXISTS bg_pump (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    source_id  VARCHAR(120) NOT NULL,
+    kind       VARCHAR(16)  NOT NULL,
+    start_at   DATETIME     NOT NULL,
+    end_at     DATETIME     DEFAULT NULL,
+    units      DECIMAL(8,3) DEFAULT NULL,
+    rate       DECIMAL(8,3) DEFAULT NULL,
+    carbs      DECIMAL(6,1) DEFAULT NULL,
+    label      VARCHAR(64)  DEFAULT NULL,
+    raw        MEDIUMTEXT   DEFAULT NULL,
+    updated_at DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_source (source_id),
+    INDEX idx_start (start_at)
+)");
+
+// How far the poller has read each Glooko feed. Kept here, not in the poller,
+// because its host sleeps and restarts: a restart resumes from these instead of
+// re-reading months of history.
+$pdo->exec("CREATE TABLE IF NOT EXISTS bg_pump_cursor (
+    feed            VARCHAR(32) PRIMARY KEY,
+    last_updated_at VARCHAR(40) NOT NULL,
+    last_guid       VARCHAR(64) NOT NULL,
+    updated_at      DATETIME    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+)");
+
 // WildcatsXC. A runner is identified by match_key — name and school,
 // normalised — so the same athlete on two sheets is one row. Results hang off
 // a meet and an athlete; one result per athlete per meet. One shared team
@@ -2229,6 +2261,148 @@ if ($method === 'GET' && $action === 'bg_export') {
         $first = false;
     }
     echo ']}'; exit;
+}
+
+// POST ?action=bg_pump_ingest  header: X-Admin-Secret
+// body: { records: [ { source_id, kind, start_at, end_at?, units?, rate?, carbs?, label?, raw? } ],
+//         replace?: { kinds: ['mode','delivery'], from, to },
+//         cursors?: { <feed>: { last_updated_at, last_guid } } }
+// Insulin pump data from the poller's Glooko sync. Idempotent on source_id, so
+// the poller can re-send a window freely. Omnipod 5 mode intervals are redrawn on
+// every sync and may come back split or merged differently, so for those the
+// poller names a window to replace instead. Everything lands in one transaction
+// and cursors are saved with their records, so a failed batch is fetched again
+// rather than skipped. An empty call returns the saved cursors, which is how a
+// restarted poller finds its place.
+if ($method === 'POST' && $action === 'bg_pump_ingest') {
+    $admin_secret = $_ENV['ADMIN_SECRET'] ?? '';
+    $given        = $_SERVER['HTTP_X_ADMIN_SECRET'] ?? '';
+    if (!$admin_secret || !hash_equals($admin_secret, $given)) {
+        http_response_code(401); echo json_encode(['error' => 'Unauthorized']); exit;
+    }
+
+    $body    = json_decode(file_get_contents('php://input'), true);
+    $records = $body['records'] ?? [];
+    if (!is_array($body) || !is_array($records)) {
+        http_response_code(400); echo json_encode(['error' => 'Body must be JSON with a records array.']); exit;
+    }
+
+    $kinds    = ['bolus', 'carbs', 'basal', 'temp_basal', 'suspend', 'event', 'alarm', 'mode', 'delivery'];
+    $redrawn  = ['mode', 'delivery'];
+    $utc      = function ($v) { $t = is_string($v) ? strtotime($v) : false; return $t === false ? null : gmdate('Y-m-d H:i:s', $t); };
+    $num      = function ($v) { return is_numeric($v) ? (float)$v : null; };
+
+    $stored = 0; $skipped = 0; $replaced = 0;
+    try {
+        $pdo->beginTransaction();
+
+        $replace = $body['replace'] ?? null;
+        if (is_array($replace)) {
+            $rk   = array_values(array_intersect((array)($replace['kinds'] ?? []), $redrawn));
+            $from = $utc($replace['from'] ?? null);
+            $to   = $utc($replace['to'] ?? null);
+            if ($rk && $from && $to && $from < $to) {
+                $in  = implode(',', array_fill(0, count($rk), '?'));
+                $del = $pdo->prepare("DELETE FROM bg_pump WHERE kind IN ($in) AND start_at >= ? AND start_at < ?");
+                $del->execute(array_merge($rk, [$from, $to]));
+                $replaced = $del->rowCount();
+            }
+        }
+
+        $ins = $pdo->prepare(
+            "INSERT INTO bg_pump (source_id, kind, start_at, end_at, units, rate, carbs, label, raw)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE kind = VALUES(kind), start_at = VALUES(start_at), end_at = VALUES(end_at),
+                units = VALUES(units), rate = VALUES(rate), carbs = VALUES(carbs), label = VALUES(label),
+                raw = COALESCE(VALUES(raw), raw)"
+        );
+        foreach ($records as $r) {
+            $sid   = is_array($r) && is_string($r['source_id'] ?? null) ? $r['source_id'] : '';
+            $kind  = is_array($r) ? ($r['kind'] ?? '') : '';
+            $start = is_array($r) ? $utc($r['start_at'] ?? null) : null;
+            if ($sid === '' || strlen($sid) > 120 || !in_array($kind, $kinds, true) || !$start) { $skipped++; continue; }
+            $raw = isset($r['raw']) ? json_encode($r['raw'], JSON_UNESCAPED_SLASHES) : null;
+            if ($raw !== null && strlen($raw) > 20000) $raw = null;
+            $label = is_scalar($r['label'] ?? null) ? substr((string)$r['label'], 0, 64) : null;
+            $ins->execute([
+                $sid, $kind, $start, $utc($r['end_at'] ?? null),
+                $num($r['units'] ?? null), $num($r['rate'] ?? null), $num($r['carbs'] ?? null),
+                $label, $raw,
+            ]);
+            $stored++;
+        }
+
+        $cur = $pdo->prepare(
+            "INSERT INTO bg_pump_cursor (feed, last_updated_at, last_guid, updated_at) VALUES (?, ?, ?, UTC_TIMESTAMP())
+             ON DUPLICATE KEY UPDATE last_updated_at = VALUES(last_updated_at), last_guid = VALUES(last_guid),
+                updated_at = UTC_TIMESTAMP()"
+        );
+        foreach ((array)($body['cursors'] ?? []) as $feed => $c) {
+            if (!is_string($feed) || !preg_match('/^[a-z_]{1,32}$/', $feed) || !is_array($c)) continue;
+            $lu = $c['last_updated_at'] ?? null; $lg = $c['last_guid'] ?? null;
+            if (!is_string($lu) || !is_string($lg) || strlen($lu) > 40 || strlen($lg) > 64) continue;
+            $cur->execute([$feed, $lu, $lg]);
+        }
+
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        http_response_code(500); echo json_encode(['error' => 'Could not store pump records.']); exit;
+    }
+
+    $cursors = [];
+    foreach ($pdo->query('SELECT feed, last_updated_at, last_guid FROM bg_pump_cursor') as $c) {
+        $cursors[$c['feed']] = ['last_updated_at' => $c['last_updated_at'], 'last_guid' => $c['last_guid']];
+    }
+    $latest = $pdo->query('SELECT MAX(start_at) FROM bg_pump')->fetchColumn();
+
+    echo json_encode([
+        'success'  => true,
+        'stored'   => $stored,
+        'skipped'  => $skipped,
+        'replaced' => $replaced,
+        'cursors'  => (object)$cursors,
+        'latest'   => $latest ? gmdate('c', strtotime($latest . ' UTC')) : null,
+    ]); exit;
+}
+
+// GET ?action=bg_pump&token=…&hours=24
+// Insulin pump records overlapping a window, oldest first: boluses with insulin
+// and carbs, basal segments, pod events, alarms and Omnipod 5 mode intervals.
+// Up to 90 days. raw is left out; it exists to re-derive rows, not to display.
+// last_synced_at says how fresh the pump data is: Glooko itself trails the pump
+// by up to about an hour.
+if ($method === 'GET' && $action === 'bg_pump') {
+    bgRequireRead();
+    $hours = intval($_GET['hours'] ?? 24);
+    if ($hours < 1 || $hours > 2160) {
+        http_response_code(400); echo json_encode(['error' => 'hours must be 1-2160.']); exit;
+    }
+    $since = gmdate('Y-m-d H:i:s', time() - $hours * 3600);
+    $stmt  = $pdo->prepare(
+        "SELECT kind, start_at, end_at, units, rate, carbs, label FROM bg_pump
+         WHERE start_at >= ? OR (end_at IS NOT NULL AND end_at >= ?) ORDER BY start_at"
+    );
+    $stmt->execute([$since, $since]);
+    $iso = function ($v) { return $v ? gmdate('c', strtotime($v . ' UTC')) : null; };
+    $out = [];
+    foreach ($stmt as $r) {
+        $out[] = [
+            'kind'     => $r['kind'],
+            'start_at' => $iso($r['start_at']),
+            'end_at'   => $iso($r['end_at']),
+            'units'    => $r['units'] === null ? null : (float)$r['units'],
+            'rate'     => $r['rate'] === null ? null : (float)$r['rate'],
+            'carbs'    => $r['carbs'] === null ? null : (float)$r['carbs'],
+            'label'    => $r['label'],
+        ];
+    }
+    $synced = $pdo->query('SELECT MAX(updated_at) FROM bg_pump_cursor')->fetchColumn();
+    echo json_encode([
+        'hours'          => $hours,
+        'records'        => $out,
+        'last_synced_at' => $synced ? gmdate('c', strtotime($synced . ' UTC')) : null,
+    ]); exit;
 }
 
 // ══════════════════════════════════════════════════════════════

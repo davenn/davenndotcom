@@ -179,7 +179,7 @@
     <h1>API Reference</h1>
     <p class="lede">Every app on davenn.com is served by a single <code class="inline">api.php</code>. Endpoints are selected by an <code class="inline">action</code> query parameter and always return JSON.</p>
     <div class="base">https://davenn.com/api.php?action=&lt;action&gt;</div>
-    <p class="counts">85 endpoints · 41 tables</p>
+    <p class="counts">86 endpoints · 43 tables</p>
 
     <div class="filter-row">
         <input type="search" id="filter" placeholder="Filter endpoints…" aria-label="Filter endpoints">
@@ -872,6 +872,25 @@
                 <p class="op-desc">Glucose read token — <code class="inline">X-BG-Token</code> or <code class="inline">?token=</code></p>
                 <h4>Takes</h4>
                 <p class="op-desc">&amp;token=…  → the newest stored reading.</p>
+            </div>
+        </div>
+        <div class="op get" id="get-bg_pump" data-search="bg_pump get glucose insulin pump records overlapping a window, oldest first: boluses with insulin">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=bg_pump</span>
+                <span class="op-sum">Insulin pump records overlapping a window, oldest first: boluses with insulin</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">Insulin pump records overlapping a window, oldest first: boluses with insulin and carbs, basal segments, pod events, alarms and Omnipod 5 mode intervals. Up to 90 days. raw is left out; it exists to re-derive rows, not to display. last_synced_at says how fresh the pump data is: Glooko itself trails the pump by up to about an hour.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Glucose read token — <code class="inline">X-BG-Token</code> or <code class="inline">?token=</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;token=…&amp;hours=24</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">hours</td></tr>
+                </tbody></table></div>
             </div>
         </div>
         <div class="op post" id="post-bg_refresh" data-search="bg_refresh post glucose asks the poller to pull from dexcom now, so a manual refresh reflects live">
@@ -1690,6 +1709,25 @@ note       VARCHAR(500) DEFAULT NULL
 created_at DATETIME     DEFAULT CURRENT_TIMESTAMP
 updated_at DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 INDEX idx_start (start_at)</code></pre>
+        <h3>bg_pump</h3>
+        <pre><code>id         INT AUTO_INCREMENT PRIMARY KEY
+source_id  VARCHAR(120) NOT NULL
+kind       VARCHAR(16)  NOT NULL
+start_at   DATETIME     NOT NULL
+end_at     DATETIME     DEFAULT NULL
+units      DECIMAL(8,3) DEFAULT NULL
+rate       DECIMAL(8,3) DEFAULT NULL
+carbs      DECIMAL(6,1) DEFAULT NULL
+label      VARCHAR(64)  DEFAULT NULL
+raw        MEDIUMTEXT   DEFAULT NULL
+updated_at DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+UNIQUE KEY uniq_source (source_id)
+INDEX idx_start (start_at)</code></pre>
+        <h3>bg_pump_cursor</h3>
+        <pre><code>feed            VARCHAR(32) PRIMARY KEY
+last_updated_at VARCHAR(40) NOT NULL
+last_guid       VARCHAR(64) NOT NULL
+updated_at      DATETIME    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP</code></pre>
         <p class="group">Confidence Pool</p>
         <h3>cp_weeks</h3>
         <pre><code>id                INT AUTO_INCREMENT PRIMARY KEY
@@ -1955,7 +1993,7 @@ KEY idx_contact (contact_value, created_at)</code></pre>
     </section>
 
     <section class="todo">
-        <p class="note">14 operator endpoints are not listed here.</p>
+        <p class="note">15 operator endpoints are not listed here.</p>
     </section>
 
     <footer>

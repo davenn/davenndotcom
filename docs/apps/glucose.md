@@ -4,7 +4,7 @@ A dashboard over continuous glucose monitor readings, plus a way to annotate
 why a stretch of the graph looked the way it did.
 
 **Files:** [`glucose.html`](../../glucose.html) (dashboard), [`bgcast.html`](../../bgcast.html) (display view), [`glucose-report.html`](../../glucose-report.html) (clinic report snapshot)
-**Tables:** `bg_readings` `bg_events`
+**Tables:** `bg_readings` `bg_events` `bg_pump` `bg_pump_cursor`
 **Auth:** a shared read token — `X-BG-Token` or `?token=`; ingest needs the admin secret
 **Public API page:** [`../glucose-api.html`](../glucose-api.html)
 
@@ -29,6 +29,7 @@ something to reconcile by hand.
 | `bg_daily` | per-day rollup for the calendar view |
 | `bg_embed` | plain text, for devices that cannot parse JSON |
 | `bg_export` | every reading for up to 180 days, for clinic reports and time-of-day profiles |
+| `bg_pump` | insulin pump records overlapping a window, up to 90 days |
 
 `bg_latest` returns `minutes_ago` rather than leaving the caller to work it
 out, because the decision every display has to make is whether the number has
@@ -42,6 +43,30 @@ own ordering, so a device can index an arrow glyph straight off it:
 ```
 
 `mgdl` of 0 means nothing is stored yet — distinct from a real low.
+
+## Insulin pump data
+
+Levi's Omnipod 5 uploads to Glooko by itself, roughly hourly. The davenn-mcp
+poller (the same service that reads Dexcom Share) signs in to that Glooko
+account every 30 minutes and pushes what it finds to `bg_pump_ingest`:
+boluses with insulin delivered and carbs entered, basal segments, suspends,
+pod events, alarms, and Omnipod 5 mode intervals (automated, limited, manual,
+activity) with automated-delivery bars.
+
+- Glooko has no public API for individuals. The poller uses the unofficial one
+  Glooko's own apps use, following the contracts the Nightscout community
+  tested in nightscout-connect. It can break without notice, like Share.
+- Pump times arrive as the pump's local clock marked as UTC. The poller turns
+  them into real UTC with `GLOOKO_TIMEZONE` before they are stored.
+- `bg_pump.raw` keeps each record exactly as Glooko sent it, so a wrong
+  mapping can be fixed from what is stored rather than fetched again.
+- Each feed's cursor lives in `bg_pump_cursor`, saved in the same transaction
+  as its records. The poller's host sleeps and restarts; a restart resumes.
+- Mode intervals are redrawn on every sync, so for those the poller replaces a
+  two-day window instead of upserting.
+- A rejected Glooko password, or a request for two-factor sign-in, stops the
+  pump sync until someone fixes it. It is never retried, so the account cannot
+  be locked out by the poller.
 
 ## Days and time zones
 
