@@ -3,7 +3,7 @@
 A dashboard over continuous glucose monitor readings, plus a way to annotate
 why a stretch of the graph looked the way it did.
 
-**Files:** [`glucose.html`](../../glucose.html) (dashboard), [`bgcast.html`](../../bgcast.html) (display view)
+**Files:** [`glucose.html`](../../glucose.html) (dashboard), [`bgcast.html`](../../bgcast.html) (display view), [`glucose-report.html`](../../glucose-report.html) (clinic report snapshot)
 **Tables:** `bg_readings` `bg_events`
 **Auth:** a shared read token — `X-BG-Token` or `?token=`; ingest needs the admin secret
 **Public API page:** [`../glucose-api.html`](../glucose-api.html)
@@ -66,6 +66,18 @@ free text, so they stay groupable.
 - Range switcher is 3H / 6H / 12H / 24H; the curve is hand-drawn SVG.
 - Shows time in range, excursions, and current-run / longest-run figures.
 - `bgcast.html` is a stripped-back view for a wall display or cast target.
-- A **Reports** card, shown once unlocked, links to clinic reports kept as private
-  claude.ai pages. Only people the owner has shared a report with can open it.
+- A **Reports** card, shown once unlocked, links to `glucose-report.html`.
+
+## Clinic report
+
+`glucose-report.html` is a fixed snapshot for an endocrinology visit
+(Sep 17 - Nov 24, 2026): consensus CGM metrics, an ambulatory glucose profile,
+lows and highs, weekly trend and a day calendar. **Its numbers are built into the
+page**, by the owner's choice, so unlike the dashboard it needs no token: anyone
+with the URL can read it, and the data is in this public repo's history. It is
+`noindex`, not on the home grid and not in the service worker's `SHELL`.
+
+The numbers were worked out from every reading via `bg_export`, and the page's
+drawings use d3 from jsDelivr. To make a new report, regenerate the page from a
+fresh export rather than editing the numbers by hand.
 - Panel open/closed state persists under `bg_panel_*` keys.

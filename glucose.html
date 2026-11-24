@@ -341,7 +341,7 @@
             padding: 12px; border: none; border-radius: 9px; cursor: pointer;
             background: var(--text-primary); color: var(--page); min-height: 46px;
         }
-        /* ── REPORTS ── links out to clinic reports kept as private claude.ai pages */
+        /* ── REPORTS ── links to clinic report snapshots hosted here (glucose-report.html) */
         .reports { display: grid; gap: 8px; }
         .report-link {
             display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -455,16 +455,16 @@
         <div class="days" id="days"></div>
     </section>
 
-    <!-- Reports: fuller write-ups for clinic visits, opened on claude.ai -->
+    <!-- Reports: fuller write-ups for clinic visits, as snapshot pages on this site -->
     <section class="card hidden" id="reports-card">
         <div class="card-title"><span>Reports</span></div>
         <div class="reports">
-            <a class="report-link" href="https://claude.ai/artifact/LMn1S5fT2sPBdCmHX3bUd9" target="_blank" rel="noopener">
+            <a class="report-link" href="/glucose-report.html">
                 <span>
                     <span class="report-name">Endocrinology report</span>
                     <span class="report-meta">Sep 17 – Nov 24, 2026 · ambulatory profile, trends, lows and highs</span>
                 </span>
-                <span class="report-arrow" aria-hidden="true">↗</span>
+                <span class="report-arrow" aria-hidden="true">→</span>
             </a>
         </div>
     </section>

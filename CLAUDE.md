@@ -54,7 +54,7 @@ Browser ──► /appname.html  (self-contained: HTML + CSS + JS)
 | Track Timer | `tracktimer.html` | `track_sessions` | — |
 | Toolshare | `toolshare.html` | `tb_users` `tb_tools` `tb_requests` `tb_sessions` `tb_friendships` | `X-Auth-Token` |
 | Flight Tracker | `flighttracker.html` | `ft_users` `ft_flights` | `X-Auth-Token` |
-| Glucose | `glucose.html`, `bgcast.html` | `bg_readings` `bg_events` | `X-BG-Token` (read), `X-Admin-Secret` (ingest) |
+| Glucose | `glucose.html`, `bgcast.html`, `glucose-report.html` (unlisted snapshot, data built in) | `bg_readings` `bg_events` | `X-BG-Token` (read), `X-Admin-Secret` (ingest) |
 | Confidence Pool | `nflpool.html` | `cp_weeks` `cp_games` `cp_entries` `cp_picks` `cp_players` `cp_pending` | `X-Admin-Secret` (admin only) |
 | WildcatsXC | `wildcatsxc.html` | `xc_meets` `xc_athletes` `xc_results` `xc_pin_attempts` | `X-XC-PIN` (shared team PIN) on every endpoint |
 | Daily Tasks | `dailytasks.html` | `dt_scores` `dt_tasks` | none for the leaderboard; `X-Auth-Token` (Toolshare accounts) for cross-device sync |
