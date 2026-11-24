@@ -255,60 +255,9 @@
   </p>
 </header>
 
-<section id="stats" class="lv-section">
-  <h2 class="lv-h2">Glucose statistics</h2>
-  <p class="lv-note">Goals are the international consensus targets for type 1 diabetes (Battelino et al., 2019) unless noted.</p>
-  <div class="lv-tiles">
-    <div class="lv-tile" id="tile-tir">
-      <div class="lv-tile-label">Time in range <span class="lv-dim">70–180 mg/dL</span></div>
-      <div class="lv-tile-value" data-draw="v" data-source="periods" data-field="in_range" data-where="period=all" data-fmt="pct">—</div>
-      <div class="lv-tile-goal">Goal <span data-draw="goal" data-goal="tir">—</span> · <span class="lv-verdict" data-draw="verdict" data-goal="tir" data-source="periods" data-field="in_range" data-where="period=all">—</span></div>
-    </div>
-    <div class="lv-tile" id="tile-below">
-      <div class="lv-tile-label">Time below 70 mg/dL</div>
-      <div class="lv-tile-value" data-draw="v" data-source="periods" data-field="below_70" data-where="period=all" data-fmt="pct">—</div>
-      <div class="lv-tile-goal">Goal <span data-draw="goal" data-goal="tbr">—</span> · <span class="lv-verdict" data-draw="verdict" data-goal="tbr" data-source="periods" data-field="below_70" data-where="period=all">—</span></div>
-      <div class="lv-tile-cmp">Below 54: <span data-draw="v" data-source="periods" data-field="very_low" data-where="period=all" data-fmt="pct">—</span> (goal <span data-draw="goal" data-goal="vlow">—</span>) · about <span data-draw="v" data-source="periods" data-field="min_per_day_below_70" data-where="period=all" data-fmt="int">—</span> min a day</div>
-    </div>
-    <div class="lv-tile" id="tile-above">
-      <div class="lv-tile-label">Time above 180 mg/dL</div>
-      <div class="lv-tile-value" data-draw="v" data-source="periods" data-field="above_180" data-where="period=all" data-fmt="pct">—</div>
-      <div class="lv-tile-goal">Goal <span data-draw="goal" data-goal="tar">—</span> · <span class="lv-verdict" data-draw="verdict" data-goal="tar" data-source="periods" data-field="above_180" data-where="period=all">—</span></div>
-      <div class="lv-tile-cmp">About <span data-draw="v" data-source="periods" data-field="hours_per_day_above_180" data-where="period=all" data-fmt="dec1">—</span> h a day</div>
-    </div>
-    <div class="lv-tile" id="tile-vhigh">
-      <div class="lv-tile-label">Time above 250 mg/dL</div>
-      <div class="lv-tile-value" data-draw="v" data-source="periods" data-field="very_high" data-where="period=all" data-fmt="pct">—</div>
-      <div class="lv-tile-goal">Goal <span data-draw="goal" data-goal="vhigh">—</span> · <span class="lv-verdict" data-draw="verdict" data-goal="vhigh" data-source="periods" data-field="very_high" data-where="period=all">—</span></div>
-      <div class="lv-tile-cmp">About <span data-draw="v" data-source="periods" data-field="hours_per_day_above_250" data-where="period=all" data-fmt="dec1">—</span> h a day</div>
-    </div>
-    <div class="lv-tile" id="tile-mean">
-      <div class="lv-tile-label">Mean glucose</div>
-      <div class="lv-tile-value"><span data-draw="v" data-source="periods" data-field="mean" data-where="period=all" data-fmt="dec1">—</span> <span class="lv-unit">mg/dL</span></div>
-      <div class="lv-tile-goal">GMI <span data-draw="v" data-source="periods" data-field="gmi" data-where="period=all" data-fmt="dec1">—</span>% · goal <span data-draw="goal" data-goal="gmi">—</span> · <span class="lv-verdict" data-draw="verdict" data-goal="gmi" data-source="periods" data-field="gmi" data-where="period=all">—</span></div>
-    </div>
-    <div class="lv-tile" id="tile-cv">
-      <div class="lv-tile-label">Variability (CV)</div>
-      <div class="lv-tile-value" data-draw="v" data-source="periods" data-field="cv" data-where="period=all" data-fmt="pct">—</div>
-      <div class="lv-tile-goal">Goal <span data-draw="goal" data-goal="cv">—</span> · <span class="lv-verdict" data-draw="verdict" data-goal="cv" data-source="periods" data-field="cv" data-where="period=all">—</span></div>
-      <div class="lv-tile-cmp">SD <span data-draw="v" data-source="periods" data-field="sd" data-where="period=all" data-fmt="dec1">—</span> mg/dL</div>
-    </div>
-    <div class="lv-tile" id="tile-titr">
-      <div class="lv-tile-label">Time in tight range <span class="lv-dim">70–140 mg/dL</span></div>
-      <div class="lv-tile-value" data-draw="v" data-source="periods" data-field="tight_range" data-where="period=all" data-fmt="pct">—</div>
-      <div class="lv-tile-goal">Proposed goal <span data-draw="goal" data-goal="titr">—</span> · <span class="lv-verdict" data-draw="verdict" data-goal="titr" data-source="periods" data-field="tight_range" data-where="period=all">—</span></div>
-    </div>
-    <div class="lv-tile" id="tile-gri">
-      <div class="lv-tile-label">Glycemia Risk Index</div>
-      <div class="lv-tile-value"><span data-draw="v" data-source="periods" data-field="gri" data-where="period=all" data-fmt="dec1">—</span> <span class="lv-unit">zone <span data-draw="v" data-source="periods" data-field="gri_zone" data-where="period=all">—</span></span></div>
-      <div class="lv-tile-goal">0–100, lower is better · zone A (best) to E</div>
-      <div class="lv-tile-cmp">Low part <span data-draw="v" data-source="periods" data-field="gri_hypo" data-where="period=all" data-fmt="dec1">—</span> · high part <span data-draw="v" data-source="periods" data-field="gri_hyper" data-where="period=all" data-fmt="dec1">—</span></div>
-    </div>
-  </div>
-</section>
-
 <section id="ranges" class="lv-section">
   <h2 class="lv-h2">Time in ranges</h2>
+  <p class="lv-note">Goals are the international consensus targets for type 1 diabetes (Battelino et al., 2019).</p>
   <div class="lv-chart lv-ranges" data-draw="ranges" data-source="periods">—</div>
   <div class="lv-scroll">
     <table class="lv-table lv-rangetable" id="range-table">
