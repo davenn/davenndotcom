@@ -1172,7 +1172,8 @@
 
     var busy = false;
     function load() {
-        if (!token) { gate(true); return; }
+        // TEMPORARY, Nov 24 2026: reads are open on the server, so load without
+        // a token; a 401 still brings up the gate once they close again.
         if (busy) return;
         busy = true;
         el['refresh'].disabled = true;
@@ -1312,7 +1313,8 @@
     // The button forces a live pull; the 60s auto-refresh deliberately does not,
     // so an idle tab never turns into a stream of requests against Dexcom.
     function forceRefresh() {
-        if (busy || !token) return;
+        if (!token) { load(); return; }
+        if (busy) return;
         busy = true;
         el['refresh'].disabled = true;
         el['refresh'].textContent = 'Syncing';

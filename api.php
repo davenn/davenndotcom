@@ -1884,6 +1884,10 @@ if ($method === 'GET' && $action === 'resetTestPhone') {
 // Reads are gated by a low-privilege, read-only token so wall displays and
 // microcontrollers never hold the admin secret or the Dexcom credentials.
 function bgReadAuth(): bool {
+    // TEMPORARY, Nov 24 2026: reads are open without the token for Levi's clinic
+    // visit, and close again by themselves at midnight Central (1795586400).
+    // Writes (notes, refresh) still need it. Revert this commit to remove.
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && time() < 1795586400) return true;
     $token = $_ENV['BG_READ_TOKEN'] ?? '';
     if (!$token) return false;
     $given = $_SERVER['HTTP_X_BG_TOKEN'] ?? ($_GET['token'] ?? '');
