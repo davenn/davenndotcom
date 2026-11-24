@@ -341,6 +341,17 @@
             padding: 12px; border: none; border-radius: 9px; cursor: pointer;
             background: var(--text-primary); color: var(--page); min-height: 46px;
         }
+        /* ── REPORTS ── links out to clinic reports kept as private claude.ai pages */
+        .reports { display: grid; gap: 8px; }
+        .report-link {
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
+            background: var(--page); color: var(--text-primary); text-decoration: none;
+        }
+        .report-link:hover, .report-link:focus-visible { border-color: var(--text-muted); }
+        .report-name { font-family: var(--font-ui); font-weight: 700; font-size: 14px; }
+        .report-meta { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+        .report-arrow { color: var(--text-muted); font-size: 16px; flex: none; }
         .foot { font-size: 11px; color: var(--text-muted); text-align: center; line-height: 1.6; padding: 4px 8px 20px; }
         .foot a { color: var(--text-secondary); }
         .hidden { display: none !important; }
@@ -444,6 +455,20 @@
         <div class="days" id="days"></div>
     </section>
 
+    <!-- Reports: fuller write-ups for clinic visits, opened on claude.ai -->
+    <section class="card hidden" id="reports-card">
+        <div class="card-title"><span>Reports</span></div>
+        <div class="reports">
+            <a class="report-link" href="https://claude.ai/artifact/LMn1S5fT2sPBdCmHX3bUd9" target="_blank" rel="noopener">
+                <span>
+                    <span class="report-name">Endocrinology report</span>
+                    <span class="report-meta">Sep 17 – Nov 24, 2026 · ambulatory profile, trends, lows and highs</span>
+                </span>
+                <span class="report-arrow" aria-hidden="true">↗</span>
+            </a>
+        </div>
+    </section>
+
     <div class="msg" id="loading">Loading…</div>
 
     <!-- Annotation sheet -->
@@ -500,7 +525,7 @@
     var el = {};
     ['gate','gate-form','gate-input','hero','hero-value','hero-arrow','hero-status','hero-dot',
      'hero-status-text','hero-age','filter-row','curve-card','chart-holder','tip','ranges','tir-card','tir-bar',
-     'tir-key','tir-window','stats','days-card','days','days-note','loading','refresh',
+     'tir-key','tir-window','stats','days-card','days','days-note','reports-card','loading','refresh',
      'stale-banner','stale-text','theme-toggle','toggle-icon','hero-run',
      'events-card','events-list','events-count','btn-cast','cast-tip',
      'add-note','sheet-back','sheet-title','sheet-when','chips','sheet-note',
@@ -1171,6 +1196,7 @@
             show(el['filter-row'], true);
             show(el['curve-card'], true);
             show(el['events-card'], true);
+            show(el['reports-card'], true);
             setupCast();
             drawCurve();
         }).catch(function (err) {
@@ -1192,7 +1218,7 @@
         if (on) closeSheet();
         show(el['gate'], on);
         show(el['loading'], !on && !history.length);
-        [ 'hero', 'filter-row', 'curve-card', 'tir-card', 'events-card', 'days-card' ].forEach(function (k) { if (on) show(el[k], false); });
+        [ 'hero', 'filter-row', 'curve-card', 'tir-card', 'events-card', 'days-card', 'reports-card' ].forEach(function (k) { if (on) show(el[k], false); });
         if (on && note) el['gate-input'].placeholder = note;
     }
 

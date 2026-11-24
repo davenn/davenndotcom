@@ -66,4 +66,6 @@ free text, so they stay groupable.
 - Range switcher is 3H / 6H / 12H / 24H; the curve is hand-drawn SVG.
 - Shows time in range, excursions, and current-run / longest-run figures.
 - `bgcast.html` is a stripped-back view for a wall display or cast target.
+- A **Reports** card, shown once unlocked, links to clinic reports kept as private
+  claude.ai pages. Only people the owner has shared a report with can open it.
 - Panel open/closed state persists under `bg_panel_*` keys.
