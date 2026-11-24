@@ -179,7 +179,7 @@
     <h1>API Reference</h1>
     <p class="lede">Every app on davenn.com is served by a single <code class="inline">api.php</code>. Endpoints are selected by an <code class="inline">action</code> query parameter and always return JSON.</p>
     <div class="base">https://davenn.com/api.php?action=&lt;action&gt;</div>
-    <p class="counts">84 endpoints · 41 tables</p>
+    <p class="counts">85 endpoints · 41 tables</p>
 
     <div class="filter-row">
         <input type="search" id="filter" placeholder="Filter endpoints…" aria-label="Filter endpoints">
@@ -819,6 +819,23 @@
                 <h4>Query parameters</h4>
                 <div class="table-wrap"><table><tbody>
                     <tr><td class="pname">hours</td></tr>
+                </tbody></table></div>
+            </div>
+        </div>
+        <div class="op get" id="get-bg_export" data-search="bg_export get glucose kept compact on purpose — 90 days is roughly 26,000 rows — so each reading is">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=bg_export</span>
+                <span class="op-sum">Kept compact on purpose — 90 days is roughly 26,000 rows — so each reading is</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">Kept compact on purpose — 90 days is roughly 26,000 rows — so each reading is a two-element array [unix_seconds, mgdl], oldest first, and rows are streamed rather than collected, keeping PHP's memory flat on shared hosting.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Glucose read token — <code class="inline">X-BG-Token</code> or <code class="inline">?token=</code></p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">days</td></tr>
                 </tbody></table></div>
             </div>
         </div>

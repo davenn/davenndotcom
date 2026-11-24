@@ -28,6 +28,7 @@ something to reconcile by hand.
 | `bg_history` | a window of readings for the curve |
 | `bg_daily` | per-day rollup for the calendar view |
 | `bg_embed` | plain text, for devices that cannot parse JSON |
+| `bg_export` | every reading for up to 180 days, for clinic reports and time-of-day profiles |
 
 `bg_latest` returns `minutes_ago` rather than leaving the caller to work it
 out, because the decision every display has to make is whether the number has

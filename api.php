@@ -2192,6 +2192,41 @@ if ($method === 'GET' && $action === 'bg_daily') {
     ]); exit;
 }
 
+// GET ?action=bg_export&token=…&days=90 → every stored reading in the window.
+//
+// For longer-range analysis than bg_history allows: clinic reports, the
+// ambulatory glucose profile (median and percentile bands by time of day), and
+// anything else that needs individual readings rather than daily rollups.
+// Read-only, same read token as the other glucose reads.
+//
+// Kept compact on purpose — 90 days is roughly 26,000 rows — so each reading is
+// a two-element array [unix_seconds, mgdl], oldest first, and rows are streamed
+// rather than collected, keeping PHP's memory flat on shared hosting.
+if ($method === 'GET' && $action === 'bg_export') {
+    bgRequireRead();
+    $days = intval($_GET['days'] ?? 90);
+    if ($days < 1 || $days > 180) {
+        http_response_code(400); echo json_encode(['error' => 'days must be 1-180.']); exit;
+    }
+    header('Cache-Control: no-store');
+
+    $since = gmdate('Y-m-d H:i:s', time() - $days * 86400);
+    $stmt  = $pdo->prepare("SELECT reading_at, observed_at, mgdl FROM bg_readings WHERE reading_at >= ? ORDER BY reading_at");
+    $stmt->execute([$since]);
+
+    echo '{"days":' . $days
+       . ',"timezone":' . json_encode($_ENV['BG_TIMEZONE'] ?? 'America/New_York')
+       . ',"readings":[';
+    $first = true;
+    while ($row = $stmt->fetch()) {
+        // observed_at is the real reading time; reading_at is snapped to the grid.
+        $ts = strtotime(($row['observed_at'] ?: $row['reading_at']) . ' UTC');
+        echo ($first ? '' : ',') . '[' . (int)$ts . ',' . (int)$row['mgdl'] . ']';
+        $first = false;
+    }
+    echo ']}'; exit;
+}
+
 // ══════════════════════════════════════════════════════════════
 // GLUCOSE EVENTS
 // ══════════════════════════════════════════════════════════════
