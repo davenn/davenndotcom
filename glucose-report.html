@@ -141,7 +141,7 @@
 .lv-chart { position: relative; width: 100%; min-height: 60px; }
 .lv-chart svg { display: block; overflow: visible; }
 .lv-chart text { font-family: var(--font-anthropic-sans); }
-.lv-ranges { min-height: 96px; }
+.lv-ranges { min-height: 34px; }
 .lv-agp { min-height: 260px; }
 .lv-daily { min-height: 300px; }
 .lv-hourly { min-height: 220px; }
@@ -252,19 +252,17 @@
     Levi was in range <b data-draw="v" data-source="periods" data-field="in_range" data-where="period=all" data-fmt="pct">—</b> of the time,
     just short of the goal of <span data-draw="goal" data-goal="tir">—</span>.
     Lows stayed well inside their limits. The gap is time above range, mostly after lunch and in the evening.
-    The last 14 days were a little better, at <b data-draw="v" data-source="periods" data-field="in_range" data-where="period=last14" data-fmt="pct">—</b>.
   </p>
 </header>
 
 <section id="stats" class="lv-section">
   <h2 class="lv-h2">Glucose statistics</h2>
-  <p class="lv-note">All data, with the last 14 days beside each figure. Goals are the international consensus targets for type 1 diabetes (Battelino et al., 2019) unless noted.</p>
+  <p class="lv-note">Goals are the international consensus targets for type 1 diabetes (Battelino et al., 2019) unless noted.</p>
   <div class="lv-tiles">
     <div class="lv-tile" id="tile-tir">
       <div class="lv-tile-label">Time in range <span class="lv-dim">70–180 mg/dL</span></div>
       <div class="lv-tile-value" data-draw="v" data-source="periods" data-field="in_range" data-where="period=all" data-fmt="pct">—</div>
       <div class="lv-tile-goal">Goal <span data-draw="goal" data-goal="tir">—</span> · <span class="lv-verdict" data-draw="verdict" data-goal="tir" data-source="periods" data-field="in_range" data-where="period=all">—</span></div>
-      <div class="lv-tile-cmp">Last 14 days <span data-draw="v" data-source="periods" data-field="in_range" data-where="period=last14" data-fmt="pct">—</span></div>
     </div>
     <div class="lv-tile" id="tile-below">
       <div class="lv-tile-label">Time below 70 mg/dL</div>
@@ -276,31 +274,29 @@
       <div class="lv-tile-label">Time above 180 mg/dL</div>
       <div class="lv-tile-value" data-draw="v" data-source="periods" data-field="above_180" data-where="period=all" data-fmt="pct">—</div>
       <div class="lv-tile-goal">Goal <span data-draw="goal" data-goal="tar">—</span> · <span class="lv-verdict" data-draw="verdict" data-goal="tar" data-source="periods" data-field="above_180" data-where="period=all">—</span></div>
-      <div class="lv-tile-cmp">Last 14 days <span data-draw="v" data-source="periods" data-field="above_180" data-where="period=last14" data-fmt="pct">—</span> · about <span data-draw="v" data-source="periods" data-field="hours_per_day_above_180" data-where="period=all" data-fmt="dec1">—</span> h a day</div>
+      <div class="lv-tile-cmp">About <span data-draw="v" data-source="periods" data-field="hours_per_day_above_180" data-where="period=all" data-fmt="dec1">—</span> h a day</div>
     </div>
     <div class="lv-tile" id="tile-vhigh">
       <div class="lv-tile-label">Time above 250 mg/dL</div>
       <div class="lv-tile-value" data-draw="v" data-source="periods" data-field="very_high" data-where="period=all" data-fmt="pct">—</div>
       <div class="lv-tile-goal">Goal <span data-draw="goal" data-goal="vhigh">—</span> · <span class="lv-verdict" data-draw="verdict" data-goal="vhigh" data-source="periods" data-field="very_high" data-where="period=all">—</span></div>
-      <div class="lv-tile-cmp">Last 14 days <span data-draw="v" data-source="periods" data-field="very_high" data-where="period=last14" data-fmt="pct">—</span> · about <span data-draw="v" data-source="periods" data-field="hours_per_day_above_250" data-where="period=all" data-fmt="dec1">—</span> h a day</div>
+      <div class="lv-tile-cmp">About <span data-draw="v" data-source="periods" data-field="hours_per_day_above_250" data-where="period=all" data-fmt="dec1">—</span> h a day</div>
     </div>
     <div class="lv-tile" id="tile-mean">
       <div class="lv-tile-label">Mean glucose</div>
       <div class="lv-tile-value"><span data-draw="v" data-source="periods" data-field="mean" data-where="period=all" data-fmt="dec1">—</span> <span class="lv-unit">mg/dL</span></div>
       <div class="lv-tile-goal">GMI <span data-draw="v" data-source="periods" data-field="gmi" data-where="period=all" data-fmt="dec1">—</span>% · goal <span data-draw="goal" data-goal="gmi">—</span> · <span class="lv-verdict" data-draw="verdict" data-goal="gmi" data-source="periods" data-field="gmi" data-where="period=all">—</span></div>
-      <div class="lv-tile-cmp">Last 14 days <span data-draw="v" data-source="periods" data-field="mean" data-where="period=last14" data-fmt="dec1">—</span> mg/dL · GMI <span data-draw="v" data-source="periods" data-field="gmi" data-where="period=last14" data-fmt="dec1">—</span>%</div>
     </div>
     <div class="lv-tile" id="tile-cv">
       <div class="lv-tile-label">Variability (CV)</div>
       <div class="lv-tile-value" data-draw="v" data-source="periods" data-field="cv" data-where="period=all" data-fmt="pct">—</div>
       <div class="lv-tile-goal">Goal <span data-draw="goal" data-goal="cv">—</span> · <span class="lv-verdict" data-draw="verdict" data-goal="cv" data-source="periods" data-field="cv" data-where="period=all">—</span></div>
-      <div class="lv-tile-cmp">SD <span data-draw="v" data-source="periods" data-field="sd" data-where="period=all" data-fmt="dec1">—</span> mg/dL · last 14 days CV <span data-draw="v" data-source="periods" data-field="cv" data-where="period=last14" data-fmt="pct">—</span></div>
+      <div class="lv-tile-cmp">SD <span data-draw="v" data-source="periods" data-field="sd" data-where="period=all" data-fmt="dec1">—</span> mg/dL</div>
     </div>
     <div class="lv-tile" id="tile-titr">
       <div class="lv-tile-label">Time in tight range <span class="lv-dim">70–140 mg/dL</span></div>
       <div class="lv-tile-value" data-draw="v" data-source="periods" data-field="tight_range" data-where="period=all" data-fmt="pct">—</div>
       <div class="lv-tile-goal">Proposed goal <span data-draw="goal" data-goal="titr">—</span> · <span class="lv-verdict" data-draw="verdict" data-goal="titr" data-source="periods" data-field="tight_range" data-where="period=all">—</span></div>
-      <div class="lv-tile-cmp">Last 14 days <span data-draw="v" data-source="periods" data-field="tight_range" data-where="period=last14" data-fmt="pct">—</span></div>
     </div>
     <div class="lv-tile" id="tile-gri">
       <div class="lv-tile-label">Glycemia Risk Index</div>
@@ -316,13 +312,13 @@
   <div class="lv-chart lv-ranges" data-draw="ranges" data-source="periods">—</div>
   <div class="lv-scroll">
     <table class="lv-table lv-rangetable" id="range-table">
-      <thead><tr><th>Range</th><th class="lv-num">All data</th><th class="lv-num">Last 14 days</th><th class="lv-num">Goal</th></tr></thead>
+      <thead><tr><th>Range</th><th class="lv-num">All data</th><th class="lv-num">Goal</th></tr></thead>
       <tbody>
-        <tr><td><i class="lv-sw lv-c-vh"></i>Very high, over 250</td><td class="lv-num" data-draw="v" data-source="periods" data-field="very_high" data-where="period=all" data-fmt="pct">—</td><td class="lv-num" data-draw="v" data-source="periods" data-field="very_high" data-where="period=last14" data-fmt="pct">—</td><td class="lv-num" data-draw="goal" data-goal="vhigh">—</td></tr>
-        <tr><td><i class="lv-sw lv-c-h"></i>High, 181–250</td><td class="lv-num" data-draw="v" data-source="periods" data-field="high" data-where="period=all" data-fmt="pct">—</td><td class="lv-num" data-draw="v" data-source="periods" data-field="high" data-where="period=last14" data-fmt="pct">—</td><td class="lv-num lv-dim">over 180 <span data-draw="goal" data-goal="tar">—</span></td></tr>
-        <tr><td><i class="lv-sw lv-c-tir"></i>In range, 70–180</td><td class="lv-num" data-draw="v" data-source="periods" data-field="in_range" data-where="period=all" data-fmt="pct">—</td><td class="lv-num" data-draw="v" data-source="periods" data-field="in_range" data-where="period=last14" data-fmt="pct">—</td><td class="lv-num" data-draw="goal" data-goal="tir">—</td></tr>
-        <tr><td><i class="lv-sw lv-c-l"></i>Low, 54–69</td><td class="lv-num" data-draw="v" data-source="periods" data-field="low" data-where="period=all" data-fmt="pct">—</td><td class="lv-num" data-draw="v" data-source="periods" data-field="low" data-where="period=last14" data-fmt="pct">—</td><td class="lv-num lv-dim">under 70 <span data-draw="goal" data-goal="tbr">—</span></td></tr>
-        <tr><td><i class="lv-sw lv-c-vl"></i>Very low, under 54</td><td class="lv-num" data-draw="v" data-source="periods" data-field="very_low" data-where="period=all" data-fmt="pct">—</td><td class="lv-num" data-draw="v" data-source="periods" data-field="very_low" data-where="period=last14" data-fmt="pct">—</td><td class="lv-num" data-draw="goal" data-goal="vlow">—</td></tr>
+        <tr><td><i class="lv-sw lv-c-vh"></i>Very high, over 250</td><td class="lv-num" data-draw="v" data-source="periods" data-field="very_high" data-where="period=all" data-fmt="pct">—</td><td class="lv-num" data-draw="goal" data-goal="vhigh">—</td></tr>
+        <tr><td><i class="lv-sw lv-c-h"></i>High, 181–250</td><td class="lv-num" data-draw="v" data-source="periods" data-field="high" data-where="period=all" data-fmt="pct">—</td><td class="lv-num lv-dim">over 180 <span data-draw="goal" data-goal="tar">—</span></td></tr>
+        <tr><td><i class="lv-sw lv-c-tir"></i>In range, 70–180</td><td class="lv-num" data-draw="v" data-source="periods" data-field="in_range" data-where="period=all" data-fmt="pct">—</td><td class="lv-num" data-draw="goal" data-goal="tir">—</td></tr>
+        <tr><td><i class="lv-sw lv-c-l"></i>Low, 54–69</td><td class="lv-num" data-draw="v" data-source="periods" data-field="low" data-where="period=all" data-fmt="pct">—</td><td class="lv-num lv-dim">under 70 <span data-draw="goal" data-goal="tbr">—</span></td></tr>
+        <tr><td><i class="lv-sw lv-c-vl"></i>Very low, under 54</td><td class="lv-num" data-draw="v" data-source="periods" data-field="very_low" data-where="period=all" data-fmt="pct">—</td><td class="lv-num" data-draw="goal" data-goal="vlow">—</td></tr>
       </tbody>
     </table>
   </div>
@@ -330,25 +326,19 @@
 
 <section id="agp" class="lv-section">
   <h2 class="lv-h2">Glucose by time of day (ambulatory glucose profile)</h2>
-  <p class="lv-note">Every day laid on top of one 24-hour clock. The line is the median reading at each time of day. The darker band holds the middle half of readings, the lighter band 90% of them. The dashed line is the median for the other window.</p>
-  <div class="lv-seg" role="group" aria-label="Window for the profile">
-    <button type="button" class="lv-segbtn" data-agp="14" aria-pressed="true">Last 14 days</button>
-    <button type="button" class="lv-segbtn" data-agp="all" aria-pressed="false">All data</button>
-  </div>
+  <p class="lv-note">Every day laid on top of one 24-hour clock. The line is the median reading at each time of day. The darker band holds the middle half of readings, the lighter band 90% of them.</p>
   <div class="lv-chart lv-agp" data-draw="agp" data-source="agp">—</div>
   <ul class="lv-legend">
     <li><i class="lv-key lv-key-med"></i>Median</li>
     <li><i class="lv-key lv-key-iqr"></i>25th–75th percentile</li>
     <li><i class="lv-key lv-key-90"></i>5th–95th percentile</li>
-    <li><i class="lv-key lv-key-dash"></i>Median, other window</li>
     <li><i class="lv-key lv-key-target"></i>Target 70–180</li>
   </ul>
   <p class="lv-finding" data-read lang="en">
     Overnight is flat and in range: the median bottoms out around <b data-draw="v" data-source="agp" data-field="median_all" data-where="time=03:15" data-fmt="int">—</b> mg/dL at 3:15 am.
     The sharpest rise of the day is at lunch, from a median of <b data-draw="v" data-source="agp" data-field="median_all" data-where="time=12:00" data-fmt="int">—</b> at noon
     to <b data-draw="v" data-source="agp" data-field="median_all" data-where="time=13:30" data-fmt="int">—</b> by 1:30 pm.
-    The evening stays high, with a median of <b data-draw="v" data-source="agp" data-field="median_all" data-where="time=20:45" data-fmt="int">—</b> at 8:45 pm
-    (<b data-draw="v" data-source="agp" data-field="median_14" data-where="time=20:30" data-fmt="int">—</b> at 8:30 pm over the last 14 days).
+    The evening stays high, with a median of <b data-draw="v" data-source="agp" data-field="median_all" data-where="time=20:45" data-fmt="int">—</b> at 8:45 pm.
     The widest spread is in late afternoon, where both lows and highs happen.
   </p>
 </section>
@@ -377,7 +367,7 @@
   <div class="lv-scroll">
     <table class="lv-table" id="blocks-table" data-source="blocks" data-row-key="key">
       <thead><tr>
-        <th data-field="block">Time of day</th><th data-field="hours">Hours</th><th data-field="window">Window</th>
+        <th data-field="block">Time of day</th><th data-field="hours">Hours</th>
         <th class="lv-num" data-field="in_range">In range</th><th class="lv-num" data-field="below_70">Below 70</th>
         <th class="lv-num" data-field="above_180">Above 180</th><th class="lv-num" data-field="very_high">Above 250</th>
         <th class="lv-num" data-field="mean">Mean</th><th class="lv-num" data-field="cv">CV</th>
@@ -481,7 +471,7 @@
   <p class="lv-note">Observations from the CGM data only, written as questions for the care team. Nothing here is a dosing recommendation.</p>
   <ol class="lv-points" data-read lang="en">
     <li><b>Lunch.</b> The median climbs from <span data-draw="v" data-source="agp" data-field="median_all" data-where="time=12:00" data-fmt="int">—</span> to <span data-draw="v" data-source="agp" data-field="median_all" data-where="time=13:30" data-fmt="int">—</span> mg/dL in 90 minutes, and <span data-draw="v" data-source="episodes" data-field="highs_lunch_12_to_2pm" data-row="0" data-fmt="int">—</span> highs over 250 started between noon and 2 pm. Is the lunch dose, or its timing before eating, right?</li>
-    <li><b>Evenings.</b> 6 pm to midnight is in range <span data-draw="v" data-source="blocks" data-field="in_range" data-where="key=evening-all" data-fmt="pct">—</span> of the time, and <span data-draw="v" data-source="blocks" data-field="in_range" data-where="key=evening-last14" data-fmt="pct">—</span> over the last 14 days, the weakest part of the day lately. What would help with dinner and evening snacks?</li>
+    <li><b>Evenings.</b> 6 pm to midnight is in range only <span data-draw="v" data-source="blocks" data-field="in_range" data-where="key=evening-all" data-fmt="pct">—</span> of the time, with <span data-draw="v" data-source="blocks" data-field="very_high" data-where="key=evening-all" data-fmt="pct">—</span> over 250. What would help with dinner and evening snacks?</li>
     <li><b>Afternoon lows.</b> <span data-draw="v" data-source="episodes" data-field="lows_2_to_6pm" data-row="0" data-fmt="int">—</span> of the <span data-draw="v" data-source="episodes" data-field="lows" data-row="0" data-fmt="int">—</span> lows began between 2 and 6 pm, mostly on weekdays. If that lines up with activity or sports, ask how to plan for it.</li>
     <li><b>Variability.</b> CV is <span data-draw="v" data-source="periods" data-field="cv" data-where="period=all" data-fmt="pct">—</span> against a goal of <span data-draw="goal" data-goal="cv">—</span>. The swings come mostly from the midday and evening highs above, not from lows.</li>
     <li><b>What is working.</b> Overnight is <span data-draw="v" data-source="blocks" data-field="in_range" data-where="key=overnight-all" data-fmt="pct">—</span> in range with a mean of <span data-draw="v" data-source="blocks" data-field="mean" data-where="key=overnight-all" data-fmt="int">—</span> mg/dL, and time below range is within its goal. The week of <span data-draw="v" data-source="periods" data-field="label" data-where="period=wk2026-11-09">—</span> reached <span data-draw="v" data-source="periods" data-field="in_range" data-where="period=wk2026-11-09" data-fmt="pct">—</span>: what was different that week?</li>
@@ -708,7 +698,7 @@ const TIERS = [
 dash.draw('ranges', (el) => {
   const g = guard(el, ['periods']);
   if (!g) return;
-  const rows = ['all', 'last14'].map((k) => g[0].find((r) => r.period === k)).filter(Boolean);
+  const rows = ['all'].map((k) => g[0].find((r) => r.period === k)).filter(Boolean);
   el.replaceChildren();
   const W = el.clientWidth || 600, barH = 32, gap = 14, H = rows.length * (barH + gap) - gap + 2;
   const svg = svgIn(el, W, H, rows.map((r) => `${r.label}: ${pct(r.in_range)} in range, ${pct(r.below_70)} below 70, ${pct(r.above_180)} above 180`).join('. '));
@@ -731,20 +721,12 @@ dash.draw('ranges', (el) => {
   });
 });
 
-window.LV_AGP = window.LV_AGP || '14';
-document.querySelectorAll('.lv-segbtn[data-agp]').forEach((b) => b.addEventListener('click', () => {
-  window.LV_AGP = b.getAttribute('data-agp');
-  document.querySelectorAll('.lv-segbtn[data-agp]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-  dash.draw('agp');
-}));
-
 dash.draw('agp', (el) => {
   const g = guard(el, ['agp']);
   if (!g) return;
   const rows = g[0].slice().sort((a, b) => a.slot - b.slot);
   if (rows.length !== 96) { el.replaceChildren(); el.textContent = '—'; return; }
-  const w = window.LV_AGP === 'all' ? 'all' : '14', o = w === '14' ? 'all' : '14';
-  const wName = w === '14' ? 'last 14 days' : 'all data', oName = o === '14' ? 'last 14 days' : 'all data';
+  const w = 'all', wName = 'all data';
   el.replaceChildren();
   const W = el.clientWidth || 640, H = Math.round(Math.max(240, Math.min(360, W * 0.42)));
   const col = dash.colors[0];
@@ -767,7 +749,6 @@ dash.draw('agp', (el) => {
   const band = (lo, hi) => d3.area().x((d) => x(d.s)).y0((d) => y(d.r[lo])).y1((d) => y(d.r[hi]));
   svg.append('path').attr('d', band('p5_' + w, 'p95_' + w)(pts)).style('fill', col).style('fill-opacity', 0.18);
   svg.append('path').attr('d', band('p25_' + w, 'p75_' + w)(pts)).style('fill', col).style('fill-opacity', 0.42);
-  svg.append('path').attr('d', d3.line().x((d) => x(d.s)).y((d) => y(d.r['median_' + o]))(pts)).style('fill', 'none').style('stroke', 'var(--color-fg-muted)').style('stroke-width', 1.5).style('stroke-dasharray', '5 4');
   svg.append('path').attr('d', d3.line().x((d) => x(d.s)).y((d) => y(d.r['median_' + w]))(pts)).style('fill', 'none').style('stroke', col).style('stroke-width', 2.5);
   const guide = svg.append('line').attr('y1', y(400)).attr('y2', y(40)).style('stroke', 'var(--color-fg-muted)').style('stroke-width', 1).style('display', 'none');
   const tt = tip(el);
@@ -781,7 +762,6 @@ dash.draw('agp', (el) => {
         ['Median', `${r['median_' + w]} mg/dL`],
         ['25th–75th', `${r['p25_' + w]}–${r['p75_' + w]}`],
         ['5th–95th', `${r['p5_' + w]}–${r['p95_' + w]}`],
-        [`Median, ${oName}`, `${r['median_' + o]}`],
         ['Readings', d3.format(',')(r['n_' + w])],
       ], px, py);
     })
@@ -945,10 +925,10 @@ const judge = (gk, f) => (r) => (r[f] == null ? '' : meets(GOALS[gk], r[f]) ? 'l
 dash.draw('blocks', (tbody) => {
   const d = dash.data('blocks');
   if (d.status !== 'ok') { tbody.replaceChildren(); return; }
-  const order = ['overnight', 'morning', 'afternoon', 'evening'].flatMap((b) => [`${b}-all`, `${b}-last14`]);
+  const order = ['overnight', 'morning', 'afternoon', 'evening'].map((b) => `${b}-all`);
   const rows = order.map((k) => d.data.find((r) => r.key === k)).filter(Boolean);
   fillTable(tbody, rows, 'key', [
-    { f: 'block' }, { f: 'hours' }, { f: 'window' },
+    { f: 'block' }, { f: 'hours' },
     { f: 'in_range', num: true, fmt: pct, cls: judge('tir', 'in_range') },
     { f: 'below_70', num: true, fmt: pct, cls: judge('tbr', 'below_70') },
     { f: 'above_180', num: true, fmt: pct, cls: judge('tar', 'above_180') },
