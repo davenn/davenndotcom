@@ -515,6 +515,44 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS an_cache (
     fetched_at DATETIME    NOT NULL
 )");
 
+// DIY Projects — private per Toolshare account. No start date means the
+// project has not started yet, which is why the column is nullable.
+// cover_photo_id has no foreign key because diy_photos points back here; the
+// photo endpoints keep it valid instead.
+$pdo->exec("CREATE TABLE IF NOT EXISTS diy_projects (
+    id             INT AUTO_INCREMENT PRIMARY KEY,
+    user_id        INT           NOT NULL,
+    title          VARCHAR(120)  NOT NULL,
+    category       VARCHAR(60)   DEFAULT NULL,
+    status         ENUM('ideation','design','planning','in_progress','done') NOT NULL DEFAULT 'ideation',
+    start_date     DATE          DEFAULT NULL,
+    end_date       DATE          DEFAULT NULL,
+    notes          TEXT          DEFAULT NULL,
+    cover_photo_id INT           DEFAULT NULL,
+    created_at     DATETIME      DEFAULT CURRENT_TIMESTAMP,
+    updated_at     DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_user (user_id, status),
+    FOREIGN KEY (user_id) REFERENCES tb_users(id) ON DELETE CASCADE
+)");
+
+// One row per progress photo. The image and its thumbnail are files under
+// uploads/diy/ (see diyPhotoDir), named by `file`; user_id is copied from the
+// project so serving a photo is a one-row ownership check.
+$pdo->exec("CREATE TABLE IF NOT EXISTS diy_photos (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    project_id INT          NOT NULL,
+    user_id    INT          NOT NULL,
+    file       VARCHAR(40)  NOT NULL,
+    width      INT          NOT NULL,
+    height     INT          NOT NULL,
+    bytes      INT          NOT NULL,
+    created_at DATETIME     DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_project (project_id),
+    INDEX idx_user (user_id),
+    FOREIGN KEY (project_id) REFERENCES diy_projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id)    REFERENCES tb_users(id)     ON DELETE CASCADE
+)");
+
 // ── HELPERS ────────────────────────────────────────────────────────────────
 function authUser(PDO $pdo): ?array {
     $token = $_SERVER['HTTP_X_AUTH_TOKEN'] ?? '';
@@ -1657,6 +1695,304 @@ if ($method === 'POST' && $action === 'dt_save_tasks') {
     ");
     $stmt->execute([$me['id'], $date, json_encode($tasks), $next_id]);
     echo json_encode(['success' => true]); exit;
+}
+
+// ══════════════════════════════════════════════════════════════
+// DIY PROJECTS — private project tracker on Toolshare accounts
+// ══════════════════════════════════════════════════════════════
+
+const DIY_STATUSES = ['ideation', 'design', 'planning', 'in_progress', 'done'];
+// Photos arrive already downscaled by the browser (about 2048px on the long
+// edge, a few hundred KB), so these caps only stop abuse.
+const DIY_MAX_PHOTO_BYTES = 8 * 1024 * 1024;
+const DIY_MAX_THUMB_BYTES = 1024 * 1024;
+// Registration is open to anyone, so cap what one account can put on the disk.
+const DIY_USER_QUOTA_BYTES = 1024 * 1024 * 1024;
+
+function diyBad(string $msg): void {
+    http_response_code(400); echo json_encode(['error' => $msg]); exit;
+}
+
+// Where one user's photos live. Nothing under uploads/diy/ is served by URL:
+// the deny-all .htaccess written here blocks direct requests, so a photo reaches
+// a browser only through diy_photo, after the token check. The deploy skips
+// uploads/, so that file cannot ship with the site and is written on first use.
+function diyPhotoDir(int $user_id): string {
+    $root = __DIR__ . '/uploads/diy/';
+    if (!is_dir($root)) mkdir($root, 0755, true);
+    if (!is_file($root . '.htaccess')) {
+        file_put_contents($root . '.htaccess',
+            "Options -Indexes\n" .
+            "<IfModule mod_authz_core.c>\n    Require all denied\n</IfModule>\n" .
+            "<IfModule !mod_authz_core.c>\n    Order allow,deny\n    Deny from all\n</IfModule>\n");
+    }
+    return $root . 'u' . $user_id . '/';
+}
+
+function diyPhotoPath(int $user_id, string $file, bool $thumb): string {
+    return diyPhotoDir($user_id) . $file . ($thumb ? '-t' : '') . '.jpg';
+}
+
+function diyUnlinkPhoto(int $user_id, string $file): void {
+    @unlink(diyPhotoPath($user_id, $file, false));
+    @unlink(diyPhotoPath($user_id, $file, true));
+}
+
+// One of the caller's projects, or a 404. Someone else's project answers
+// exactly like a missing one, so ids cannot be walked to learn what exists.
+function diyOwnProject(PDO $pdo, int $id, int $user_id): array {
+    $stmt = $pdo->prepare("SELECT * FROM diy_projects WHERE id = ? AND user_id = ?");
+    $stmt->execute([$id, $user_id]);
+    $p = $stmt->fetch();
+    if (!$p) { http_response_code(404); echo json_encode(['error' => 'Project not found.']); exit; }
+    return $p;
+}
+
+function diyPhotoCount(PDO $pdo, int $project_id): int {
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM diy_photos WHERE project_id = ?");
+    $stmt->execute([$project_id]);
+    return (int)$stmt->fetchColumn();
+}
+
+function diyProjectOut(array $p, int $photo_count): array {
+    return [
+        'id'             => (int)$p['id'],
+        'title'          => $p['title'],
+        'category'       => $p['category'],
+        'status'         => $p['status'],
+        'start_date'     => $p['start_date'],
+        'end_date'       => $p['end_date'],
+        'notes'          => $p['notes'],
+        'cover_photo_id' => $p['cover_photo_id'] !== null ? (int)$p['cover_photo_id'] : null,
+        'photo_count'    => $photo_count,
+        'created_at'     => $p['created_at'],
+        'updated_at'     => $p['updated_at'],
+    ];
+}
+
+// Validate whichever editable fields $body carries into column => value pairs.
+// Keys that are absent are left out, so an edit can send only what changed; a
+// blank category, date or notes clears it. Ends the request on anything invalid.
+function diyFields(array $body): array {
+    $out = [];
+    if (array_key_exists('title', $body)) {
+        $title = trim((string)$body['title']);
+        if ($title === '') diyBad('Title is required.');
+        $out['title'] = mb_substr($title, 0, 120);
+    }
+    if (array_key_exists('category', $body)) {
+        $cat = trim((string)$body['category']);
+        $out['category'] = $cat === '' ? null : mb_substr($cat, 0, 60);
+    }
+    if (array_key_exists('status', $body)) {
+        if (!in_array($body['status'], DIY_STATUSES, true)) diyBad('Unknown status.');
+        $out['status'] = $body['status'];
+    }
+    foreach (['start_date', 'end_date'] as $key) {
+        if (!array_key_exists($key, $body)) continue;
+        $d = trim((string)$body[$key]);
+        if ($d === '') { $out[$key] = null; continue; }
+        if (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $d, $m) || !checkdate((int)$m[2], (int)$m[3], (int)$m[1])) {
+            diyBad('Dates must be YYYY-MM-DD.');
+        }
+        $out[$key] = $d;
+    }
+    if (array_key_exists('notes', $body)) {
+        $notes = trim((string)$body['notes']);
+        // 16,000 characters is the most that always fits a TEXT column in utf8mb4.
+        $out['notes'] = $notes === '' ? null : mb_substr($notes, 0, 16000);
+    }
+    return $out;
+}
+
+function diyCheckDates(?string $start, ?string $end): void {
+    if ($start !== null && $end !== null && $end < $start) diyBad('The end date is before the start date.');
+}
+
+// GET ?action=diy_projects — every project of the signed-in user, for the
+// canvas and the board, most recently changed first. The page lays them out.
+if ($method === 'GET' && $action === 'diy_projects') {
+    $me   = requireAuth($pdo);
+    $stmt = $pdo->prepare("
+        SELECT p.*, (SELECT COUNT(*) FROM diy_photos f WHERE f.project_id = p.id) AS photo_count
+        FROM   diy_projects p
+        WHERE  p.user_id = ?
+        ORDER  BY p.updated_at DESC, p.id DESC
+    ");
+    $stmt->execute([$me['id']]);
+    $projects = array_map(fn($p) => diyProjectOut($p, (int)$p['photo_count']), $stmt->fetchAll());
+    echo json_encode(['projects' => $projects]); exit;
+}
+
+// GET ?action=diy_project&id=X — one project and its photos, oldest first,
+// for the detail view.
+if ($method === 'GET' && $action === 'diy_project') {
+    $me   = requireAuth($pdo);
+    $p    = diyOwnProject($pdo, intval($_GET['id'] ?? 0), (int)$me['id']);
+    $stmt = $pdo->prepare("SELECT id, width, height, created_at FROM diy_photos WHERE project_id = ? ORDER BY id");
+    $stmt->execute([$p['id']]);
+    $photos = array_map(fn($f) => [
+        'id' => (int)$f['id'], 'width' => (int)$f['width'], 'height' => (int)$f['height'], 'created_at' => $f['created_at'],
+    ], $stmt->fetchAll());
+    echo json_encode(['project' => diyProjectOut($p, count($photos)), 'photos' => $photos]); exit;
+}
+
+// POST ?action=diy_add_project  body: { title, category?, status?, start_date?, end_date?, notes? }
+// Only the title is required. A project starts in Ideation unless told
+// otherwise, and with no start date: it has not started yet.
+if ($method === 'POST' && $action === 'diy_add_project') {
+    $me   = requireAuth($pdo);
+    $body = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($body)) $body = [];
+    $f = diyFields($body + ['title' => '']);
+    $f += ['status' => 'ideation'];
+    diyCheckDates($f['start_date'] ?? null, $f['end_date'] ?? null);
+    $cols = array_keys($f);
+    $pdo->prepare("INSERT INTO diy_projects (user_id, " . implode(', ', $cols) . ") VALUES (?" . str_repeat(', ?', count($cols)) . ")")
+        ->execute(array_merge([$me['id']], array_values($f)));
+    $p = diyOwnProject($pdo, (int)$pdo->lastInsertId(), (int)$me['id']);
+    echo json_encode(['success' => true, 'project' => diyProjectOut($p, 0)]); exit;
+}
+
+// POST ?action=diy_edit_project  body: { id, and any of title, category, status, start_date, end_date, notes }
+// Partial: only the fields sent change, so the detail view saves one field as
+// it is edited and a drag on the board sends just the status. Status moves
+// freely in either direction; nothing here enforces an order.
+if ($method === 'POST' && $action === 'diy_edit_project') {
+    $me   = requireAuth($pdo);
+    $body = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($body)) $body = [];
+    $p = diyOwnProject($pdo, intval($body['id'] ?? 0), (int)$me['id']);
+    $f = diyFields($body);
+    if (!$f) diyBad('Nothing to change.');
+    $merged = array_merge($p, $f);
+    diyCheckDates($merged['start_date'], $merged['end_date']);
+    $set = implode(', ', array_map(fn($col) => "$col = ?", array_keys($f)));
+    $pdo->prepare("UPDATE diy_projects SET $set WHERE id = ?")->execute(array_merge(array_values($f), [$p['id']]));
+    $p = diyOwnProject($pdo, (int)$p['id'], (int)$me['id']);
+    echo json_encode(['success' => true, 'project' => diyProjectOut($p, diyPhotoCount($pdo, (int)$p['id']))]); exit;
+}
+
+// DELETE ?action=diy_delete_project&id=X — the project, its photo rows (by
+// cascade) and their image files. Rows go first: a file left behind by a
+// failed unlink is harmless, a row pointing at a missing file is not.
+if ($method === 'DELETE' && $action === 'diy_delete_project') {
+    $me   = requireAuth($pdo);
+    $p    = diyOwnProject($pdo, intval($_GET['id'] ?? 0), (int)$me['id']);
+    $stmt = $pdo->prepare("SELECT file FROM diy_photos WHERE project_id = ?");
+    $stmt->execute([$p['id']]);
+    $files = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    $pdo->prepare("DELETE FROM diy_projects WHERE id = ?")->execute([$p['id']]);
+    foreach ($files as $file) diyUnlinkPhoto((int)$me['id'], $file);
+    echo json_encode(['success' => true]); exit;
+}
+
+// POST ?action=diy_upload_photo  multipart: project_id, photo, thumb
+// The browser has already downscaled the image and re-encoded it as JPEG, which
+// also strips its metadata — a phone photo's GPS position would otherwise give
+// away where the house is. Both parts are checked to really be JPEGs before
+// they are kept, under random names. A project's first photo becomes its cover.
+if ($method === 'POST' && $action === 'diy_upload_photo') {
+    $me  = requireAuth($pdo);
+    $uid = (int)$me['id'];
+    // A body over post_max_size arrives as an empty $_POST, which would
+    // otherwise surface as a baffling "Project not found".
+    if (!$_POST && !$_FILES && (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
+        http_response_code(413); echo json_encode(['error' => 'That photo is too large.']); exit;
+    }
+    $p = diyOwnProject($pdo, intval($_POST['project_id'] ?? 0), $uid);
+    $dims = null;
+    foreach (['photo' => DIY_MAX_PHOTO_BYTES, 'thumb' => DIY_MAX_THUMB_BYTES] as $part => $max) {
+        $up = $_FILES[$part] ?? null;
+        if (!$up || $up['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($up['tmp_name'])) diyBad('Upload failed. Please try again.');
+        if ($up['size'] > $max) diyBad('That photo is too large.');
+        $info = @getimagesize($up['tmp_name']);
+        if (!$info || $info[2] !== IMAGETYPE_JPEG) diyBad('Photos must be JPEG images.');
+        if ($part === 'photo') $dims = $info;
+    }
+    $bytes = (int)$_FILES['photo']['size'] + (int)$_FILES['thumb']['size'];
+    $used  = $pdo->prepare("SELECT COALESCE(SUM(bytes), 0) FROM diy_photos WHERE user_id = ?");
+    $used->execute([$uid]);
+    if ((int)$used->fetchColumn() + $bytes > DIY_USER_QUOTA_BYTES) {
+        http_response_code(413); echo json_encode(['error' => 'Photo storage is full (1 GB per account).']); exit;
+    }
+
+    $dir = diyPhotoDir($uid);
+    if (!is_dir($dir)) mkdir($dir, 0755, true);
+    $file = bin2hex(random_bytes(16));
+    if (!move_uploaded_file($_FILES['photo']['tmp_name'], diyPhotoPath($uid, $file, false))
+        || !move_uploaded_file($_FILES['thumb']['tmp_name'], diyPhotoPath($uid, $file, true))) {
+        diyUnlinkPhoto($uid, $file);
+        http_response_code(500); echo json_encode(['error' => 'Could not save photo.']); exit;
+    }
+    $pdo->prepare("INSERT INTO diy_photos (project_id, user_id, file, width, height, bytes) VALUES (?, ?, ?, ?, ?, ?)")
+        ->execute([$p['id'], $uid, $file, $dims[0], $dims[1], $bytes]);
+    $photo_id = (int)$pdo->lastInsertId();
+    // A new photo counts as activity, so it also moves the project up the list.
+    $pdo->prepare("UPDATE diy_projects SET cover_photo_id = COALESCE(cover_photo_id, ?), updated_at = NOW() WHERE id = ?")
+        ->execute([$photo_id, $p['id']]);
+    $p = diyOwnProject($pdo, (int)$p['id'], $uid);
+    $row = $pdo->prepare("SELECT created_at FROM diy_photos WHERE id = ?");
+    $row->execute([$photo_id]);
+    echo json_encode([
+        'success'        => true,
+        'photo'          => ['id' => $photo_id, 'width' => (int)$dims[0], 'height' => (int)$dims[1], 'created_at' => $row->fetchColumn()],
+        'cover_photo_id' => (int)$p['cover_photo_id'],
+    ]); exit;
+}
+
+// GET ?action=diy_photo&id=X&size=thumb|full — the image itself, to its owner
+// only. The page fetches it with the token and shows it from a blob, because an
+// <img> cannot send the header. A stored photo never changes, so the browser
+// may keep it for a year: privately, and keyed to the token that fetched it.
+if ($method === 'GET' && $action === 'diy_photo') {
+    $me   = requireAuth($pdo);
+    $stmt = $pdo->prepare("SELECT file FROM diy_photos WHERE id = ? AND user_id = ?");
+    $stmt->execute([intval($_GET['id'] ?? 0), $me['id']]);
+    $file = $stmt->fetchColumn();
+    $path = $file ? diyPhotoPath((int)$me['id'], $file, ($_GET['size'] ?? '') === 'thumb') : '';
+    if (!$path || !is_file($path)) { http_response_code(404); echo json_encode(['error' => 'Photo not found.']); exit; }
+    header('Content-Type: image/jpeg');
+    header('Content-Length: ' . filesize($path));
+    header('Cache-Control: private, max-age=31536000, immutable');
+    header('Vary: X-Auth-Token');
+    header('X-Content-Type-Options: nosniff');
+    readfile($path); exit;
+}
+
+// POST ?action=diy_set_cover  body: { project_id, photo_id } — the photo must
+// belong to that project.
+if ($method === 'POST' && $action === 'diy_set_cover') {
+    $me   = requireAuth($pdo);
+    $body = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($body)) $body = [];
+    $p    = diyOwnProject($pdo, intval($body['project_id'] ?? 0), (int)$me['id']);
+    $stmt = $pdo->prepare("SELECT id FROM diy_photos WHERE id = ? AND project_id = ?");
+    $stmt->execute([intval($body['photo_id'] ?? 0), $p['id']]);
+    $photo_id = $stmt->fetchColumn();
+    if (!$photo_id) { http_response_code(404); echo json_encode(['error' => 'Photo not found.']); exit; }
+    $pdo->prepare("UPDATE diy_projects SET cover_photo_id = ? WHERE id = ?")->execute([$photo_id, $p['id']]);
+    echo json_encode(['success' => true, 'cover_photo_id' => (int)$photo_id]); exit;
+}
+
+// DELETE ?action=diy_delete_photo&id=X — the photo and its files. If it was the
+// cover, the project's oldest remaining photo takes over, or none is left.
+if ($method === 'DELETE' && $action === 'diy_delete_photo') {
+    $me   = requireAuth($pdo);
+    $uid  = (int)$me['id'];
+    $stmt = $pdo->prepare("SELECT * FROM diy_photos WHERE id = ? AND user_id = ?");
+    $stmt->execute([intval($_GET['id'] ?? 0), $uid]);
+    $photo = $stmt->fetch();
+    if (!$photo) { http_response_code(404); echo json_encode(['error' => 'Photo not found.']); exit; }
+    $pdo->prepare("DELETE FROM diy_photos WHERE id = ?")->execute([$photo['id']]);
+    $pdo->prepare("UPDATE diy_projects SET cover_photo_id = (SELECT MIN(id) FROM diy_photos WHERE project_id = ?)
+                   WHERE id = ? AND cover_photo_id = ?")
+        ->execute([$photo['project_id'], $photo['project_id'], $photo['id']]);
+    diyUnlinkPhoto($uid, $photo['file']);
+    $cover = $pdo->prepare("SELECT cover_photo_id FROM diy_projects WHERE id = ?");
+    $cover->execute([$photo['project_id']]);
+    $cover_id = $cover->fetchColumn();
+    echo json_encode(['success' => true, 'cover_photo_id' => $cover_id !== null ? (int)$cover_id : null]); exit;
 }
 
 // ══════════════════════════════════════════════════════════════

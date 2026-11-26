@@ -10,6 +10,7 @@ const SHELL = [
   '/reactiontest.html',
   '/flighttracker.html',
   '/dailytasks.html',
+  '/diyprojects.html',
   '/signspotter.html',
   '/cribbage.html',
   '/glucose.html',

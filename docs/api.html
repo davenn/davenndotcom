@@ -179,7 +179,7 @@
     <h1>API Reference</h1>
     <p class="lede">Every app on davenn.com is served by a single <code class="inline">api.php</code>. Endpoints are selected by an <code class="inline">action</code> query parameter and always return JSON.</p>
     <div class="base">https://davenn.com/api.php?action=&lt;action&gt;</div>
-    <p class="counts">86 endpoints · 43 tables</p>
+    <p class="counts">95 endpoints · 45 tables</p>
 
     <div class="filter-row">
         <input type="search" id="filter" placeholder="Filter endpoints…" aria-label="Filter endpoints">
@@ -1302,6 +1302,161 @@
         </div>
     </section>
     <section class="grp">
+        <h2 class="tag">DIY Projects</h2>
+        <div class="op post" id="post-diy_add_project" data-search="diy_add_project post diy projects only the title is required. a project starts in ideation unless told">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=diy_add_project</span>
+                <span class="op-sum">Only the title is required. A project starts in Ideation unless told</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">Only the title is required. A project starts in Ideation unless told otherwise, and with no start date: it has not started yet.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">body: { title, category?, status?, start_date?, end_date?, notes? }</p>
+            </div>
+        </div>
+        <div class="op delete" id="delete-diy_delete_photo" data-search="diy_delete_photo delete diy projects cover, the project's oldest remaining photo takes over, or none is left.">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">DELETE</span>
+                <span class="op-path">?action=diy_delete_photo</span>
+                <span class="op-sum">cover, the project's oldest remaining photo takes over, or none is left.</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">cover, the project's oldest remaining photo takes over, or none is left.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;id=X — the photo and its files. If it was the</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">id</td></tr>
+                </tbody></table></div>
+            </div>
+        </div>
+        <div class="op delete" id="delete-diy_delete_project" data-search="diy_delete_project delete diy projects cascade) and their image files. rows go first: a file left behind by a">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">DELETE</span>
+                <span class="op-path">?action=diy_delete_project</span>
+                <span class="op-sum">cascade) and their image files. Rows go first: a file left behind by a</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">cascade) and their image files. Rows go first: a file left behind by a failed unlink is harmless, a row pointing at a missing file is not.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;id=X — the project, its photo rows (by</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">id</td></tr>
+                </tbody></table></div>
+            </div>
+        </div>
+        <div class="op post" id="post-diy_edit_project" data-search="diy_edit_project post diy projects partial: only the fields sent change, so the detail view saves one field as">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=diy_edit_project</span>
+                <span class="op-sum">Partial: only the fields sent change, so the detail view saves one field as</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">Partial: only the fields sent change, so the detail view saves one field as it is edited and a drag on the board sends just the status. Status moves freely in either direction; nothing here enforces an order.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">body: { id, and any of title, category, status, start_date, end_date, notes }</p>
+            </div>
+        </div>
+        <div class="op get" id="get-diy_photo" data-search="diy_photo get diy projects only. the page fetches it with the token and shows it from a blob, because an">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=diy_photo</span>
+                <span class="op-sum">only. The page fetches it with the token and shows it from a blob, because an</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">only. The page fetches it with the token and shows it from a blob, because an &lt;img&gt; cannot send the header. A stored photo never changes, so the browser may keep it for a year: privately, and keyed to the token that fetched it.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;id=X&amp;size=thumb|full — the image itself, to its owner</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">id</td></tr>
+                    <tr><td class="pname">size</td></tr>
+                </tbody></table></div>
+            </div>
+        </div>
+        <div class="op get" id="get-diy_project" data-search="diy_project get diy projects for the detail view.">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=diy_project</span>
+                <span class="op-sum">for the detail view.</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">for the detail view.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">&amp;id=X — one project and its photos, oldest first,</p>
+                <h4>Query parameters</h4>
+                <div class="table-wrap"><table><tbody>
+                    <tr><td class="pname">id</td></tr>
+                </tbody></table></div>
+            </div>
+        </div>
+        <div class="op get" id="get-diy_projects" data-search="diy_projects get diy projects canvas and the board, most recently changed first. the page lays them out.">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">GET</span>
+                <span class="op-path">?action=diy_projects</span>
+                <span class="op-sum">canvas and the board, most recently changed first. The page lays them out.</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">canvas and the board, most recently changed first. The page lays them out.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">every project of the signed-in user, for the</p>
+            </div>
+        </div>
+        <div class="op post" id="post-diy_set_cover" data-search="diy_set_cover post diy projects belong to that project.">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=diy_set_cover</span>
+                <span class="op-sum">belong to that project.</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">belong to that project.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">body: { project_id, photo_id } — the photo must</p>
+            </div>
+        </div>
+        <div class="op post" id="post-diy_upload_photo" data-search="diy_upload_photo post diy projects the browser has already downscaled the image and re-encoded it as jpeg, which">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=diy_upload_photo</span>
+                <span class="op-sum">The browser has already downscaled the image and re-encoded it as JPEG, which</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">The browser has already downscaled the image and re-encoded it as JPEG, which also strips its metadata — a phone photo's GPS position would otherwise give away where the house is. Both parts are checked to really be JPEGs before they are kept, under random names. A project's first photo becomes its cover.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">multipart: project_id, photo, thumb</p>
+            </div>
+        </div>
+    </section>
+    <section class="grp">
         <h2 class="tag">Face Breaker</h2>
         <div class="op get" id="get-fb_leaderboard" data-search="fb_leaderboard get face breaker ">
             <button class="op-head" type="button" aria-expanded="false">
@@ -1846,6 +2001,34 @@ next_id     INT          NOT NULL DEFAULT 1
 updated_at  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 PRIMARY KEY (user_id, date_key)
 FOREIGN KEY (user_id) REFERENCES tb_users(id) ON DELETE CASCADE</code></pre>
+        <p class="group">DIY Projects</p>
+        <h3>diy_projects</h3>
+        <pre><code>id             INT AUTO_INCREMENT PRIMARY KEY
+user_id        INT           NOT NULL
+title          VARCHAR(120)  NOT NULL
+category       VARCHAR(60)   DEFAULT NULL
+status         ENUM('ideation','design','planning','in_progress','done') NOT NULL DEFAULT 'ideation'
+start_date     DATE          DEFAULT NULL
+end_date       DATE          DEFAULT NULL
+notes          TEXT          DEFAULT NULL
+cover_photo_id INT           DEFAULT NULL
+created_at     DATETIME      DEFAULT CURRENT_TIMESTAMP
+updated_at     DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+INDEX idx_user (user_id, status)
+FOREIGN KEY (user_id) REFERENCES tb_users(id) ON DELETE CASCADE</code></pre>
+        <h3>diy_photos</h3>
+        <pre><code>id         INT AUTO_INCREMENT PRIMARY KEY
+project_id INT          NOT NULL
+user_id    INT          NOT NULL
+file       VARCHAR(40)  NOT NULL
+width      INT          NOT NULL
+height     INT          NOT NULL
+bytes      INT          NOT NULL
+created_at DATETIME     DEFAULT CURRENT_TIMESTAMP
+INDEX idx_project (project_id)
+INDEX idx_user (user_id)
+FOREIGN KEY (project_id) REFERENCES diy_projects(id) ON DELETE CASCADE
+FOREIGN KEY (user_id)    REFERENCES tb_users(id)     ON DELETE CASCADE</code></pre>
         <p class="group">Face Breaker</p>
         <h3>fb_scores</h3>
         <pre><code>id         INT AUTO_INCREMENT PRIMARY KEY

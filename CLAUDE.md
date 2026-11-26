@@ -44,6 +44,7 @@ Browser ──► /appname.html  (self-contained: HTML + CSS + JS)
 | `CHANGELOG.md` | **Load-bearing** — edits here text and email subscribers. See Deploy |
 | `.github/workflows/deploy.yml` | Lint, FTP deploy, changelog notification |
 | `.env` | Credentials. Never deployed (excluded in the workflow) |
+| `uploads/` | Server only, never in git or deployed. `tools/` holds Toolshare's public photos; `diy/` holds DIY Projects' private photos behind a deny-all `.htaccess` the API writes itself |
 
 ## App inventory
 
@@ -58,6 +59,7 @@ Browser ──► /appname.html  (self-contained: HTML + CSS + JS)
 | Confidence Pool | `nflpool.html` | `cp_weeks` `cp_games` `cp_entries` `cp_picks` `cp_players` `cp_pending` | `X-Admin-Secret` (admin only) |
 | WildcatsXC | `wildcatsxc.html` | `xc_meets` `xc_athletes` `xc_results` `xc_pin_attempts` | `X-XC-PIN` (shared team PIN) on every endpoint |
 | Daily Tasks | `dailytasks.html` | `dt_scores` `dt_tasks` | none for the leaderboard; `X-Auth-Token` (Toolshare accounts) for cross-device sync |
+| DIY Projects | `diyprojects.html` | `diy_projects` `diy_photos` | `X-Auth-Token` (Toolshare accounts) on every endpoint; private per user, photos served only through `diy_photo` |
 | Face Breaker | `facebreaker.html` | `fb_scores` | — |
 | Reaction Test | `reactiontest.html` | `reaction_scores` | — |
 | Pomodoro | `pomodoro.html`, `pomodoro-cast.html` | — | local only |
@@ -81,7 +83,7 @@ before deploying for exactly this reason. Never push PHP you have not linted.
   `$action` comes from `?action=`. Each branch ends by echoing JSON and exiting.
   Add new endpoints in the same shape, grouped with their app's other branches.
 - **Table prefixes** namespace each app: `tb_` Toolshare, `ft_` Flight Tracker,
-  `bg_` glucose, `dt_` Daily Tasks, `cp_` Confidence Pool, `xc_` WildcatsXC,
+  `bg_` glucose, `dt_` Daily Tasks, `diy_` DIY Projects, `cp_` Confidence Pool, `xc_` WildcatsXC,
   `ml_` Cali's Movie List, `fn_` Finance, `gf_` Gifts, `an_` analytics. Unprefixed tables (`meetings`, `track_sessions`, `subscribers`, `fb_scores`, `reaction_scores`)
   predate the convention — leave their names alone.
 - **Schema is self-migrating.** Every request runs the `CREATE TABLE IF NOT
@@ -96,7 +98,8 @@ before deploying for exactly this reason. Never push PHP you have not linted.
     token is meaningless to Flight Tracker and vice versa. Daily Tasks'
     cross-device sync (`dt_get_tasks`, `dt_save_tasks`) reuses Toolshare
     accounts via `requireAuth()` — its leaderboard endpoints stay open.
-    Gifts (`gf_*`) uses Toolshare accounts the same way, for every endpoint
+    Gifts (`gf_*`) and DIY Projects (`diy_*`) use Toolshare accounts the same
+    way, for every endpoint. `diy_photo` serves photo files only to their owner
   - `X-BG-Token` → `bgRequireRead()`, a single shared read token for glucose
   - `X-XC-PIN` → `xcRequirePin()`, one shared team PIN for every WildcatsXC
     endpoint, checked against `XC_PIN` in `.env` and rate-limited per IP in
