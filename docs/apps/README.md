@@ -15,6 +15,7 @@ fits together see [`../../CLAUDE.md`](../../CLAUDE.md).
 | Glucose | [glucose.md](glucose.md) | CGM readings and annotations |
 | Flight Tracker | [flighttracker.md](flighttracker.md) | accounts, flights |
 | Daily Tasks | [dailytasks.md](dailytasks.md) | leaderboard, optional sync |
+| DIY Projects | [diyprojects.md](diyprojects.md) | private projects, private photos (Toolshare accounts) |
 | Meeting Cost Timer | [meetingtimer.md](meetingtimer.md) | weekly board |
 | Track Timer | [tracktimer.md](tracktimer.md) | saved sessions |
 | Reaction Test | [reactiontest.md](reactiontest.md) | weekly top ten |

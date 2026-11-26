@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>DIY Projects — davenn.com</title>
+<meta name="description" content="Track home projects from idea to done: yard work, building, construction. Private to your account.">
+<link rel="manifest" href="/manifest-diyprojects.json">
+<meta name="theme-color" content="#111110">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="DIY Projects">
+<link rel="apple-touch-icon" href="/icons/diyprojects-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+    // Stamp the theme before first paint so there is no flash of the wrong one.
+    (function () {
+        var t;
+        try { t = localStorage.getItem('diyprojects_theme'); } catch (e) {}
+        if (t !== 'light' && t !== 'dark') {
+            t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', t);
+    })();
+</script>
+<style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    [hidden] { display: none !important; }
+
+    :root, [data-theme="light"] {
+        color-scheme: light;
+        --page: #fafafa; --surface: #ffffff; --surface-2: #f4f4f1; --border: #e4e4e0;
+        --text-primary: #1d1f24; --text-secondary: #52514e; --text-muted: #8a8f98;
+        --accent: #2a78d6; --accent-soft: rgba(42,120,214,0.10);
+        --dot: #dcdcd6; --hatch: #e6e5df;
+        --shadow: 0 1px 2px rgba(0,0,0,0.06);
+        --shadow-lift: 0 14px 34px rgba(0,0,0,0.22);
+    }
+    [data-theme="dark"] {
+        color-scheme: dark;
+        --page: #0a0a0a; --surface: #131313; --surface-2: #1a1a1a; --border: #2a2a2a;
+        --text-primary: #ecebe8; --text-secondary: #c3c2b7; --text-muted: #8a8f98;
+        --accent: #3987e5; --accent-soft: rgba(57,135,229,0.16);
+        --dot: #262626; --hatch: #222;
+        --shadow: 0 1px 2px rgba(0,0,0,0.4);
+        --shadow-lift: 0 14px 34px rgba(0,0,0,0.6);
+    }
+    :root {
+        /* Status hues are fixed, never themed, and always paired with a word. */
+        --bad: #d93025;
+        --nav-bg: #111110; --nav-border: rgba(255,255,255,0.08);
+        --font-ui: system-ui, -apple-system, 'Segoe UI', sans-serif;
+        --font-mono: 'DM Mono', ui-monospace, monospace;
+        --nav-h: 52px;
+        --top: calc(var(--nav-h) + env(safe-area-inset-top));
+    }
+
+    body {
+        font-family: var(--font-ui); background: var(--page); color: var(--text-primary);
+        -webkit-font-smoothing: antialiased; padding-top: var(--top);
+    }
+    body.modal-open { overflow: hidden; }
+    body.dragging, body.dragging * { cursor: grabbing !important; }
+
+    /* ── Nav ── */
+    nav {
+        position: fixed; top: 0; left: 0; right: 0; height: var(--top);
+        padding: env(safe-area-inset-top) 1.25rem 0;
+        background: var(--nav-bg); border-bottom: 1px solid var(--nav-border);
+        display: flex; align-items: center; justify-content: space-between; z-index: 200;
+    }
+    .nav-logo { font-family: var(--font-mono); font-size: 13px; color: rgba(255,255,255,0.4); text-decoration: none; }
+    .nav-logo strong { color: #fff; }
+    .nav-right { display: flex; align-items: center; gap: 1rem; }
+    .nav-back { font-family: var(--font-mono); font-size: 11px; color: rgba(255,255,255,0.45); text-decoration: none; letter-spacing: 0.05em; text-transform: uppercase; }
+    .nav-back:hover { color: #fff; }
+    .nav-user { font: 11px var(--font-mono); color: rgba(255,255,255,0.85); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .btn-auth { font: 11px var(--font-mono); letter-spacing: 0.05em; text-transform: uppercase; color: rgba(255,255,255,0.55); background: none; border: 1px solid rgba(255,255,255,0.25); border-radius: 4px; padding: 5px 9px; cursor: pointer; }
+    .btn-auth:hover { color: #fff; border-color: rgba(255,255,255,0.5); }
+    .theme-toggle { width: 44px; height: 24px; cursor: pointer; background: none; border: none; padding: 0; flex: none; }
+    .theme-toggle-track { width: 44px; height: 24px; border-radius: 12px; background: #333; border: 1px solid #555; display: flex; align-items: center; padding: 0 3px; }
+    [data-theme="light"] .theme-toggle-track { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); }
+    .theme-toggle-thumb { width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; transition: transform 0.2s; }
+    [data-theme="light"] .theme-toggle-thumb { transform: translateX(20px); background: #fff; }
+    [data-theme="dark"]  .theme-toggle-thumb { transform: translateX(0);    background: #666; }
+    @media (max-width: 440px) {
+        nav { padding-left: 16px; padding-right: 16px; }
+        .nav-user { display: none; }
+    }
+
+    /* ── Buttons and inputs ── */
+    .btn {
+        font: 500 12px var(--font-mono); padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px;
+        background: var(--surface); color: var(--text-secondary); cursor: pointer; white-space: nowrap;
+    }
+    .btn:hover { color: var(--text-primary); border-color: var(--text-muted); }
+    .btn:disabled { opacity: 0.45; cursor: default; }
+    .btn.primary { background: var(--text-primary); color: var(--surface); border-color: var(--text-primary); }
+    .btn.primary:hover { opacity: 0.88; color: var(--surface); }
+    .btn.danger { color: var(--bad); }
+    .btn.danger:hover { border-color: var(--bad); }
+    .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--surface); }
+    .seg button {
+        font: 500 12px var(--font-mono); padding: 8px 12px; border: none; background: none;
+        color: var(--text-secondary); cursor: pointer; border-right: 1px solid var(--border);
+    }
+    .seg button:last-child { border-right: none; }
+    .seg button[aria-pressed="true"] { background: var(--text-primary); color: var(--surface); }
+    .label { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font: 500 11px var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 6px; }
+    .label .opt { text-transform: none; letter-spacing: 0; }
+    .input {
+        width: 100%; font: 15px var(--font-ui); padding: 9px 11px; border-radius: 6px; min-width: 0;
+        border: 1px solid var(--border); background: var(--page); color: var(--text-primary);
+    }
+    .input:focus { outline: none; border-color: var(--accent); }
+    textarea.input { resize: vertical; min-height: 130px; line-height: 1.5; }
+    /* iOS zooms into any focused input under 16px. */
+    @media (pointer: coarse) { .input { font-size: 16px; } }
+    .linkish { font: 11px var(--font-mono); color: var(--text-muted); background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0; text-transform: none; letter-spacing: 0; }
+    .linkish:hover { color: var(--text-primary); }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
+
+    /* ── Sign-in ── */
+    .signin-wrap { padding: 48px 16px; }
+    .signin { max-width: 380px; margin: 0 auto; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 22px; }
+    .signin h1 { font-size: 1.4rem; letter-spacing: -0.02em; }
+    .signin p { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin: 6px 0 16px; }
+    .signin .seg { display: flex; margin-bottom: 16px; }
+    .signin .seg button { flex: 1; }
+    .signin .field { margin-bottom: 12px; }
+    .signin .btn.primary { width: 100%; padding: 10px; margin-top: 4px; }
+    .err { color: var(--bad); font-size: 13px; margin-bottom: 10px; }
+
+    /* ── App shell: the toolbar, then a view that fills the rest of the screen ── */
+    .app { position: fixed; top: var(--top); left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; }
+    .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--page); }
+    .toolbar h1 { font-size: 1.25rem; letter-spacing: -0.02em; }
+    .count { font: 12px var(--font-mono); color: var(--text-muted); }
+    .spacer { flex: 1; }
+    .view { flex: 1; min-height: 0; }
+    .empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 10px; padding: 24px; }
+    .empty h2 { font-size: 1.1rem; }
+    .empty p { font-size: 14px; color: var(--text-secondary); max-width: 320px; line-height: 1.5; }
+    .loading { font: 12px var(--font-mono); color: var(--text-muted); padding: 40px; text-align: center; }
+
+    /* ── Cards: the same face on the canvas and on the board ── */
+    .card {
+        background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+        box-shadow: var(--shadow); cursor: grab; touch-action: manipulation;
+        user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+        transition: box-shadow 0.15s, transform 0.15s;
+    }
+    .card:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.12); }
+    .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .card-cover { aspect-ratio: 4 / 3; background: var(--surface-2); position: relative; }
+    .card-cover img, .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; opacity: 0; transition: opacity 0.2s; }
+    .card-cover img.loaded, .thumb img.loaded { opacity: 1; }
+    .no-photo {
+        position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted);
+        background: repeating-linear-gradient(135deg, var(--surface-2) 0 9px, var(--hatch) 9px 10px);
+    }
+    .no-photo svg { width: 28px; height: 28px; opacity: 0.7; }
+    .card-body { padding: 10px 12px 12px; }
+    .card-title { font-weight: 600; font-size: 14px; line-height: 1.3; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .card-dates { margin-top: 6px; font: 11px var(--font-mono); color: var(--text-muted); display: flex; flex-direction: column; gap: 2px; }
+
+    /* ── Canvas ── */
+    .canvas { overflow: auto; position: relative; overscroll-behavior: contain; }
+    .canvas.panning { cursor: grabbing; }
+    .surface {
+        position: relative; min-width: 100%; min-height: 100%;
+        background-image: radial-gradient(var(--dot) 1.2px, transparent 1.4px); background-size: 22px 22px;
+    }
+    .canvas .card { position: absolute; width: 200px; }
+    .canvas .card.lifted { box-shadow: var(--shadow-lift); transform: scale(1.03); transition: box-shadow 0.15s, transform 0.15s; }
+    @media (max-width: 520px) { .canvas .card { width: 156px; } .canvas .card-title { font-size: 13px; } }
+
+    /* ── Kanban ── */
+    .kanban { display: flex; gap: 12px; padding: 14px 16px 16px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding: 0 16px; overscroll-behavior-x: contain; }
+    .col {
+        flex: 0 0 min(272px, 80vw); display: flex; flex-direction: column; min-height: 0;
+        background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; scroll-snap-align: start;
+    }
+    @media (min-width: 1240px) { .col { flex: 1 1 0; min-width: 0; } }
+    .col.drop { border-color: var(--accent); background: var(--accent-soft); }
+    .col-head { display: flex; align-items: center; gap: 8px; padding: 11px 12px; font: 500 12px var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); }
+    .col-count { margin-left: auto; color: var(--text-muted); }
+    .col-body { flex: 1; overflow-y: auto; padding: 0 10px 10px; display: flex; flex-direction: column; gap: 10px; min-height: 60px; }
+    .col-empty { font: 12px var(--font-mono); color: var(--text-muted); text-align: center; padding: 18px 0; border: 1px dashed var(--border); border-radius: 8px; }
+    .kanban .card { flex: none; }
+    .kanban .card-cover { aspect-ratio: 16 / 9; }
+    .card.placeholder { opacity: 0.35; }
+    .ghost { position: fixed; left: 0; top: 0; z-index: 300; pointer-events: none; box-shadow: var(--shadow-lift); }
+
+    /* ── Overlays ── */
+    .overlay { position: fixed; inset: 0; z-index: 400; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+    .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; width: 100%; max-width: 420px; padding: 20px; box-shadow: 0 24px 60px rgba(0,0,0,0.35); }
+    .modal h2 { font-size: 1.15rem; margin-bottom: 14px; }
+    .modal .field { margin-bottom: 12px; }
+    .modal .hint { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin: 2px 0 16px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+    .sheet {
+        background: var(--surface); border: 1px solid var(--border); border-radius: 12px; width: 100%; max-width: 760px;
+        max-height: 100%; overflow-y: auto; overscroll-behavior: contain; box-shadow: 0 24px 60px rgba(0,0,0,0.35);
+    }
+    .sheet-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px; padding: 12px 12px 12px 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
+    .title-input { flex: 1; min-width: 0; font: 650 1.25rem var(--font-ui); letter-spacing: -0.01em; color: var(--text-primary); background: none; border: 1px solid transparent; border-radius: 6px; padding: 5px 7px; margin-left: -8px; }
+    .title-input:hover { border-color: var(--border); }
+    .title-input:focus { outline: none; border-color: var(--accent); }
+    .icon-btn { width: 36px; height: 36px; flex: none; border: none; background: none; color: var(--text-muted); font-size: 24px; line-height: 1; cursor: pointer; border-radius: 6px; }
+    .icon-btn:hover { color: var(--text-primary); background: var(--surface-2); }
+    .sheet-section { padding: 16px 16px 0; }
+    .status-control { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .status-control button {
+        font: 500 11px var(--font-mono); padding: 9px 4px; border: none; border-right: 1px solid var(--border);
+        background: var(--surface); color: var(--text-secondary); cursor: pointer; line-height: 1.25;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; text-align: center;
+    }
+    .status-control button:last-child { border-right: none; }
+    .status-control button:hover { color: var(--text-primary); }
+    .status-control button[aria-checked="true"] { background: var(--text-primary); color: var(--surface); }
+
+    .viewer { position: relative; aspect-ratio: 16 / 10; background: var(--surface-2); border-radius: 10px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    @media (max-width: 640px) { .viewer { aspect-ratio: 4 / 3; } }
+    .viewer > img { width: 100%; height: 100%; object-fit: contain; cursor: zoom-in; }
+    .viewer.drop-files { outline: 2px dashed var(--accent); outline-offset: -8px; }
+    .arrow { position: absolute; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; border-radius: 50%; border: none; background: rgba(0,0,0,0.5); color: #fff; font-size: 18px; cursor: pointer; }
+    .arrow:hover { background: rgba(0,0,0,0.7); }
+    .arrow.prev { left: 10px; } .arrow.next { right: 10px; }
+    .pill { position: absolute; font: 500 11px var(--font-mono); background: rgba(0,0,0,0.6); color: #fff; padding: 3px 9px; border-radius: 20px; pointer-events: none; }
+    .pill.cover { top: 10px; left: 10px; }
+    .pill.counter { bottom: 10px; right: 10px; }
+    .viewer-empty { display: flex; flex-direction: column; align-items: center; gap: 12px; font-size: 13px; color: var(--text-muted); text-align: center; padding: 16px; }
+    .photo-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+    .thumbs { display: flex; gap: 8px; overflow-x: auto; padding: 10px 2px 4px; }
+    .thumb { flex: none; width: 64px; height: 64px; border-radius: 8px; overflow: hidden; border: 2px solid transparent; padding: 0; background: var(--surface-2); position: relative; cursor: pointer; }
+    .thumb.sel { border-color: var(--accent); }
+    .thumb-cover { position: absolute; left: 0; right: 0; bottom: 0; font: 500 9px var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em; background: rgba(0,0,0,0.6); color: #fff; text-align: center; padding: 2px 0; }
+    .thumb.add { border: 1px dashed var(--text-muted); display: flex; align-items: center; justify-content: center; font-size: 24px; color: var(--text-secondary); }
+    .thumb.add:hover { color: var(--text-primary); border-color: var(--text-primary); }
+    .thumb.uploading { display: flex; align-items: center; justify-content: center; font: 11px var(--font-mono); color: var(--text-secondary); cursor: default; border: 1px solid var(--border); }
+    .thumb.uploading i { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--accent); transition: width 0.15s; }
+
+    .fields { display: grid; gap: 14px; padding: 18px 16px 0; }
+    .row2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+    .date-hint { font-size: 12px; color: var(--text-muted); margin-top: 5px; }
+    .sheet-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 18px 16px 18px; }
+    .save-state { font: 11px var(--font-mono); color: var(--text-muted); }
+    .save-state.bad { color: var(--bad); }
+
+    @media (max-width: 640px) {
+        .overlay.detail { padding: 0; }
+        .overlay.detail .sheet { border-radius: 0; border: none; height: 100%; max-height: none; padding-bottom: env(safe-area-inset-bottom); }
+        .sheet-head { padding-top: calc(12px + env(safe-area-inset-top)); }
+    }
+
+    .lightbox { position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,0.94); display: flex; align-items: center; justify-content: center; }
+    .lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .lightbox .icon-btn { position: absolute; top: calc(10px + env(safe-area-inset-top)); right: 10px; color: #fff; }
+    .lightbox .icon-btn:hover { background: rgba(255,255,255,0.12); }
+
+    .toast {
+        position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 600;
+        background: var(--text-primary); color: var(--surface); font: 12px var(--font-mono); padding: 9px 16px; border-radius: 20px;
+        opacity: 0; transition: opacity 0.2s; pointer-events: none; max-width: calc(100vw - 32px); text-align: center;
+    }
+    .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<nav>
+    <a class="nav-logo" href="/"><strong>davenn</strong>dotcom</a>
+    <div class="nav-right">
+        <span class="nav-user" id="nav-user" hidden></span>
+        <button class="btn-auth" id="btn-signout" type="button" hidden>Sign out</button>
+        <button class="theme-toggle" id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
+            <div class="theme-toggle-track"><div class="theme-toggle-thumb" id="toggle-icon">🌙</div></div>
+        </button>
+        <a class="nav-back" href="/">← Back</a>
+    </div>
+</nav>
+
+<!-- ═══════════ SIGN IN ═══════════ -->
+<div class="signin-wrap" id="signin-view" hidden>
+    <div class="signin">
+        <h1>DIY Projects</h1>
+        <p>Track home projects from first idea to done. Your projects and photos are private to your account. Use your davenn.com account, the same one as Toolshare and Daily Tasks.</p>
+        <div class="seg" role="group" aria-label="Sign in or create an account">
+            <button type="button" id="tab-login" aria-pressed="true">Sign in</button>
+            <button type="button" id="tab-register" aria-pressed="false">Create account</button>
+        </div>
+        <div class="err" id="auth-error" hidden></div>
+        <form id="form-login">
+            <div class="field"><label class="label" for="login-user">Username</label><input class="input" id="login-user" autocomplete="username" required></div>
+            <div class="field"><label class="label" for="login-pass">Password</label><input class="input" id="login-pass" type="password" autocomplete="current-password" required></div>
+            <button class="btn primary" type="submit">Sign in</button>
+        </form>
+        <form id="form-register" hidden>
+            <div class="field"><label class="label" for="reg-user">Username</label><input class="input" id="reg-user" autocomplete="username" required></div>
+            <div class="field"><label class="label" for="reg-name">Display name</label><input class="input" id="reg-name" autocomplete="name" required></div>
+            <div class="field"><label class="label" for="reg-email">Email</label><input class="input" id="reg-email" type="email" autocomplete="email" required></div>
+            <div class="field"><label class="label" for="reg-pass">Password</label><input class="input" id="reg-pass" type="password" autocomplete="new-password" required></div>
+            <button class="btn primary" type="submit">Create account</button>
+        </form>
+    </div>
+</div>
+
+<!-- ═══════════ APP ═══════════ -->
+<div class="app" id="app-view" hidden>
+    <div class="toolbar">
+        <h1>DIY Projects</h1>
+        <span class="count" id="count"></span>
+        <span class="spacer"></span>
+        <div class="seg" role="group" aria-label="View">
+            <button type="button" data-view="canvas" aria-pressed="true">Canvas</button>
+            <button type="button" data-view="kanban" aria-pressed="false">Kanban</button>
+        </div>
+        <button class="btn" id="btn-tidy" type="button" title="Card positions are scratch space and are not saved. Tidy puts them back in a grid.">Tidy up</button>
+        <button class="btn primary" id="btn-new" type="button">+ New project</button>
+    </div>
+    <div class="loading view" id="loading">Loading projects…</div>
+    <div class="empty" id="empty" hidden>
+        <h2>No projects yet</h2>
+        <p>Every project starts as an idea. Add one, then move it along as it takes shape.</p>
+        <button class="btn primary" type="button" id="btn-new-empty">+ New project</button>
+    </div>
+    <div class="view canvas" id="canvas" hidden><div class="surface" id="surface"></div></div>
+    <div class="view kanban" id="kanban" hidden></div>
+</div>
+
+<!-- ═══════════ NEW PROJECT ═══════════ -->
+<div class="overlay" id="new-overlay" hidden>
+    <form class="modal" id="new-form" role="dialog" aria-modal="true" aria-labelledby="new-heading">
+        <h2 id="new-heading">New project</h2>
+        <div class="field"><label class="label" for="n-title">Title</label><input class="input" id="n-title" maxlength="120" placeholder="Raised garden beds" required></div>
+        <div class="field"><label class="label" for="n-category">Category <span class="opt">optional</span></label><input class="input" id="n-category" maxlength="60" list="cat-list" placeholder="Yard work"></div>
+        <p class="hint">It starts in Ideation with no start date. Add one when the work begins.</p>
+        <div class="modal-actions">
+            <button class="btn" type="button" id="n-cancel">Cancel</button>
+            <button class="btn primary" type="submit" id="n-create">Create</button>
+        </div>
+    </form>
+</div>
+
+<!-- ═══════════ DETAIL ═══════════ -->
+<div class="overlay detail" id="detail" hidden>
+    <section class="sheet" role="dialog" aria-modal="true" aria-label="Project">
+        <header class="sheet-head">
+            <input class="title-input" id="d-title" maxlength="120" aria-label="Title">
+            <button class="icon-btn" id="d-close" type="button" aria-label="Close">×</button>
+        </header>
+        <div class="sheet-section">
+            <div class="label">Status</div>
+            <div class="status-control" id="d-status" role="radiogroup" aria-label="Status"></div>
+        </div>
+        <div class="sheet-section">
+            <div class="label"><span>Photos</span><span class="opt" id="d-photo-count"></span></div>
+            <div class="viewer" id="d-viewer"></div>
+            <div class="photo-actions" id="d-photo-actions" hidden>
+                <button class="btn" type="button" id="d-set-cover">Make cover</button>
+                <button class="btn danger" type="button" id="d-del-photo">Delete photo</button>
+            </div>
+            <div class="thumbs" id="d-thumbs"></div>
+            <input type="file" id="d-file" accept="image/*" multiple hidden>
+        </div>
+        <div class="fields">
+            <div><label class="label" for="d-category">Category</label><input class="input" id="d-category" maxlength="60" list="cat-list"></div>
+            <div class="row2">
+                <div>
+                    <div class="label"><label for="d-start">Start date</label><button class="linkish" type="button" id="d-start-clear" hidden>Clear</button></div>
+                    <input class="input" id="d-start" type="date">
+                    <div class="date-hint" id="d-start-hint">Not started yet</div>
+                </div>
+                <div>
+                    <div class="label"><label for="d-end">End date</label><button class="linkish" type="button" id="d-end-clear" hidden>Clear</button></div>
+                    <input class="input" id="d-end" type="date">
+                </div>
+            </div>
+            <div><label class="label" for="d-notes">Notes</label><textarea class="input" id="d-notes" placeholder="Materials, measurements, next steps…"></textarea></div>
+        </div>
+        <footer class="sheet-foot">
+            <span class="save-state" id="d-save-state">Changes save automatically</span>
+            <button class="btn danger" type="button" id="d-delete">Delete project</button>
+        </footer>
+    </section>
+</div>
+
+<div class="lightbox" id="lightbox" hidden>
+    <img id="lb-img" alt="">
+    <button class="icon-btn" id="lb-close" type="button" aria-label="Close photo">×</button>
+</div>
+
+<datalist id="cat-list"></datalist>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+    'use strict';
+
+    var API = '/api.php';
+    // Status hues are fixed, never themed, and every place they show also shows the word.
+    var STATUSES = [
+        { key: 'ideation',    label: 'Ideation',    color: '#8e5bd8' },
+        { key: 'design',      label: 'Design',      color: '#2a78d6' },
+        { key: 'planning',    label: 'Planning',    color: '#c98500' },
+        { key: 'in_progress', label: 'In Progress', color: '#d9622b' },
+        { key: 'done',        label: 'Done',        color: '#1e8e4a' },
+    ];
+    var STATUS = {};
+    STATUSES.forEach(function (s, i) { s.order = i; STATUS[s.key] = s; });
+    var STARTER_CATEGORIES = ['Yard work', 'Building', 'Construction', 'Repair', 'Interior', 'Garden'];
+    var NO_PHOTO = '<div class="no-photo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v11h14V9"/><path d="M10 20v-6h4v6"/></svg></div>';
+
+    var $ = function (id) { return document.getElementById(id); };
+
+    // ── Storage: every read and write can throw in a private window ──
+    function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+    function lsSet(k, v) { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} }
+
+    // ── Theme ──
+    var icon = $('toggle-icon');
+    icon.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '🌙' : '☀️';
+    $('theme-toggle').addEventListener('click', function () {
+        var t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+        icon.textContent = t === 'dark' ? '🌙' : '☀️';
+        lsSet('diyprojects_theme', t);
+    });
+
+    // ── Utilities ──
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    function todayKey() {
+        var d = new Date();
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+    // Dates are calendar days, so they are read as local dates, never as UTC midnight.
+    function fmtDate(key) {
+        var p = key.split('-');
+        return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    var toastTimer = 0;
+    function toast(msg) {
+        var t = $('toast');
+        t.textContent = msg; t.classList.add('show');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { t.classList.remove('show'); }, 3000);
+    }
+
+    // ── Auth: the Toolshare account, through the same storage keys Toolshare and
+    // Daily Tasks use, so signing in to any of them signs in to all three ──
+    var TOKEN_KEY = 'tb_token', USER_KEY = 'tb_user';
+    var token = lsGet(TOKEN_KEY), user = null;
+    try { user = JSON.parse(lsGet(USER_KEY)); } catch (e) {}
+    if (!token || !user) { token = null; user = null; }
+
+    async function api(action, opts) {
+        opts = opts || {};
+        var init = { method: opts.method || 'GET', headers: {} };
+        var sentToken = !!token;
+        if (token) init.headers['X-Auth-Token'] = token;
+        if (opts.body !== undefined) { init.headers['Content-Type'] = 'application/json'; init.body = JSON.stringify(opts.body); }
+        var res;
+        try { res = await fetch(API + '?action=' + action + (opts.query || ''), init); }
+        catch (e) { throw new Error('Network error. Check your connection.'); }
+        var data = null;
+        try { data = await res.json(); } catch (e) {}
+        if (res.status === 401 && sentToken) { signedOut('Your session ended. Please sign in again.'); throw new Error('Signed out'); }
+        if (!res.ok || !data) throw new Error((data && data.error) || 'Something went wrong.');
+        return data;
+    }
+
+    function showAuthError(msg) { var el = $('auth-error'); el.textContent = msg; el.hidden = !msg; }
+    function authTab(which) {
+        $('tab-login').setAttribute('aria-pressed', String(which === 'login'));
+        $('tab-register').setAttribute('aria-pressed', String(which === 'register'));
+        $('form-login').hidden = which !== 'login';
+        $('form-register').hidden = which !== 'register';
+        showAuthError('');
+    }
+    $('tab-login').addEventListener('click', function () { authTab('login'); });
+    $('tab-register').addEventListener('click', function () { authTab('register'); });
+
+    async function authSubmit(form, action, body) {
+        var btn = form.querySelector('button[type="submit"]');
+        btn.disabled = true; showAuthError('');
+        try {
+            var res = await api(action, { method: 'POST', body: body });
+            token = res.token; user = res.user;
+            lsSet(TOKEN_KEY, token); lsSet(USER_KEY, JSON.stringify(user));
+            form.reset();
+            enterApp();
+        } catch (e) { showAuthError(e.message); }
+        btn.disabled = false;
+    }
+    $('form-login').addEventListener('submit', function (e) {
+        e.preventDefault();
+        authSubmit(this, 'tb_login', { username: $('login-user').value.trim(), password: $('login-pass').value });
+    });
+    $('form-register').addEventListener('submit', function (e) {
+        e.preventDefault();
+        authSubmit(this, 'tb_register', {
+            username: $('reg-user').value.trim(), display_name: $('reg-name').value.trim(),
+            email: $('reg-email').value.trim(), password: $('reg-pass').value,
+        });
+    });
+    $('btn-signout').addEventListener('click', async function () {
+        try { await api('tb_logout', { method: 'POST' }); } catch (e) {}
+        signedOut('Signed out');
+    });
+
+    function signedOut(msg) {
+        token = null; user = null;
+        lsSet(TOKEN_KEY, null); lsSet(USER_KEY, null);
+        projects = []; positions.clear(); zOrder.clear();
+        forgetAllPhotos();
+        if (detail) hideDetail();
+        closeNew(); closeLightbox();
+        $('app-view').hidden = true; $('signin-view').hidden = false;
+        $('nav-user').hidden = true; $('btn-signout').hidden = true;
+        if (msg) toast(msg);
+    }
+
+    function enterApp() {
+        $('signin-view').hidden = true; $('app-view').hidden = false;
+        $('nav-user').textContent = user.display_name; $('nav-user').hidden = false;
+        $('btn-signout').hidden = false;
+        loadProjects();
+    }
+
+    // ── Photos: fetched with the token and shown from blobs, since an <img>
+    // cannot send the header. A few at a time, each one once per visit. ──
+    var photoCache = new Map(), waiting = [], inFlight = 0;
+    function pump() {
+        while (inFlight < 6 && waiting.length) {
+            var job = waiting.shift();
+            inFlight++;
+            job.fn().then(job.resolve, job.reject).finally(function () { inFlight--; pump(); });
+        }
+    }
+    function photoUrl(id, size) {
+        var key = id + ':' + size;
+        var p = photoCache.get(key);
+        if (!p) {
+            p = new Promise(function (resolve, reject) {
+                waiting.push({ resolve: resolve, reject: reject, fn: async function () {
+                    var res = await fetch(API + '?action=diy_photo&id=' + id + '&size=' + size, { headers: { 'X-Auth-Token': token || '' } });
+                    if (res.status === 401) { signedOut('Your session ended. Please sign in again.'); throw new Error('Signed out'); }
+                    if (!res.ok) throw new Error('Photo unavailable');
+                    return URL.createObjectURL(await res.blob());
+                } });
+                pump();
+            });
+            photoCache.set(key, p);
+            p.catch(function () { photoCache.delete(key); });
+        }
+        return p;
+    }
+    function seedPhoto(id, size, blob) { photoCache.set(id + ':' + size, Promise.resolve(URL.createObjectURL(blob))); }
+    function forgetPhoto(id) {
+        ['thumb', 'full'].forEach(function (size) {
+            var p = photoCache.get(id + ':' + size);
+            if (p) { p.then(URL.revokeObjectURL, function () {}); photoCache.delete(id + ':' + size); }
+        });
+    }
+    function forgetAllPhotos() {
+        photoCache.forEach(function (p) { p.then(URL.revokeObjectURL, function () {}); });
+        photoCache.clear(); waiting.length = 0;
+    }
+    function hydrate(root) {
+        root.querySelectorAll('img[data-photo]:not([src])').forEach(function (img) {
+            photoUrl(img.dataset.photo, img.dataset.size).then(function (url) {
+                img.onload = function () { img.classList.add('loaded'); };
+                img.src = url;
+            }, function () {});
+        });
+    }
+
+    // ── Projects ──
+    var projects = [];
+    var view = 'canvas';
+    function find(id) { return projects.find(function (p) { return p.id === id; }); }
+    function toFront(p) { projects = [p].concat(projects.filter(function (x) { return x !== p; })); }
+
+    async function loadProjects() {
+        $('loading').hidden = false; $('empty').hidden = true; $('canvas').hidden = true; $('kanban').hidden = true;
+        try {
+            var d = await api('diy_projects');
+            projects = d.projects;
+            var ids = new Set(projects.map(function (p) { return p.id; }));
+            positions.forEach(function (_, id) { if (!ids.has(id)) positions.delete(id); });
+            $('loading').hidden = true;
+            render();
+        } catch (e) {
+            if (token) $('loading').textContent = e.message;
+        }
+    }
+
+    function cardHtml(p) {
+        var dates = '';
+        if (p.start_date) dates += '<span>Start ' + fmtDate(p.start_date) + '</span>';
+        if (p.end_date) dates += '<span>End ' + fmtDate(p.end_date) + '</span>';
+        var cover = p.cover_photo_id
+            ? '<img alt="" draggable="false" data-photo="' + p.cover_photo_id + '" data-size="thumb">'
+            : NO_PHOTO;
+        return '<div class="card" data-id="' + p.id + '" tabindex="0" role="button" aria-label="' + esc(p.title) + ', ' + STATUS[p.status].label + '">' +
+            '<div class="card-cover">' + cover + '</div>' +
+            '<div class="card-body"><div class="card-title">' + esc(p.title) + '</div>' +
+            (dates ? '<div class="card-dates">' + dates + '</div>' : '') + '</div></div>';
+    }
+
+    var renderQueued = false;
+    function render() {
+        if (drag.active) { renderQueued = true; return; }
+        var n = projects.length;
+        $('count').textContent = n ? n + (n === 1 ? ' project' : ' projects') : '';
+        $('empty').hidden = n > 0;
+        $('canvas').hidden = !n || view !== 'canvas';
+        $('kanban').hidden = !n || view !== 'kanban';
+        $('btn-tidy').hidden = view !== 'canvas' || !n;
+        document.querySelectorAll('[data-view]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.view === view)); });
+        if (n) { if (view === 'canvas') renderCanvas(); else renderKanban(); }
+        renderCategories();
+    }
+
+    function renderCategories() {
+        var seen = new Set(), opts = [];
+        projects.map(function (p) { return p.category; }).concat(STARTER_CATEGORIES).forEach(function (c) {
+            if (c && !seen.has(c.toLowerCase())) { seen.add(c.toLowerCase()); opts.push('<option value="' + esc(c) + '">'); }
+        });
+        $('cat-list').innerHTML = opts.join('');
+    }
+
+    document.querySelectorAll('[data-view]').forEach(function (b) {
+        b.addEventListener('click', function () { view = b.dataset.view; render(); });
+    });
+
+    // ── Canvas: free placement, scratch space only. Positions live in memory for
+    // this visit, survive switching views, and are never sent anywhere. ──
+    var positions = new Map(), zOrder = new Map(), zTop = 1;
+    var PAD = 16, GAP = 14, cardW = 200, slotH = 0;
+    var canvasEl = $('canvas'), surface = $('surface');
+
+    function byStage(a, b) {
+        return STATUS[a.status].order - STATUS[b.status].order
+            || (a.start_date || '9999').localeCompare(b.start_date || '9999')
+            || a.title.localeCompare(b.title);
+    }
+
+    // The first grid slot that no card currently covers.
+    function freeSlot() {
+        var cols = Math.max(1, Math.floor((canvasEl.clientWidth - PAD * 2 + GAP) / (cardW + GAP)));
+        var taken = Array.from(positions.values());
+        for (var i = 0; ; i++) {
+            var x = PAD + (i % cols) * (cardW + GAP), y = PAD + Math.floor(i / cols) * (slotH + GAP);
+            var clash = taken.some(function (p) { return Math.abs(p.x - x) < cardW && Math.abs(p.y - y) < slotH; });
+            if (!clash) return { x: x, y: y };
+        }
+    }
+
+    function renderCanvas() {
+        surface.innerHTML = projects.map(cardHtml).join('');
+        var cards = Array.from(surface.children);
+        if (cards.length) {
+            cardW = cards[0].offsetWidth;
+            slotH = Math.max(slotH, Math.max.apply(null, cards.map(function (c) { return c.offsetHeight; })));
+        }
+        projects.slice().sort(byStage).forEach(function (p) {
+            if (!positions.has(p.id)) positions.set(p.id, freeSlot());
+        });
+        cards.forEach(function (c) {
+            var id = +c.dataset.id, pos = positions.get(id);
+            c.style.left = pos.x + 'px'; c.style.top = pos.y + 'px';
+            c.style.zIndex = zOrder.get(id) || 1;
+        });
+        sizeSurface();
+        hydrate(surface);
+    }
+
+    function sizeSurface() {
+        var w = 0, h = 0;
+        Array.from(surface.children).forEach(function (c) {
+            w = Math.max(w, c.offsetLeft + c.offsetWidth);
+            h = Math.max(h, c.offsetTop + c.offsetHeight);
+        });
+        surface.style.width = Math.max(canvasEl.clientWidth, w + PAD * 4) + 'px';
+        surface.style.height = Math.max(canvasEl.clientHeight, h + PAD * 4) + 'px';
+    }
+
+    $('btn-tidy').addEventListener('click', function () {
+        positions.clear(); zOrder.clear(); slotH = 0;
+        canvasEl.scrollTo({ left: 0, top: 0 });
+        renderCanvas();
+    });
+    window.addEventListener('resize', function () { if (view === 'canvas' && !canvasEl.hidden) sizeSurface(); });
+
+    // Drag empty canvas with a mouse to pan; touch already scrolls natively.
+    var pan = null;
+    canvasEl.addEventListener('pointerdown', function (e) {
+        if (e.pointerType !== 'mouse' || e.button !== 0 || e.target.closest('.card')) return;
+        pan = { x: e.clientX, y: e.clientY, l: canvasEl.scrollLeft, t: canvasEl.scrollTop };
+        canvasEl.classList.add('panning');
+    });
+
+    // ── Kanban ──
+    var kanbanEl = $('kanban');
+    function renderKanban() {
+        kanbanEl.innerHTML = STATUSES.map(function (s) {
+            var items = projects.filter(function (p) { return p.status === s.key; });
+            return '<section class="col" data-status="' + s.key + '" aria-label="' + s.label + '">' +
+                '<header class="col-head"><span class="dot" style="background:' + s.color + '"></span>' + s.label +
+                '<span class="col-count">' + items.length + '</span></header>' +
+                '<div class="col-body">' + (items.map(cardHtml).join('') || '<div class="col-empty">Nothing here</div>') + '</div></section>';
+        }).join('');
+        hydrate(kanbanEl);
+    }
+
+    // ── Dragging cards ──
+    // Mouse and pen drag at once. Touch needs a press-and-hold first, so a swipe
+    // over the cards still scrolls the canvas and the board.
+    var appEl = $('app-view');
+    var drag = { active: false }, press = null, mouseDown = null, suppressClickUntil = 0;
+
+    function beginDrag(card, x, y) {
+        cancelPress(); mouseDown = null;
+        var r = card.getBoundingClientRect();
+        drag = { active: true, el: card, id: +card.dataset.id, mode: view, x: x, y: y, offX: x - r.left, offY: y - r.top, target: null, raf: 0 };
+        document.body.classList.add('dragging');
+        if (drag.mode === 'canvas') {
+            zTop++; zOrder.set(drag.id, zTop); card.style.zIndex = zTop;
+            card.classList.add('lifted');
+        } else {
+            drag.ghost = card.cloneNode(true);
+            drag.ghost.classList.add('ghost');
+            drag.ghost.style.width = r.width + 'px';
+            document.body.appendChild(drag.ghost);
+            card.classList.add('placeholder');
+        }
+        drag.raf = requestAnimationFrame(tick);
+    }
+
+    function tick() {
+        if (!drag.active) return;
+        autoScroll();
+        follow();
+        drag.raf = requestAnimationFrame(tick);
+    }
+
+    function follow() {
+        if (drag.mode === 'canvas') {
+            var s = surface.getBoundingClientRect();
+            var x = Math.max(0, Math.round(drag.x - s.left - drag.offX)), y = Math.max(0, Math.round(drag.y - s.top - drag.offY));
+            drag.el.style.left = x + 'px'; drag.el.style.top = y + 'px';
+            positions.set(drag.id, { x: x, y: y });
+            if (x + cardW + PAD * 4 > surface.offsetWidth) surface.style.width = (x + cardW + PAD * 4) + 'px';
+            if (y + drag.el.offsetHeight + PAD * 4 > surface.offsetHeight) surface.style.height = (y + drag.el.offsetHeight + PAD * 4) + 'px';
+        } else {
+            drag.ghost.style.transform = 'translate(' + (drag.x - drag.offX) + 'px,' + (drag.y - drag.offY) + 'px) rotate(2deg)';
+            var under = document.elementFromPoint(drag.x, drag.y);
+            var col = under ? under.closest('.col') : null;
+            if (col !== drag.target) {
+                if (drag.target) drag.target.classList.remove('drop');
+                drag.target = col;
+                if (col) col.classList.add('drop');
+            }
+        }
+    }
+
+    function autoScroll() {
+        var sc = drag.mode === 'canvas' ? canvasEl : kanbanEl;
+        var r = sc.getBoundingClientRect(), edge = 48, step = 14, dx = 0, dy = 0;
+        if (drag.x < r.left + edge) dx = -step; else if (drag.x > r.right - edge) dx = step;
+        if (drag.mode === 'canvas') { if (drag.y < r.top + edge) dy = -step; else if (drag.y > r.bottom - edge) dy = step; }
+        if (dx || dy) sc.scrollBy(dx, dy);
+        if (drag.mode !== 'canvas') {
+            // Scroll a long column under the pointer too.
+            var body = drag.target && drag.target.querySelector('.col-body');
+            if (body) {
+                var br = body.getBoundingClientRect();
+                if (drag.y < br.top + edge) body.scrollTop -= step; else if (drag.y > br.bottom - edge) body.scrollTop += step;
+            }
+        }
+    }
+
+    function endDrag(cancelled) {
+        if (!drag.active) return;
+        cancelAnimationFrame(drag.raf);
+        if (!cancelled) follow();
+        var d = drag;
+        drag = { active: false };
+        document.body.classList.remove('dragging');
+        suppressClickUntil = Date.now() + 400;
+        if (d.mode === 'canvas') {
+            d.el.classList.remove('lifted');
+            sizeSurface();
+        } else {
+            d.ghost.remove();
+            d.el.classList.remove('placeholder');
+            if (d.target) d.target.classList.remove('drop');
+            var p = find(d.id);
+            if (!cancelled && p && d.target && d.target.dataset.status !== p.status) setStatus(p, d.target.dataset.status);
+        }
+        if (renderQueued) { renderQueued = false; render(); }
+    }
+
+    function cancelPress() { if (press) { clearTimeout(press.timer); press = null; } }
+
+    appEl.addEventListener('pointerdown', function (e) {
+        if (e.pointerType === 'touch' || e.button !== 0) return;
+        var card = e.target.closest('.card');
+        if (card) mouseDown = { card: card, x: e.clientX, y: e.clientY };
+    });
+    window.addEventListener('pointermove', function (e) {
+        if (e.pointerType === 'touch') return;
+        if (pan) {
+            canvasEl.scrollLeft = pan.l - (e.clientX - pan.x);
+            canvasEl.scrollTop = pan.t - (e.clientY - pan.y);
+            return;
+        }
+        if (mouseDown && !drag.active && Math.hypot(e.clientX - mouseDown.x, e.clientY - mouseDown.y) > 4) {
+            beginDrag(mouseDown.card, mouseDown.x, mouseDown.y);
+        }
+        if (drag.active) { drag.x = e.clientX; drag.y = e.clientY; }
+    });
+    window.addEventListener('pointerup', function (e) {
+        if (e.pointerType === 'touch') return;
+        mouseDown = null;
+        if (pan) { pan = null; canvasEl.classList.remove('panning'); }
+        endDrag(false);
+    });
+    window.addEventListener('blur', function () { mouseDown = null; endDrag(true); });
+
+    appEl.addEventListener('touchstart', function (e) {
+        cancelPress();
+        if (e.touches.length !== 1) return;
+        var card = e.target.closest('.card');
+        if (!card) return;
+        var t = e.touches[0];
+        press = { x: t.clientX, y: t.clientY };
+        press.timer = setTimeout(function () {
+            beginDrag(card, press.x, press.y);
+            try { if (navigator.vibrate) navigator.vibrate(12); } catch (err) {}
+        }, 320);
+    }, { passive: true });
+    appEl.addEventListener('touchmove', function (e) {
+        var t = e.touches[0];
+        if (drag.active) { e.preventDefault(); drag.x = t.clientX; drag.y = t.clientY; return; }
+        if (press && Math.hypot(t.clientX - press.x, t.clientY - press.y) > 8) cancelPress();
+    }, { passive: false });
+    appEl.addEventListener('touchend', function (e) {
+        cancelPress();
+        if (drag.active) { e.preventDefault(); endDrag(false); }
+    });
+    appEl.addEventListener('touchcancel', function () { cancelPress(); endDrag(true); });
+    appEl.addEventListener('contextmenu', function (e) { if (e.target.closest('.card')) e.preventDefault(); });
+
+    appEl.addEventListener('click', function (e) {
+        var card = e.target.closest('.card');
+        if (!card || Date.now() < suppressClickUntil) return;
+        openDetail(+card.dataset.id);
+    });
+    appEl.addEventListener('keydown', function (e) {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('card')) {
+            e.preventDefault();
+            openDetail(+e.target.dataset.id);
+        }
+    });
+
+    // ── Saving ──
+    // Saves run one at a time, in order, so a later edit can never land before
+    // an earlier one. Each sends only the fields that changed.
+    var saveChain = Promise.resolve(), pendingSaves = 0;
+    function save(p, patch) {
+        pendingSaves++; saveState();
+        var run = saveChain.then(function () {
+            return api('diy_edit_project', { method: 'POST', body: Object.assign({ id: p.id }, patch) });
+        });
+        saveChain = run.catch(function () {});
+        return run.then(function (d) {
+            p.updated_at = d.project.updated_at;
+            pendingSaves--; saveState();
+            return d;
+        }, function (e) {
+            pendingSaves--; saveState(e.message);
+            throw e;
+        });
+    }
+    function saveState(error) {
+        var el = $('d-save-state');
+        el.classList.toggle('bad', !!error);
+        el.textContent = error ? 'Not saved: ' + error : pendingSaves ? 'Saving…' : 'All changes saved';
+    }
+
+    // Moving a project into In Progress is when it starts, so it gets today's
+    // start date if it has none, unless that would land after its end date.
+    // Any status can move to any other.
+    async function setStatus(p, status) {
+        if (p.status === status) return;
+        var before = { status: p.status, start_date: p.start_date };
+        var patch = { status: status };
+        var today = todayKey();
+        if (status === 'in_progress' && !p.start_date && !(p.end_date && p.end_date < today)) patch.start_date = today;
+        Object.assign(p, patch);
+        toFront(p);
+        render();
+        if (detail && detail.p === p) fillDetail();
+        try {
+            await save(p, patch);
+            if (patch.start_date) toast('Moved to In Progress. Start date set to today.');
+        } catch (e) {
+            if (e.message === 'Signed out') return;
+            Object.assign(p, before);
+            render();
+            if (detail && detail.p === p) fillDetail();
+            toast(e.message);
+        }
+    }
+
+    // ── New project ──
+    function openNew() {
+        $('new-form').reset();
+        $('new-overlay').hidden = false;
+        document.body.classList.add('modal-open');
+        $('n-title').focus();
+    }
+    function closeNew() {
+        if ($('new-overlay').hidden) return;
+        $('new-overlay').hidden = true;
+        if (!detail) document.body.classList.remove('modal-open');
+    }
+    $('btn-new').addEventListener('click', openNew);
+    $('btn-new-empty').addEventListener('click', openNew);
+    $('n-cancel').addEventListener('click', closeNew);
+    $('new-overlay').addEventListener('click', function (e) { if (e.target === this) closeNew(); });
+    $('new-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        var title = $('n-title').value.trim();
+        if (!title) return;
+        $('n-create').disabled = true;
+        try {
+            var d = await api('diy_add_project', { method: 'POST', body: { title: title, category: $('n-category').value.trim() } });
+            projects.unshift(d.project);
+            closeNew();
+            render();
+            openDetail(d.project.id);
+        } catch (err) { toast(err.message); }
+        $('n-create').disabled = false;
+    });
+
+    // ── Detail ──
+    var detail = null;
+
+    function openDetail(id) {
+        var p = find(id);
+        if (!p) return;
+        detail = { p: p, photos: [], index: 0, loading: true, uploads: [], opener: document.activeElement };
+        fillDetail();
+        renderGallery();
+        $('detail').hidden = false;
+        $('detail').querySelector('.sheet').scrollTop = 0;
+        document.body.classList.add('modal-open');
+        // The phone's back button closes the project instead of leaving the app.
+        history.pushState({ diy: id }, '');
+        $('d-close').focus();
+        api('diy_project', { query: '&id=' + id }).then(function (d) {
+            if (!detail || detail.p !== p) return;
+            detail.photos = d.photos;
+            detail.index = Math.max(0, d.photos.findIndex(function (f) { return f.id === p.cover_photo_id; }));
+            detail.loading = false;
+            renderGallery();
+        }, function (e) {
+            if (!detail || detail.p !== p) return;
+            detail.loading = false;
+            renderGallery();
+            if (e.message !== 'Signed out') toast(e.message);
+        });
+    }
+
+    function requestClose() {
+        if (history.state && history.state.diy) history.back();
+        else hideDetail();
+    }
+    function hideDetail() {
+        if (!detail) return;
+        flushNotes();
+        var opener = detail.opener;
+        detail = null;
+        closeLightbox();
+        $('detail').hidden = true;
+        document.body.classList.remove('modal-open');
+        if (opener && opener.dataset && opener.dataset.id) {
+            var again = appEl.querySelector('.card[data-id="' + opener.dataset.id + '"]');
+            if (again) again.focus({ preventScroll: true });
+        }
+    }
+    window.addEventListener('popstate', function () { if (detail) hideDetail(); });
+    $('d-close').addEventListener('click', requestClose);
+    $('detail').addEventListener('click', function (e) { if (e.target === this) requestClose(); });
+
+    function fillDetail() {
+        var p = detail.p;
+        var active = document.activeElement;
+        if (active !== $('d-title')) $('d-title').value = p.title;
+        if (active !== $('d-category')) $('d-category').value = p.category || '';
+        if (active !== $('d-notes')) $('d-notes').value = p.notes || '';
+        $('d-start').value = p.start_date || '';
+        $('d-end').value = p.end_date || '';
+        $('d-start-clear').hidden = !p.start_date;
+        $('d-end-clear').hidden = !p.end_date;
+        $('d-start-hint').hidden = !!p.start_date;
+        $('d-status').innerHTML = STATUSES.map(function (s) {
+            return '<button type="button" role="radio" aria-checked="' + (s.key === p.status) + '" data-status="' + s.key + '">' +
+                '<span class="dot" style="background:' + s.color + '"></span>' + s.label + '</button>';
+        }).join('');
+        if (!pendingSaves) saveState();
+    }
+
+    $('d-status').addEventListener('click', function (e) {
+        var b = e.target.closest('button');
+        if (b && detail) setStatus(detail.p, b.dataset.status);
+    });
+
+    function fieldSave(patch) {
+        var p = detail.p, before = {};
+        Object.keys(patch).forEach(function (k) { before[k] = p[k]; });
+        Object.assign(p, patch);
+        toFront(p);
+        render();
+        if (detail && detail.p === p) fillDetail();
+        save(p, patch).catch(function (e) {
+            if (e.message === 'Signed out') return;
+            Object.assign(p, before);
+            render();
+            if (detail && detail.p === p) fillDetail();
+            toast(e.message);
+        });
+    }
+
+    $('d-title').addEventListener('change', function () {
+        var v = this.value.trim();
+        if (!v) { this.value = detail.p.title; toast('A project needs a title.'); return; }
+        if (v !== detail.p.title) fieldSave({ title: v });
+    });
+    $('d-title').addEventListener('keydown', function (e) { if (e.key === 'Enter') this.blur(); });
+    $('d-category').addEventListener('change', function () {
+        var v = this.value.trim() || null;
+        if (v !== detail.p.category) fieldSave({ category: v });
+    });
+
+    function dateChange(key, value) {
+        var p = detail.p, next = { start_date: p.start_date, end_date: p.end_date };
+        next[key] = value || null;
+        if (next.start_date && next.end_date && next.end_date < next.start_date) {
+            toast('The end date is before the start date.');
+            fillDetail();
+            return;
+        }
+        var patch = {}; patch[key] = value || null;
+        fieldSave(patch);
+    }
+    $('d-start').addEventListener('change', function () { dateChange('start_date', this.value); });
+    $('d-end').addEventListener('change', function () { dateChange('end_date', this.value); });
+    $('d-start-clear').addEventListener('click', function () { dateChange('start_date', ''); });
+    $('d-end-clear').addEventListener('click', function () { dateChange('end_date', ''); });
+
+    var notesTimer = 0;
+    function flushNotes() {
+        if (!notesTimer || !detail) return;
+        clearTimeout(notesTimer); notesTimer = 0;
+        var v = $('d-notes').value.trim() || null;
+        if (v !== (detail.p.notes || null)) fieldSave({ notes: v });
+    }
+    $('d-notes').addEventListener('input', function () {
+        clearTimeout(notesTimer);
+        notesTimer = setTimeout(flushNotes, 800);
+        $('d-save-state').textContent = 'Editing…';
+    });
+    $('d-notes').addEventListener('blur', flushNotes);
+
+    $('d-delete').addEventListener('click', async function () {
+        var p = detail.p;
+        var n = p.photo_count;
+        if (!confirm('Delete "' + p.title + '"' + (n ? ' and its ' + n + (n === 1 ? ' photo' : ' photos') : '') + '? This cannot be undone.')) return;
+        try {
+            await api('diy_delete_project', { method: 'DELETE', query: '&id=' + p.id });
+            (detail.photos || []).forEach(function (f) { forgetPhoto(f.id); });
+            projects = projects.filter(function (x) { return x !== p; });
+            positions.delete(p.id);
+            requestClose();
+            render();
+            toast('Project deleted');
+        } catch (e) { toast(e.message); }
+    });
+
+    // ── Gallery ──
+    function renderGallery() {
+        var g = detail, p = g.p, photos = g.photos, cur = photos[g.index];
+        var viewer = $('d-viewer');
+        $('d-photo-count').textContent = photos.length ? photos.length + (photos.length === 1 ? ' photo' : ' photos') : '';
+        if (g.loading) {
+            viewer.innerHTML = '<div class="viewer-empty">Loading photos…</div>';
+        } else if (!cur) {
+            viewer.innerHTML = '<div class="viewer-empty"><span>No photos yet. Add progress shots as the project comes together.</span>' +
+                '<button class="btn primary" type="button" data-act="add">Add photos</button></div>';
+        } else {
+            viewer.innerHTML = '<img id="d-main" alt="Photo ' + (g.index + 1) + ' of ' + photos.length + '">' +
+                (cur.id === p.cover_photo_id ? '<span class="pill cover">Cover</span>' : '') +
+                (photos.length > 1 ? '<button class="arrow prev" type="button" data-act="prev" aria-label="Previous photo">‹</button>' +
+                    '<button class="arrow next" type="button" data-act="next" aria-label="Next photo">›</button>' +
+                    '<span class="pill counter">' + (g.index + 1) + ' / ' + photos.length + '</span>' : '');
+            showMain(cur.id);
+        }
+        $('d-photo-actions').hidden = !cur || g.loading;
+        $('d-set-cover').disabled = !cur || cur.id === p.cover_photo_id;
+        $('d-set-cover').textContent = cur && cur.id === p.cover_photo_id ? 'This is the cover' : 'Make cover';
+        var thumbs = $('d-thumbs');
+        thumbs.innerHTML = photos.map(function (f, i) {
+            var isCover = f.id === p.cover_photo_id;
+            return '<button class="thumb' + (i === g.index ? ' sel' : '') + '" type="button" data-i="' + i + '" aria-label="Photo ' + (i + 1) + (isCover ? ', cover' : '') + '">' +
+                '<img alt="" draggable="false" data-photo="' + f.id + '" data-size="thumb">' + (isCover ? '<span class="thumb-cover">Cover</span>' : '') + '</button>';
+        }).join('') + g.uploads.map(function (u) {
+            return '<div class="thumb uploading" data-up="' + u.key + '"><span>' + Math.round(u.pct * 100) + '%</span><i style="width:' + (u.pct * 100) + '%"></i></div>';
+        }).join('') + (g.loading ? '' : '<button class="thumb add" type="button" data-act="add" aria-label="Add photos">+</button>');
+        hydrate(thumbs);
+        var sel = thumbs.querySelector('.sel');
+        if (sel) sel.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+
+    // The thumbnail shows at once, then the full photo replaces it.
+    function showMain(id) {
+        var img = $('d-main');
+        photoUrl(id, 'thumb').then(function (u) { if (img.isConnected && !img.dataset.full) img.src = u; }, function () {});
+        photoUrl(id, 'full').then(function (u) { if (img.isConnected) { img.dataset.full = '1'; img.src = u; } }, function () {});
+    }
+
+    function step(dir) {
+        var n = detail.photos.length;
+        if (n < 2) return;
+        detail.index = (detail.index + dir + n) % n;
+        renderGallery();
+        if (!$('lightbox').hidden) openLightbox();
+    }
+
+    $('d-viewer').addEventListener('click', function (e) {
+        var act = e.target.closest('[data-act]');
+        if (act) {
+            if (act.dataset.act === 'add') $('d-file').click();
+            else step(act.dataset.act === 'next' ? 1 : -1);
+        } else if (e.target.id === 'd-main') openLightbox();
+    });
+    $('d-thumbs').addEventListener('click', function (e) {
+        var b = e.target.closest('button');
+        if (!b) return;
+        if (b.dataset.act === 'add') { $('d-file').click(); return; }
+        detail.index = +b.dataset.i;
+        renderGallery();
+    });
+
+    // Swipe between photos.
+    var swipe = null;
+    $('d-viewer').addEventListener('touchstart', function (e) { if (e.touches.length === 1) swipe = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }, { passive: true });
+    $('d-viewer').addEventListener('touchend', function (e) {
+        if (!swipe) return;
+        var t = e.changedTouches[0], dx = t.clientX - swipe.x, dy = t.clientY - swipe.y;
+        swipe = null;
+        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) step(dx < 0 ? 1 : -1);
+    });
+
+    $('d-set-cover').addEventListener('click', async function () {
+        var p = detail.p, cur = detail.photos[detail.index];
+        if (!cur) return;
+        try {
+            var d = await api('diy_set_cover', { method: 'POST', body: { project_id: p.id, photo_id: cur.id } });
+            p.cover_photo_id = d.cover_photo_id;
+            render();
+            if (detail && detail.p === p) renderGallery();
+            toast('Cover updated');
+        } catch (e) { toast(e.message); }
+    });
+
+    $('d-del-photo').addEventListener('click', async function () {
+        var p = detail.p, cur = detail.photos[detail.index];
+        if (!cur || !confirm('Delete this photo? This cannot be undone.')) return;
+        try {
+            var d = await api('diy_delete_photo', { method: 'DELETE', query: '&id=' + cur.id });
+            p.cover_photo_id = d.cover_photo_id;
+            p.photo_count = Math.max(0, p.photo_count - 1);
+            forgetPhoto(cur.id);
+            if (detail && detail.p === p) {
+                detail.photos = detail.photos.filter(function (f) { return f !== cur; });
+                detail.index = Math.min(detail.index, Math.max(0, detail.photos.length - 1));
+                renderGallery();
+            }
+            render();
+        } catch (e) { toast(e.message); }
+    });
+
+    // ── Uploading ──
+    // Each photo is redrawn in the browser at two sizes and re-encoded as JPEG
+    // before it leaves the device. That keeps uploads small, and it drops the
+    // photo's metadata, including the GPS position of the house.
+    async function decodeImage(file) {
+        if (window.createImageBitmap) {
+            try { return await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch (e) {}
+        }
+        return new Promise(function (resolve, reject) {
+            var url = URL.createObjectURL(file), img = new Image();
+            img.onload = function () { URL.revokeObjectURL(url); resolve(img); };
+            img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('Could not read ' + file.name + '. Try a JPEG or PNG.')); };
+            img.src = url;
+        });
+    }
+    function encode(src, maxEdge, quality) {
+        var w = src.naturalWidth || src.width, h = src.naturalHeight || src.height;
+        var s = Math.min(1, maxEdge / Math.max(w, h));
+        var c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(w * s)); c.height = Math.max(1, Math.round(h * s));
+        var ctx = c.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(src, 0, 0, c.width, c.height);
+        return new Promise(function (resolve, reject) {
+            c.toBlob(function (b) { b ? resolve(b) : reject(new Error('Could not process the photo.')); }, 'image/jpeg', quality);
+        });
+    }
+    function upload(projectId, full, thumb, onProgress) {
+        return new Promise(function (resolve, reject) {
+            var fd = new FormData();
+            fd.append('project_id', projectId);
+            fd.append('photo', full, 'photo.jpg');
+            fd.append('thumb', thumb, 'thumb.jpg');
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', API + '?action=diy_upload_photo');
+            xhr.setRequestHeader('X-Auth-Token', token || '');
+            xhr.upload.onprogress = function (e) { if (e.lengthComputable) onProgress(e.loaded / e.total); };
+            xhr.onload = function () {
+                var data = null;
+                try { data = JSON.parse(xhr.responseText); } catch (e) {}
+                if (xhr.status === 401) { signedOut('Your session ended. Please sign in again.'); reject(new Error('Signed out')); return; }
+                if (xhr.status === 200 && data && data.success) resolve(data);
+                else reject(new Error((data && data.error) || 'Upload failed.'));
+            };
+            xhr.onerror = function () { reject(new Error('Network error. The photo was not uploaded.')); };
+            xhr.send(fd);
+        });
+    }
+
+    var uploadSeq = 0;
+    async function addPhotos(files) {
+        if (!detail) return;
+        var g = detail, p = g.p;
+        files = files.filter(function (f) { return /^image\//.test(f.type) || /\.(jpe?g|png|gif|webp|heic|heif|avif)$/i.test(f.name); });
+        var jobs = files.map(function (f) { return { key: ++uploadSeq, pct: 0, file: f }; });
+        g.uploads = g.uploads.concat(jobs);
+        renderGallery();
+        for (var i = 0; i < jobs.length; i++) {
+            var job = jobs[i];
+            try {
+                var img = await decodeImage(job.file);
+                var full = await encode(img, 2048, 0.85);
+                var thumb = await encode(img, 480, 0.8);
+                if (img.close) img.close();
+                var d = await upload(p.id, full, thumb, function (pct) {
+                    job.pct = pct;
+                    var tile = detail && detail.p === p && $('d-thumbs').querySelector('[data-up="' + job.key + '"]');
+                    if (tile) { tile.querySelector('span').textContent = Math.round(pct * 100) + '%'; tile.querySelector('i').style.width = (pct * 100) + '%'; }
+                });
+                seedPhoto(d.photo.id, 'full', full);
+                seedPhoto(d.photo.id, 'thumb', thumb);
+                p.cover_photo_id = d.cover_photo_id;
+                p.photo_count++;
+                g.photos.push(d.photo);
+                g.index = g.photos.length - 1;
+                toFront(p);
+            } catch (e) {
+                if (e.message === 'Signed out') return;
+                toast(e.message);
+            }
+            g.uploads = g.uploads.filter(function (u) { return u !== job; });
+            if (detail === g) renderGallery();
+            render();
+        }
+    }
+    $('d-file').addEventListener('change', function () {
+        var files = Array.from(this.files);
+        this.value = '';
+        addPhotos(files);
+    });
+    // On a computer, photos can be dropped straight onto the photo area.
+    ['dragenter', 'dragover'].forEach(function (t) {
+        $('d-viewer').addEventListener(t, function (e) {
+            if (e.dataTransfer && Array.from(e.dataTransfer.types).indexOf('Files') !== -1) { e.preventDefault(); this.classList.add('drop-files'); }
+        });
+    });
+    $('d-viewer').addEventListener('dragleave', function () { this.classList.remove('drop-files'); });
+    $('d-viewer').addEventListener('drop', function (e) {
+        e.preventDefault();
+        this.classList.remove('drop-files');
+        addPhotos(Array.from(e.dataTransfer.files));
+    });
+
+    // ── Lightbox ──
+    function openLightbox() {
+        var cur = detail && detail.photos[detail.index];
+        if (!cur) return;
+        var img = $('lb-img');
+        img.removeAttribute('src');
+        photoUrl(cur.id, 'full').then(function (u) { img.src = u; }, function () {});
+        $('lightbox').hidden = false;
+    }
+    function closeLightbox() { $('lightbox').hidden = true; }
+    $('lightbox').addEventListener('click', closeLightbox);
+
+    document.addEventListener('keydown', function (e) {
+        var typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
+        if (e.key === 'Escape') {
+            if (!$('lightbox').hidden) closeLightbox();
+            else if (!$('new-overlay').hidden) closeNew();
+            else if (detail) requestClose();
+            else if (drag.active) endDrag(true);
+        } else if (detail && !typing && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+            step(e.key === 'ArrowRight' ? 1 : -1);
+        }
+    });
+
+    // ── Start ──
+    if (token) enterApp();
+    else $('signin-view').hidden = false;
+})();
+</script>
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+<script>
+// Anonymous page-view count (see /privacy.html): no cookies, nothing stored on
+// this device. Skipped for Do Not Track, Global Privacy Control, automated
+// browsers, and any device opted out from the stats page.
+(function () {
+    try {
+        var n = navigator, de = document.documentElement;
+        if (!n.sendBeacon || n.webdriver || n.globalPrivacyControl || n.doNotTrack === '1') return;
+        try { if (localStorage.getItem('an_optout') === '1') return; } catch (e) {}
+        var mq = function (q) { return !!(window.matchMedia && matchMedia(q).matches); };
+        var s = Math.min(screen.width, screen.height), t = de.getAttribute('data-theme');
+        n.sendBeacon('/api.php?action=an_hit', JSON.stringify({
+            p: location.pathname,
+            r: document.referrer,
+            d: mq('(pointer: coarse)') ? (s < 600 ? 'mobile' : 'tablet') : 'desktop',
+            i: mq('(display-mode: standalone)') || n.standalone === true,
+            t: t === 'light' || t === 'dark' ? t : (mq('(prefers-color-scheme: dark)') ? 'dark' : 'light'),
+            l: n.language
+        }));
+    } catch (e) {}
+})();
+</script>
+
+</body>
+</html>

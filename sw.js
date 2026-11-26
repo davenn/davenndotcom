@@ -1,4 +1,4 @@
-const CACHE = 'davenn-v74';
+const CACHE = 'davenn-v75';
 const SHELL = [
   '/index.html',
   '/tracktimer.html',
@@ -10,6 +10,7 @@ const SHELL = [
   '/reactiontest.html',
   '/flighttracker.html',
   '/dailytasks.html',
+  '/diyprojects.html',
   '/signspotter.html',
   '/cribbage.html',
   '/glucose.html',
