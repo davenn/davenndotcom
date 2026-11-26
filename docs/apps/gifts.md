@@ -53,8 +53,13 @@ From 1000px it follows the WildcatsXC meets view: stats and controls sit in a
 280px column on the left that stays in view while scrolling, and the cards fill
 the right. People are always in name order.
 
-- **A card** is the person's name (tap it to rename or remove them), whether
-  they still need a gift, one line per idea, and an add box at the bottom.
+- **A card** is a drop-down. Closed, it shows only the person's name, whether
+  they still need a gift, and how many open ideas they have; tap the header to
+  open it to one line per idea and an add box at the bottom. The pencil renames
+  or removes the person. Cards start closed, and which are open is remembered
+  per device in `localStorage` (`gifts_open`). A search opens every matching
+  card without changing what is remembered, and adding a person, or moving an
+  idea to someone, opens that person's card.
 - **Status pill** on each idea is a button that cycles idea → bought → given →
   idea. Tapping the idea's name opens the edit dialog for its link, price,
   status, notes, or to move it to someone else. ↗ opens the link.

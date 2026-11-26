@@ -160,25 +160,46 @@
     }
 
     /* ── PEOPLE: small cards, two to a row even on a phone ── */
-    .list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    /* align-items: start, so opening one card does not stretch its neighbours. */
+    .list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: start; }
     .empty { grid-column: 1 / -1; font-family: var(--font-mono); font-size: 12.5px; color: var(--text-muted); text-align: center; padding: 40px 12px; line-height: 1.7; }
     .empty .btn-primary { margin-top: 14px; }
 
-    /* A column, so the add box sits at the bottom of every card in a row. */
+    /* Each card is a drop-down: the header (name, status, idea count) is
+       always shown, and the ideas and add box open beneath it. */
     .person {
-        display: flex; flex-direction: column; min-width: 0;
-        background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 10px 8px;
+        min-width: 0;
+        background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
     }
     .person.flash { animation: flash 1.2s ease; }
     @keyframes flash { 0% { box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 1px var(--accent); } 100% { box-shadow: none; } }
     @media (prefers-reduced-motion: reduce) { .person.flash { animation: none; } }
-    .p-name {
-        align-self: flex-start; max-width: 100%; text-align: left; cursor: pointer;
-        background: none; border: none; padding: 0; color: inherit;
-        font-family: var(--font-disp); font-size: 1.05rem; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere;
+    .p-head {
+        display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; column-gap: 4px; align-items: start;
+        list-style: none; cursor: pointer; padding: 10px 6px 10px 8px; border-radius: 10px;
+        -webkit-tap-highlight-color: transparent; user-select: none;
     }
-    .p-name:hover { text-decoration: underline; text-decoration-color: var(--text-muted); text-underline-offset: 3px; }
-    .p-flag { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; margin-top: 3px; }
+    .p-head::-webkit-details-marker { display: none; }
+    .p-head::marker { content: ''; }
+    .p-head::before {
+        content: '\25B8'; grid-row: 1 / span 2; font-size: 11px; line-height: 1.25rem; color: var(--text-muted);
+        transition: transform 0.15s ease;
+    }
+    .p-drop[open] > .p-head::before { transform: rotate(90deg); }
+    @media (prefers-reduced-motion: reduce) { .p-head::before { transition: none; } }
+    .p-head:hover .p-name { text-decoration: underline; text-decoration-color: var(--text-muted); text-underline-offset: 3px; }
+    .p-name {
+        min-width: 0; font-family: var(--font-disp); font-size: 1.05rem; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere;
+    }
+    .p-edit {
+        grid-row: 1 / span 2; grid-column: 3; width: 26px; height: 26px; margin: -3px 0 0; padding: 0; border-radius: 6px;
+        cursor: pointer; background: none; border: 1px solid transparent; color: var(--text-muted); font-size: 13px; line-height: 1;
+    }
+    .p-edit:hover { color: var(--text-primary); border-color: var(--border); }
+    .p-flag { grid-column: 2; font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; margin-top: 3px; }
+    .p-count { color: var(--text-muted); white-space: nowrap; }
+    .p-body { padding: 0 10px 8px; }
+    .p-body > .ideas:first-child, .p-body > .no-ideas:first-child { margin-top: 0; }
     .p-flag.need { color: var(--accent); }
     .p-flag.got { color: var(--bought); }
 
@@ -213,7 +234,7 @@
     .given-box .ideas { margin-top: 2px; }
     .given-box .idea-title { color: var(--text-secondary); }
 
-    .quick { display: flex; gap: 4px; margin-top: auto; padding-top: 8px; }
+    .quick { display: flex; gap: 4px; padding-top: 8px; }
     .quick input {
         flex: 1; min-width: 0; height: 30px; font: inherit; font-size: 13px; color: var(--text-primary);
         background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 0 8px;
@@ -242,7 +263,8 @@
         .stat b { font-size: 1.3rem; }
         .stat span { font-size: 10.5px; }
         .list { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
-        .person { padding: 12px 12px 10px; }
+        .p-head { padding: 12px 8px 12px 10px; }
+        .p-body { padding: 0 12px 10px; }
         .p-name { font-size: 1.15rem; }
         .idea-title { font-size: 13.5px; }
     }
@@ -401,6 +423,7 @@
     // The last list loaded, so the page opens instantly and can still be read offline.
     var CACHE_KEY = 'gifts_cache';
     var FILTER_KEY = 'gifts_filter';
+    var OPEN_KEY = 'gifts_open';
 
     var STATUS_NEXT = { idea: 'bought', bought: 'given', given: 'idea' };
     var STATUS_WORD = { idea: 'Idea', bought: 'Bought', given: 'Given' };
@@ -447,6 +470,15 @@
     var people = [], ideas = [];
     var loaded = false; // true once the server's list (or a cached copy) is in hand
     var filter = load(FILTER_KEY) || 'all';
+
+    // Which cards are open, remembered per device. Cards start closed; a search
+    // opens every match without touching what is remembered.
+    var openIds = {};
+    try { (JSON.parse(load(OPEN_KEY)) || []).forEach(function (id) { openIds[id] = true; }); } catch (e) {}
+    function setOpen(id, on) {
+        if (on) openIds[id] = true; else delete openIds[id];
+        store(OPEN_KEY, JSON.stringify(Object.keys(openIds).map(Number)));
+    }
     var query = '';
 
     // ── API ──
@@ -641,9 +673,18 @@
             .sort(function (a, b) { return b.status_at - a.status_at; });
         var got = hasBought(p.id);
 
+        var open = query || openIds[p.id];
+        var open_ideas = current.filter(function (i) { return i.status === 'idea'; }).length;
+
         return '<article class="person" id="person-' + p.id + '">' +
-            '<button class="p-name" type="button" data-act="edit-person" data-id="' + p.id + '" title="Rename or remove">' + esc(p.name) + '</button>' +
-            '<span class="p-flag ' + (got ? 'got' : 'need') + '">' + (got ? '✓ Got one' : 'Needs a gift') + '</span>' +
+            '<details class="p-drop" data-pid="' + p.id + '"' + (open ? ' open' : '') + '>' +
+            '<summary class="p-head">' +
+                '<span class="p-name">' + esc(p.name) + '</span>' +
+                '<button class="p-edit" type="button" data-act="edit-person" data-id="' + p.id + '" title="Rename or remove" aria-label="Rename or remove ' + esc(p.name) + '">✎</button>' +
+                '<span class="p-flag ' + (got ? 'got' : 'need') + '">' + (got ? '✓ Got one' : 'Needs a gift') +
+                    (open_ideas ? ' <span class="p-count">· ' + open_ideas + ' idea' + (open_ideas === 1 ? '' : 's') + '</span>' : '') + '</span>' +
+            '</summary>' +
+            '<div class="p-body">' +
             (current.length
                 ? '<ul class="ideas">' + current.map(ideaHtml).join('') + '</ul>'
                 : '<div class="no-ideas">No ideas yet</div>') +
@@ -654,6 +695,7 @@
                 '<input type="text" maxlength="800" placeholder="Add an idea" aria-label="New idea for ' + esc(p.name) + '">' +
                 '<button type="submit" aria-label="Add idea for ' + esc(p.name) + '">+</button>' +
             '</form>' +
+            '</div></details>' +
         '</article>';
     }
 
@@ -673,7 +715,16 @@
 
     // ── List actions ──
     $('list').addEventListener('click', function (e) {
-        var b = e.target.closest('[data-act]'); if (!b) return;
+        var b = e.target.closest('[data-act]');
+        if (!b) {
+            // A tap on a card's header opens or closes it. The click lands
+            // before the toggle, so the new state is the opposite of now.
+            var head = e.target.closest('.p-head');
+            if (head && !query) setOpen(+head.parentNode.dataset.pid, !head.parentNode.open);
+            return;
+        }
+        // The pencil sits inside the header; keep it from toggling the card.
+        if (b.closest('.p-head')) e.preventDefault();
         var act = b.dataset.act, id = +b.dataset.id;
         if (act === 'add-person') openPerson(null);
         if (act === 'edit-person') openPerson(personById(id));
@@ -759,7 +810,7 @@
         api('gf_person_save', body).then(function (res) {
             var p = res.person;
             if (editingPerson) people = people.map(function (x) { return x.id === p.id ? p : x; });
-            else people.push(p);
+            else { people.push(p); setOpen(p.id, true); }
             save();
             $('dlg-person').close();
             if (!editingPerson && filter === 'got') { filter = 'all'; store(FILTER_KEY, filter); }
@@ -783,6 +834,7 @@
         api('gf_person_delete', { id: p.id }).then(function () {
             people = people.filter(function (x) { return x.id !== p.id; });
             ideas = ideas.filter(function (i) { return i.person_id !== p.id; });
+            setOpen(p.id, false);
             save();
             $('dlg-person').close();
             render();
@@ -820,6 +872,7 @@
             status: $('di-status').value,
         }).then(function (res) {
             replaceIdea(res.idea);
+            setOpen(res.idea.person_id, true);
             $('dlg-idea').close();
             render();
             flash(res.idea.person_id);
