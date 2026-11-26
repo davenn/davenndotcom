@@ -84,14 +84,20 @@
     }
     .nav-link:hover { color: #fff; }
     .nav-link[hidden], .nav-user[hidden] { display: none; }
+    /* Install is an icon, shown in the browser and hidden once the page is
+       running as the installed app. */
     .btn-install {
-        display: none; align-items: center;
-        font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;
-        color: rgba(255,255,255,0.5); background: none;
-        border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 4px 10px; cursor: pointer;
+        display: flex; align-items: center; justify-content: center; flex: none; width: 30px; height: 28px; padding: 0;
+        color: rgba(255,255,255,0.6); background: none;
+        border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; cursor: pointer;
     }
-    .btn-install.ready { display: flex; }
-    .btn-install:hover { color: rgba(255,255,255,0.9); border-color: rgba(255,255,255,0.4); }
+    .btn-install svg { width: 16px; height: 16px; }
+    .btn-install:hover { color: #fff; border-color: rgba(255,255,255,0.4); }
+    .btn-install[hidden] { display: none; }
+    @media (display-mode: standalone) { .btn-install { display: none; } }
+    .install-steps { font-size: 14px; line-height: 1.6; color: var(--text-secondary); margin: 0 0 16px 1.2em; }
+    .install-steps li + li { margin-top: 6px; }
+    .install-steps b { color: var(--text-primary); font-weight: 600; }
     .theme-toggle { width: 44px; height: 24px; cursor: pointer; background: none; border: none; padding: 0; flex: none; }
     .theme-toggle-track { width: 44px; height: 24px; border-radius: 12px; background: #333; border: 1px solid #555; display: flex; align-items: center; padding: 0 3px; }
     [data-theme="light"] .theme-toggle-track { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.35); }
@@ -330,11 +336,14 @@
     <a class="nav-logo" href="index.html"><strong>davenn</strong>dotcom</a>
     <div class="nav-right">
         <span class="nav-user" id="nav-user" hidden></span>
-        <button class="nav-link" id="btn-signout" type="button" hidden>Sign out</button>
         <button class="theme-toggle" id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
             <div class="theme-toggle-track"><div class="theme-toggle-thumb" id="toggle-icon">🌙</div></div>
         </button>
-        <button class="btn-install" id="btn-install" type="button">⊕ Install</button>
+        <button class="btn-install" id="btn-install" type="button" title="Install Gifts" aria-label="Install Gifts">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>
+            </svg>
+        </button>
     </div>
 </nav>
 
@@ -377,6 +386,17 @@
         <div class="list" id="list"></div>
     </section>
 </main>
+
+<!-- Shown when the browser has no install prompt of its own (iPhone, iPad, Safari, Firefox). -->
+<dialog id="dlg-install">
+    <form method="dialog">
+        <h2>Install Gifts</h2>
+        <ol class="install-steps" id="install-steps"></ol>
+        <div class="dlg-actions">
+            <button class="btn-primary" type="button" data-close>Got it</button>
+        </div>
+    </form>
+</dialog>
 
 <dialog id="dlg-person">
     <form id="form-person" method="dialog">
@@ -547,15 +567,6 @@
         }).then(function () { btn.disabled = false; });
     });
 
-    $('btn-signout').addEventListener('click', function () {
-        // Ends this device's session, which Toolshare and Daily Tasks share.
-        api('tb_logout', {}).catch(function () {});
-        store(TOKEN_KEY, null);
-        store(USER_KEY, null);
-        signedOut();
-        toast('Signed out.');
-    });
-
     function signedOut() {
         token = null; user = null;
         people = []; ideas = [];
@@ -563,7 +574,6 @@
         $('app').hidden = true;
         $('auth').hidden = false;
         $('nav-user').hidden = true;
-        $('btn-signout').hidden = true;
     }
 
     function signedIn() {
@@ -571,7 +581,6 @@
         $('app').hidden = false;
         $('nav-user').textContent = user.display_name || user.username;
         $('nav-user').hidden = false;
-        $('btn-signout').hidden = false;
         var cached = null;
         try { cached = JSON.parse(load(CACHE_KEY)); } catch (e) {}
         loaded = false;
@@ -906,21 +915,40 @@
 </script>
 <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 <script>
+// The install icon is always there in the browser. Where the browser offers
+// its own install prompt (Chrome, Edge, Android) it opens that; elsewhere
+// (iPhone and iPad, Safari, Firefox) it shows how to add it by hand.
 let _installEvt = null;
 const installBtn = document.getElementById('btn-install');
+if (navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) installBtn.hidden = true;
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   _installEvt = e;
-  installBtn.classList.add('ready');
 });
 window.addEventListener('appinstalled', () => {
   _installEvt = null;
-  installBtn.classList.remove('ready');
+  installBtn.hidden = true;
 });
 installBtn.addEventListener('click', () => {
-  if (!_installEvt) return;
-  _installEvt.prompt();
-  _installEvt.userChoice.then(() => { _installEvt = null; installBtn.classList.remove('ready'); });
+  if (_installEvt) {
+    _installEvt.prompt();
+    _installEvt.userChoice.then(c => { _installEvt = null; if (c.outcome === 'accepted') installBtn.hidden = true; });
+    return;
+  }
+  const ua = navigator.userAgent;
+  const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const steps = ios ? [
+    'Open this page in <b>Safari</b>.',
+    'Tap the <b>Share</b> button (the square with an arrow pointing up).',
+    'Scroll down and tap <b>Add to Home Screen</b>, then <b>Add</b>.'
+  ] : /Safari/.test(ua) && !/Chrome|Chromium|Edg/.test(ua) ? [
+    'In the menu bar, choose <b>File</b>, then <b>Add to Dock</b>.'
+  ] : [
+    'Open your browser menu.',
+    'Choose <b>Install app</b> or <b>Add to Home screen</b>.'
+  ];
+  document.getElementById('install-steps').innerHTML = steps.map(t => '<li>' + t + '</li>').join('');
+  document.getElementById('dlg-install').showModal();
 });
 </script>
 <script>

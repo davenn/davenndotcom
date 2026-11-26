@@ -23,11 +23,20 @@ counted by the analytics beacon, and its endpoints appear in the public
 There is no Gifts account. The page signs in with a Toolshare account and
 stores the token under the same `localStorage` keys (`tb_token`, `tb_user`),
 so being signed in to Toolshare or Daily Tasks on a device means being signed
-in here, and **Sign out** here ends that device's shared session for all three.
-New accounts can be created from the page through `tb_register`.
+in here. The page has no Sign out button, by the owner's choice: to sign a
+device out, sign out of Toolshare or Daily Tasks, which ends the shared session
+for all three. New accounts can be created from the page through `tb_register`.
 
 A 401 from any call means the shared session ended elsewhere; the page drops
 back to the sign-in form rather than showing an error.
+
+## Installing
+
+The nav has an install icon whenever the page is open in a browser, and hides
+it once Gifts runs as the installed app. Where the browser offers its own
+install prompt (Chrome, Edge, Android) the icon opens it; elsewhere (iPhone and
+iPad, Safari, Firefox) it opens a short sheet with the steps to add it by hand,
+such as Share, then Add to Home Screen on iOS.
 
 ## Data
 
