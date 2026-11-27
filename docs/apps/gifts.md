@@ -34,8 +34,11 @@ back to the sign-in form rather than showing an error.
 
 From 15 November to 6 January the head script adds `xmas` to `<html>`, and the
 page dresses up: a candy-stripe under the nav, holly beside the title, a pine
-wash in the background, the eyebrow counting down ("28 days to Christmas · Just
-for you", "Christmas is tomorrow", "Merry Christmas"), and a light snowfall of
+wash in the background, a flip-clock countdown right-aligned on the title's
+line (two split-flap digit tiles and "days" under them, counting calendar days
+to the 25th, flipping in on load and again at midnight; hidden 26 Dec to 6
+Jan, and on Christmas Day the eyebrow says "Merry Christmas · Just for you"
+instead), and a light snowfall of
 small dots behind everything (about 22 on a phone, 40 wider). The snow is
 skipped for `prefers-reduced-motion`. It is decoration only: status colours,
 layout and behaviour do not change, and the rest of the year the page is plain,
