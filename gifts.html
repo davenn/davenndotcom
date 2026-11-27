@@ -204,7 +204,24 @@
     .p-flag.got { color: var(--bought); }
 
     .ideas { list-style: none; margin-top: 6px; }
-    .idea { display: flex; align-items: flex-start; gap: 5px; padding: 2px 0; }
+    /* Each idea is a row that can slide: right on an open idea marks it
+       bought, left on a bought one puts it back. What it will become shows
+       behind the row, colour and word together. pan-y keeps vertical
+       scrolling with the browser and hands sideways drags to the page. */
+    .idea { position: relative; border-radius: 6px; overflow: hidden; }
+    .idea-row {
+        position: relative; display: flex; align-items: flex-start; gap: 5px; padding: 2px 0;
+        background: var(--surface); touch-action: pan-y;
+    }
+    .idea-row.snap { transition: transform 0.2s ease; }
+    @media (prefers-reduced-motion: reduce) { .idea-row.snap { transition: none; } }
+    .idea::before {
+        position: absolute; inset: 0; display: none; align-items: center; border-radius: 6px; padding: 0 8px;
+        font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase;
+    }
+    .idea.sw-right::before { content: '\2713  Bought'; display: flex; background: var(--bought); color: #fff; opacity: 0.55; }
+    .idea.sw-left::before  { content: 'Idea'; display: flex; justify-content: flex-end; background: var(--surface-2); color: var(--text-secondary); opacity: 0.55; }
+    .idea.sw-past::before  { opacity: 1; }
     .idea-title {
         flex: 0 1 auto; min-width: 0; text-align: left; cursor: pointer; background: none; border: none; padding: 0; color: inherit;
         font-family: var(--font-ui); font-size: 13px; line-height: 1.35; overflow-wrap: anywhere;
@@ -340,7 +357,7 @@
 <main>
     <p class="eyebrow">Only you can see this list</p>
     <h1>Gifts</h1>
-    <p class="sub">Who you are buying for, and your ideas for them. Tap a name to open it, hold it to rename. Tap a status to move it along.</p>
+    <p class="sub">Who you are buying for, and your ideas for them. Tap a name to open it, hold it to rename. Slide an idea right once you have bought it.</p>
 
     <!-- Signed out -->
     <section class="auth" id="auth" hidden>
@@ -660,14 +677,14 @@
     // (tap to edit), the price, and an arrow that opens the link.
     function ideaHtml(i) {
         var next = STATUS_WORD[STATUS_NEXT[i.status]].toLowerCase();
-        return '<li class="idea">' +
+        return '<li class="idea" data-id="' + i.id + '" data-status="' + i.status + '"><div class="idea-row">' +
             '<button class="pill s-' + i.status + '" type="button" data-act="cycle" data-id="' + i.id + '" ' +
                 'title="Mark as ' + next + '" aria-label="' + STATUS_WORD[i.status] + '. Mark as ' + next + '">' +
                 (i.status === 'idea' ? '💡' : STATUS_WORD[i.status]) + '</button>' +
             '<button class="idea-title" type="button" data-act="edit-idea" data-id="' + i.id + '" title="Edit">' + esc(i.title) +
                 (i.price != null ? ' <span class="idea-price">' + money(i.price) + '</span>' : '') + '</button>' +
             (i.link ? '<a class="idea-link" href="' + esc(i.link) + '" target="_blank" rel="noopener noreferrer" title="Open link" aria-label="Open link for ' + esc(i.title) + '">↗</a>' : '') +
-        '</li>';
+        '</div></li>';
     }
 
     function personHtml(p) {
@@ -719,8 +736,9 @@
 
     // ── List actions ──
     $('list').addEventListener('click', function (e) {
-        // The click that ends a long press must not also open or close the card.
-        if (held) { held = false; e.preventDefault(); return; }
+        // The click that ends a long press or a slide must not also open or
+        // close the card, or open the idea under the finger.
+        if (held || swiped) { held = swiped = false; e.preventDefault(); return; }
         var b = e.target.closest('[data-act]');
         if (!b) {
             // A tap on a card's header opens or closes it. The click lands
@@ -775,16 +793,74 @@
         if (!held) editFromCard(card);
     });
 
-    function cycle(btn, id) {
+    // Slide an idea to change its status: right on an open idea marks it
+    // bought, left on a bought one puts it back to an idea. Only the current
+    // ideas slide, not the ones under Given before. A drag that starts mostly
+    // up or down is left to the page as a scroll, and one that stops short of
+    // the threshold springs back.
+    var swipe = null, swiped = false;
+    $('list').addEventListener('pointerdown', function (e) {
+        swiped = false;
+        swipe = null;
+        if (e.button !== 0) return;
+        var row = e.target.closest('.p-body > .ideas .idea-row'); if (!row) return;
+        var li = row.parentNode, dir = li.dataset.status === 'idea' ? 1 : li.dataset.status === 'bought' ? -1 : 0;
+        if (!dir) return;
+        swipe = { row: row, li: li, id: +li.dataset.id, dir: dir, x0: e.clientX, y0: e.clientY, d: 0, active: false, past: false, pointer: e.pointerId };
+    });
+    $('list').addEventListener('pointermove', function (e) {
+        var s = swipe; if (!s || e.pointerId !== s.pointer) return;
+        var dx = e.clientX - s.x0, dy = e.clientY - s.y0;
+        if (!s.active) {
+            if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { swipe = null; return; }
+            if (Math.abs(dx) < 8 || Math.abs(dx) <= Math.abs(dy)) return;
+            if ((dx > 0 ? 1 : -1) !== s.dir) { swipe = null; return; }
+            s.active = true;
+            cancelHold();
+            try { s.row.setPointerCapture(s.pointer); } catch (err) {}
+            s.li.classList.add(s.dir > 0 ? 'sw-right' : 'sw-left');
+        }
+        e.preventDefault();
+        s.d = s.dir > 0 ? Math.max(0, dx) : Math.min(0, dx);
+        s.row.style.transform = 'translateX(' + s.d + 'px)';
+        var past = Math.abs(s.d) > Math.min(90, s.row.offsetWidth * 0.4);
+        if (past !== s.past && past && navigator.vibrate) try { navigator.vibrate(10); } catch (err) {}
+        s.past = past;
+        s.li.classList.toggle('sw-past', past);
+    });
+    function endSwipe(e) {
+        var s = swipe; if (!s || e.pointerId !== s.pointer) return;
+        swipe = null;
+        if (!s.active) return;
+        swiped = true;
+        s.row.classList.add('snap');
+        if (e.type === 'pointerup' && s.past) {
+            s.row.style.transform = 'translateX(' + (s.dir * s.row.offsetWidth) + 'px)';
+            setStatus(s.id, s.dir > 0 ? 'bought' : 'idea').catch(function () { springBack(s); });
+        } else springBack(s);
+    }
+    function springBack(s) {
+        s.row.style.transform = '';
+        setTimeout(function () { s.li.classList.remove('sw-right', 'sw-left', 'sw-past'); s.row.classList.remove('snap'); }, 220);
+    }
+    $('list').addEventListener('pointerup', endSwipe);
+    $('list').addEventListener('pointercancel', endSwipe);
+
+    function setStatus(id, next) {
         var i = ideas.filter(function (x) { return x.id === id; })[0];
-        if (!i) return;
-        var next = STATUS_NEXT[i.status];
-        btn.disabled = true;
-        api('gf_idea_save', Object.assign({}, i, { status: next })).then(function (res) {
+        if (!i) return Promise.reject(new Error('That idea is gone.'));
+        return api('gf_idea_save', Object.assign({}, i, { status: next })).then(function (res) {
             replaceIdea(res.idea);
             render();
             toast(next === 'bought' ? 'Bought: ' + i.title : next === 'given' ? 'Given. It is filed under Given before.' : 'Back to an idea.');
-        }).catch(function (err) { btn.disabled = false; toast(err.message, true); });
+        }).catch(function (err) { toast(err.message, true); throw err; });
+    }
+
+    function cycle(btn, id) {
+        var i = ideas.filter(function (x) { return x.id === id; })[0];
+        if (!i) return;
+        btn.disabled = true;
+        setStatus(id, STATUS_NEXT[i.status]).catch(function () { btn.disabled = false; });
     }
 
     // Quick add. A pasted link becomes the idea's link, and whatever text came

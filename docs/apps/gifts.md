@@ -77,6 +77,12 @@ the right. People are always in name order.
   keep their word, because they are the coloured states and colour is never
   shown alone. Tapping the idea's name opens the edit dialog for its link, price,
   status, notes, or to move it to someone else. ↗ opens the link.
+- **Slide** an idea to the right to mark it bought, or a bought one to the
+  left to put it back to an idea. Green with "Bought" (or "Idea") shows behind
+  the row as it moves; past the threshold (40% of the row, at most 90px) it
+  commits, short of it it springs back. A drag that starts mostly up or down
+  stays a scroll, and ideas under Given before do not slide. Marking a bought
+  gift as given is still a tap on its pill.
 - **Quick add** takes a line of text and adds it on Enter; there is no button. A pasted link becomes the idea's link and
   the rest of the line its name; a bare link is named after its site until
   edited.
