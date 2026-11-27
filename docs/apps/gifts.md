@@ -98,7 +98,10 @@ the right. People are always in name order.
   keeps both as they are. The 🗑 deletes after a confirm, Save (at the end of the notes line, not on
   a line of its own) saves, and
   a tap outside or a swipe down closes without saving (every dialog on the page
-  closes that way). A link shows as an accent-coloured chip with an open-in-new icon at the
+  closes that way). Every dialog is centred in the visible part of the screen,
+  which `window.visualViewport` gives as `--vv-top` / `--vv-bottom`, so when
+  the phone keyboard opens it moves up above it rather than behind it, and
+  scrolls if it no longer fits. A link shows as an accent-coloured chip with an open-in-new icon at the
   end of the row, sized for a thumb; tapping it opens the link in a new tab.
 - **Slide** an idea to the right to mark it bought, or a bought one to the
   left to put it back to an idea. Green with "Bought" (or "Idea") shows behind
