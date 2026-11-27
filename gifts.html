@@ -180,29 +180,23 @@
     .person.flash { animation: flash 1.2s ease; }
     @keyframes flash { 0% { box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 1px var(--accent); } 100% { box-shadow: none; } }
     @media (prefers-reduced-motion: reduce) { .person.flash { animation: none; } }
+    /* Tap the header to open or close the card; hold anywhere on the card
+       (or right-click) to rename or remove the person. No callout or text
+       selection, so a long press on a phone reaches the page. */
+    .person { -webkit-touch-callout: none; }
     .p-head {
-        display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; column-gap: 4px; align-items: start;
-        list-style: none; cursor: pointer; padding: 8px 6px 8px 8px; border-radius: 10px;
-        -webkit-tap-highlight-color: transparent; user-select: none;
+        display: block; list-style: none; cursor: pointer; padding: 7px 8px; border-radius: 10px;
+        -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none;
     }
     .p-head::-webkit-details-marker { display: none; }
     .p-head::marker { content: ''; }
-    .p-head::before {
-        content: '\25B8'; grid-row: 1 / span 2; font-size: 11px; line-height: 1.25rem; color: var(--text-muted);
-        transition: transform 0.15s ease;
-    }
-    .p-drop[open] > .p-head::before { transform: rotate(90deg); }
-    @media (prefers-reduced-motion: reduce) { .p-head::before { transition: none; } }
     .p-head:hover .p-name { text-decoration: underline; text-decoration-color: var(--text-muted); text-underline-offset: 3px; }
     .p-name {
-        min-width: 0; font-family: var(--font-disp); font-size: 1.05rem; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere;
+        display: block; font-family: var(--font-disp); font-size: 1rem; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere;
     }
-    .p-edit {
-        grid-row: 1; grid-column: 3; width: 26px; height: 26px; margin: -3px 0 0; padding: 0; border-radius: 6px;
-        cursor: pointer; background: none; border: 1px solid transparent; color: var(--text-muted); font-size: 13px; line-height: 1;
-    }
-    .p-edit:hover { color: var(--text-primary); border-color: var(--border); }
-    .p-flag { grid-column: 2 / -1; white-space: nowrap; font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; margin-top: 3px; }
+    .person.holding { transform: scale(0.97); transition: transform 0.35s ease; }
+    @media (prefers-reduced-motion: reduce) { .person.holding { transform: none; } }
+    .p-flag { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; margin-top: 2px; }
     .p-count { color: var(--text-muted); margin-left: 4px; letter-spacing: 0; }
     .p-body { padding: 0 8px 7px; }
     .p-body > .ideas:first-child, .p-body > .no-ideas:first-child { margin-top: 0; }
@@ -247,17 +241,13 @@
     .given-box .ideas { margin-top: 2px; }
     .given-box .idea-title { color: var(--text-secondary); }
 
-    .quick { display: flex; gap: 4px; padding-top: 6px; }
+    /* Enter adds the idea; there is no button. */
+    .quick { display: flex; padding-top: 6px; }
     .quick input {
         flex: 1; min-width: 0; height: 28px; font: inherit; font-size: 13px; color: var(--text-primary);
         background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 0 8px;
     }
     .quick input::placeholder { color: var(--text-muted); }
-    .quick button {
-        flex: none; width: 28px; height: 28px; padding: 0; border-radius: 6px; cursor: pointer;
-        border: 1px solid var(--border); background: var(--surface); color: var(--text-primary); font-size: 16px; line-height: 1;
-    }
-    .quick button:hover { border-color: var(--text-muted); }
 
     @media (min-width: 480px) and (max-width: 999px) {
         .search { flex-basis: 200px; }
@@ -276,9 +266,9 @@
         .stat b { font-size: 1.3rem; }
         .stat span { font-size: 10.5px; }
         .list { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
-        .p-head { padding: 10px 8px 10px 10px; }
+        .p-head { padding: 9px 10px; }
         .p-body { padding: 0 10px 9px; }
-        .p-name { font-size: 1.15rem; }
+        .p-name { font-size: 1.1rem; }
         .idea-title { font-size: 13.5px; }
     }
 
@@ -350,7 +340,7 @@
 <main>
     <p class="eyebrow">Only you can see this list</p>
     <h1>Gifts</h1>
-    <p class="sub">Who you are buying for, and your ideas for them. Tap a status to move it along.</p>
+    <p class="sub">Who you are buying for, and your ideas for them. Tap a name to open it, hold it to rename. Tap a status to move it along.</p>
 
     <!-- Signed out -->
     <section class="auth" id="auth" hidden>
@@ -694,9 +684,8 @@
 
         return '<article class="person" id="person-' + p.id + '">' +
             '<details class="p-drop" data-pid="' + p.id + '"' + (open ? ' open' : '') + '>' +
-            '<summary class="p-head">' +
+            '<summary class="p-head" title="Tap to open. Hold to rename or remove.">' +
                 '<span class="p-name">' + esc(p.name) + '</span>' +
-                '<button class="p-edit" type="button" data-act="edit-person" data-id="' + p.id + '" title="Rename or remove" aria-label="Rename or remove ' + esc(p.name) + '">✎</button>' +
                 '<span class="p-flag ' + (got ? 'got' : 'need') + '">' + (got ? '✓ Got one' : 'Needs a gift') +
                     (open_ideas ? ' <span class="p-count" title="' + open_ideas + ' idea' + (open_ideas === 1 ? '' : 's') + '">💡' + open_ideas + '</span>' : '') + '</span>' +
             '</summary>' +
@@ -708,8 +697,7 @@
                 ? '<details class="given-box"><summary>Given before (' + given.length + ')</summary><ul class="ideas">' + given.map(ideaHtml).join('') + '</ul></details>'
                 : '') +
             '<form class="quick" data-pid="' + p.id + '" autocomplete="off">' +
-                '<input type="text" maxlength="800" placeholder="Add an idea" aria-label="New idea for ' + esc(p.name) + '">' +
-                '<button type="submit" aria-label="Add idea for ' + esc(p.name) + '">+</button>' +
+                '<input type="text" maxlength="800" placeholder="Add an idea" enterkeyhint="done" aria-label="New idea for ' + esc(p.name) + '">' +
             '</form>' +
             '</div></details>' +
         '</article>';
@@ -731,6 +719,8 @@
 
     // ── List actions ──
     $('list').addEventListener('click', function (e) {
+        // The click that ends a long press must not also open or close the card.
+        if (held) { held = false; e.preventDefault(); return; }
         var b = e.target.closest('[data-act]');
         if (!b) {
             // A tap on a card's header opens or closes it. The click lands
@@ -739,13 +729,50 @@
             if (head && !query) setOpen(+head.parentNode.dataset.pid, !head.parentNode.open);
             return;
         }
-        // The pencil sits inside the header; keep it from toggling the card.
-        if (b.closest('.p-head')) e.preventDefault();
         var act = b.dataset.act, id = +b.dataset.id;
         if (act === 'add-person') openPerson(null);
         if (act === 'edit-person') openPerson(personById(id));
         if (act === 'edit-idea') openIdea(ideas.filter(function (i) { return i.id === id; })[0]);
         if (act === 'cycle') cycle(b, id);
+    });
+
+    // Long press on a card renames or removes the person. Not on the card's own
+    // controls (status pills, idea names, links, the add box), which keep
+    // their taps. Moving the finger, as in a scroll, cancels it. Right-click
+    // does the same on a computer, and is what Android sends for a long press.
+    var HOLD_MS = 500, holdTimer = null, holdStart = null, held = false;
+    function holdTarget(e) {
+        var card = e.target.closest('.person');
+        if (!card || e.target.closest('.p-body button, .p-body a, .p-body input, .given-box summary')) return null;
+        return card;
+    }
+    function cancelHold() {
+        clearTimeout(holdTimer); holdTimer = null;
+        var h = document.querySelector('.person.holding'); if (h) h.classList.remove('holding');
+    }
+    function editFromCard(card) {
+        cancelHold();
+        held = true;
+        if (navigator.vibrate) try { navigator.vibrate(15); } catch (err) {}
+        openPerson(personById(+card.id.replace('person-', '')));
+    }
+    $('list').addEventListener('pointerdown', function (e) {
+        held = false;   // a new press: whatever ended the last hold is over
+        if (e.button !== 0) return;
+        var card = holdTarget(e); if (!card) return;
+        holdStart = { x: e.clientX, y: e.clientY };
+        card.classList.add('holding');
+        holdTimer = setTimeout(function () { editFromCard(card); }, HOLD_MS);
+    });
+    $('list').addEventListener('pointermove', function (e) {
+        if (holdTimer && holdStart && Math.abs(e.clientX - holdStart.x) + Math.abs(e.clientY - holdStart.y) > 10) cancelHold();
+    });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (t) { $('list').addEventListener(t, cancelHold); });
+    window.addEventListener('scroll', cancelHold, { passive: true });
+    $('list').addEventListener('contextmenu', function (e) {
+        var card = holdTarget(e); if (!card) return;
+        e.preventDefault();
+        if (!held) editFromCard(card);
     });
 
     function cycle(btn, id) {
@@ -765,7 +792,7 @@
     $('list').addEventListener('submit', function (e) {
         var f = e.target.closest('.quick'); if (!f) return;
         e.preventDefault();
-        var input = f.querySelector('input'), btn = f.querySelector('button');
+        var input = f.querySelector('input');
         var text = input.value.trim();
         if (!text) { input.focus(); return; }
         var link = '', m = text.match(/https?:\/\/\S+/i);
@@ -775,7 +802,7 @@
             if (!text) { try { text = 'Something from ' + new URL(link).hostname.replace(/^www\./, ''); } catch (err) { text = 'Saved link'; } }
         }
         var pid = +f.dataset.pid;
-        btn.disabled = input.disabled = true;
+        input.disabled = true;
         api('gf_idea_save', { person_id: pid, title: text, link: link, status: 'idea' }).then(function (res) {
             ideas.push(res.idea);
             save();
@@ -783,7 +810,7 @@
             var again = document.querySelector('.quick[data-pid="' + pid + '"] input');
             if (again) again.focus();
         }).catch(function (err) {
-            btn.disabled = input.disabled = false;
+            input.disabled = false;
             toast(err.message, true);
         });
     });

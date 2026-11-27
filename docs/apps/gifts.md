@@ -62,10 +62,13 @@ From 1000px it follows the WildcatsXC meets view: stats and controls sit in a
 280px column on the left that stays in view while scrolling, and the cards fill
 the right. People are always in name order.
 
-- **A card** is a drop-down. Closed, it shows only the person's name, whether
-  they still need a gift, and how many open ideas they have (💡 and a count); tap the header to
-  open it to one line per idea and an add box at the bottom. The pencil renames
-  or removes the person. Cards start closed, and which are open is remembered
+- **A card** is a drop-down with no arrow or buttons on it. Closed, it shows
+  only the person's name, whether they still need a gift, and how many open
+  ideas they have (💡 and a count); tap the name to open it to one line per
+  idea and an add box at the bottom. **Hold** the card (500 ms, or right-click
+  on a computer) to rename or remove the person; a hold on the card's own
+  controls (status pills, idea names, links, the add box) does not count, and
+  moving the finger, as in a scroll, cancels it. Cards start closed, and which are open is remembered
   per device in `localStorage` (`gifts_open`). A search opens every matching
   card without changing what is remembered, and adding a person, or moving an
   idea to someone, opens that person's card.
@@ -74,7 +77,7 @@ the right. People are always in name order.
   keep their word, because they are the coloured states and colour is never
   shown alone. Tapping the idea's name opens the edit dialog for its link, price,
   status, notes, or to move it to someone else. ↗ opens the link.
-- **Quick add** takes a line of text. A pasted link becomes the idea's link and
+- **Quick add** takes a line of text and adds it on Enter; there is no button. A pasted link becomes the idea's link and
   the rest of the line its name; a bare link is named after its site until
   edited.
 - **Needs a gift / Got one** filters on whether a person has an idea marked
