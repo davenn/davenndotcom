@@ -326,7 +326,7 @@
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
     #dlg-idea { padding: 14px 14px 12px; }
-    .di-head { display: flex; align-items: flex-start; gap: 6px; }
+    .di-head { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 10px; }
     #di-title {
         flex: 1; min-width: 0; font-family: var(--font-disp); font-size: 1.2rem; font-weight: 700; line-height: 1.25;
         color: var(--text-primary); background: none; border: none; border-bottom: 1px solid transparent; border-radius: 0; padding: 2px 0;
@@ -338,15 +338,6 @@
     }
     .di-trash svg { width: 17px; height: 17px; }
     .di-trash:hover { color: var(--bad); border-color: var(--border); }
-    .di-for { display: flex; align-items: center; gap: 6px; margin: 4px 0 12px; }
-    .di-for label { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
-    .di-chip { position: relative; display: inline-flex; }
-    .di-chip::after { content: '\25BE'; position: absolute; right: 9px; top: 50%; transform: translateY(-50%); font-size: 10px; color: var(--text-muted); pointer-events: none; }
-    .di-chip select {
-        -webkit-appearance: none; appearance: none; height: auto; cursor: pointer;
-        font-family: var(--font-mono); font-size: 12px; color: var(--text-primary);
-        background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 3px 24px 3px 10px;
-    }
     .di-row { display: grid; grid-template-columns: minmax(0, 1fr) 84px; gap: 6px; margin-bottom: 6px; }
     .di-row input, .di-note {
         width: 100%; font: inherit; font-size: 14.5px; color: var(--text-primary); background: var(--surface-2);
@@ -372,7 +363,7 @@
         .nav-user { display: none; }
         /* 16px keeps iOS from zooming the page when a box is tapped. */
         .search, .quick input, .field input, .field textarea, .field select,
-        .di-row input, .di-note, .di-chip select { font-size: 16px; }
+        .di-row input, .di-note { font-size: 16px; }
     }
 </style>
 </head>
@@ -458,8 +449,8 @@
 </dialog>
 
 <!-- Edit idea: the name is the top line, the rest go by placeholder. Status is
-     left to the slide and the pill on the card; "for" is a small chip because
-     moving an idea to someone else is rare. Tap outside or swipe down to close. -->
+     left to the slide and the pill on the card, and an idea stays with the
+     person it was added under. Tap outside or swipe down to close. -->
 <dialog id="dlg-idea">
     <form id="form-idea" method="dialog">
         <div class="di-head">
@@ -470,10 +461,6 @@
                     <path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M6 7l1 13h10l1-13"/><path d="M9 7V4h6v3"/>
                 </svg>
             </button>
-        </div>
-        <div class="di-for">
-            <label for="di-person">for</label>
-            <span class="di-chip"><select id="di-person"></select></span>
         </div>
         <div class="di-row">
             <label class="sr-only" for="di-link">Link</label>
@@ -1053,9 +1040,6 @@
         $('di-link').value = i.link;
         $('di-price').value = i.price != null ? i.price : '';
         $('di-note').value = i.note;
-        $('di-person').innerHTML = people.slice().sort(function (a, b) { return a.name.localeCompare(b.name); })
-            .map(function (p) { return '<option value="' + p.id + '">' + esc(p.name) + '</option>'; }).join('');
-        $('di-person').value = i.person_id;
         $('di-err').textContent = '';
         $('dlg-idea').showModal();
         growNote();
@@ -1075,7 +1059,7 @@
         $('di-save').disabled = true;
         api('gf_idea_save', {
             id: i.id,
-            person_id: +$('di-person').value,
+            person_id: i.person_id,
             title: $('di-title').value.trim(),
             link: withScheme($('di-link').value.trim()),
             price: $('di-price').value.trim(),

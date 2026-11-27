@@ -76,10 +76,11 @@ the right. People are always in name order.
   idea. An open idea shows only a 💡, to keep cards narrow; bought and given
   keep their word, because they are the coloured states and colour is never
   shown alone. Tapping the idea's name opens the edit window: the
-  name as its top line, a small "for <person>" chip to move it to someone
-  else, link and price on one line, and notes that start as one line and grow.
-  Status is not in it; the slide and the pill set that, and a save keeps
-  whatever status the idea has. The 🗑 deletes after a confirm, Save saves, and
+  name as its top line, link and price on one line, and notes that start as
+  one line and grow. Status and person are not in it: the slide and the pill
+  set the status, an idea stays with the person it was added under (to move
+  one, add it again under the other person and delete this one), and a save
+  keeps both as they are. The 🗑 deletes after a confirm, Save saves, and
   a tap outside or a swipe down closes without saving (every dialog on the page
   closes that way). ↗ opens the link.
 - **Slide** an idea to the right to mark it bought, or a bought one to the
