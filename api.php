@@ -425,6 +425,15 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS gf_ideas (
     FOREIGN KEY (person_id) REFERENCES gf_people(id) ON DELETE CASCADE
 )");
 
+// One row per gf_scan (photo of a list read by Claude), for gfScanLimit().
+// Rows older than a day are pruned on the next scan.
+$pdo->exec("CREATE TABLE IF NOT EXISTS gf_scan_log (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    user_id    INT      NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_user_time (user_id, created_at)
+)");
+
 // Analytics: one row per page view, sent by the beacon at the bottom of every
 // page. No IP and no cookie — vid is a hash of IP + user agent + a salt that is
 // replaced every UTC day, so it counts unique visitors within a day and cannot
@@ -5160,6 +5169,56 @@ function mlRow(array $r): array {
 }
 
 /**
+ * The poster for a film, from TMDB's search API: the bare file name the page
+ * expands (e.g. "abc123.jpg"), "" when TMDB has no poster for it, or null when
+ * the lookup could not run (no TMDB_API_KEY, or TMDB did not answer), so a
+ * later lookup can try again. The year narrows the search and is dropped if
+ * nothing matches with it; among the results an exact title match wins. The
+ * key may be a v3 API key or a v4 read access token.
+ */
+function mlTmdbPoster(string $title, int $year): ?string {
+    $key = trim((string)($_ENV['TMDB_API_KEY'] ?? ''));
+    if ($key === '' || $title === '') return null;
+    $bearer = strlen($key) > 40;
+
+    $search = function (bool $with_year) use ($key, $bearer, $title, $year): ?array {
+        $q = ['query' => $title, 'include_adult' => 'false', 'language' => 'en-US', 'page' => 1];
+        if ($with_year && $year > 1880) $q['primary_release_year'] = $year;
+        if (!$bearer) $q['api_key'] = $key;
+        $ch = curl_init('https://api.themoviedb.org/3/search/movie?' . http_build_query($q));
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER     => array_merge(['accept: application/json'], $bearer ? ['Authorization: Bearer ' . $key] : []),
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT        => 8,
+        ]);
+        $res  = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if (!$res || $code !== 200) return null;
+        $d = json_decode($res, true);
+        return is_array($d['results'] ?? null) ? $d['results'] : null;
+    };
+
+    $results = $search(true);
+    if ($results === null) return null;
+    if (!$results && $year > 1880) {
+        $results = $search(false);
+        if ($results === null) return null;
+    }
+    $want = mb_strtolower($title);
+    $pick = null;
+    foreach ($results as $r) {
+        if (empty($r['poster_path'])) continue;
+        $names = [mb_strtolower((string)($r['title'] ?? '')), mb_strtolower((string)($r['original_title'] ?? ''))];
+        if (in_array($want, $names, true)) { $pick = $r; break; }
+        if ($pick === null) $pick = $r;
+    }
+    $file = $pick ? ltrim((string)$pick['poster_path'], '/') : '';
+    return preg_match('/^[A-Za-z0-9]{10,60}\.(jpg|png)$/', $file) ? $file : '';
+}
+
+/**
  * Ask Claude to draft a list entry from a movie title.
  * Returns ['draft' => array] or ['error' => string].
  *
@@ -5338,7 +5397,9 @@ if ($method === 'POST' && $action === 'ml_draft') {
 // Saves a movie and returns it in the ml_movies shape. rt takes a full Rotten
 // Tomatoes link or a bare slug and keeps only the slug. poster is an https
 // image link, or a bare TMDB file name that the page expands. critics,
-// audience, rt and poster may all be left empty.
+// audience, rt and poster may all be left empty; an empty poster is looked up
+// on TMDB by title and year (mlTmdbPoster), and stored as "" when TMDB has
+// none, or left NULL for ml_poster to retry when the lookup could not run.
 if ($method === 'POST' && $action === 'ml_add') {
     $b = json_decode(file_get_contents('php://input'), true) ?: [];
 
@@ -5360,12 +5421,14 @@ if ($method === 'POST' && $action === 'ml_add') {
     if ($poster !== '' && !preg_match('#^https://[^\s"\'<>]{1,290}$#', $poster) && !preg_match('/^[A-Za-z0-9]{10,60}\.(jpg|png)$/', $poster)) {
         http_response_code(400); echo json_encode(['error' => 'The poster has to be an https image link, or left empty.']); exit;
     }
+    $year = max(0, min(2100, (int)($b['year'] ?? 0)));
+    $found = $poster === '' ? mlTmdbPoster($title, $year) : $poster;
 
     $pdo->prepare("INSERT INTO ml_movies (title, year, emoji, tissues, vibe, tags, critics, audience, rt, poster)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
         ->execute([
             $title,
-            max(0, min(2100, (int)($b['year'] ?? 0))),
+            $year,
             mb_substr(trim((string)($b['emoji'] ?? '')), 0, 8),
             max(1, min(5, (int)($b['tissues'] ?? 3))),
             mb_substr(trim((string)($b['vibe'] ?? '')), 0, 400),
@@ -5373,11 +5436,35 @@ if ($method === 'POST' && $action === 'ml_add') {
             $pct($b['critics'] ?? null),
             $pct($b['audience'] ?? null),
             $rt !== '' ? $rt : null,
-            $poster !== '' ? $poster : null,
+            $found,
         ]);
     $st = $pdo->prepare("SELECT * FROM ml_movies WHERE id = ?");
     $st->execute([(int)$pdo->lastInsertId()]);
     echo json_encode(['success' => true, 'movie' => mlRow($st->fetch())]);
+    exit;
+}
+
+// POST ?action=ml_poster  {id}
+// Looks up the TMDB poster for an added movie that has never had one looked
+// up (poster NULL), stores it, and returns the movie. The page calls it for
+// such movies after loading the list, which fills in movies added before
+// lookups existed, or while TMDB was unreachable. A movie whose poster is
+// already set, or already known to have none (""), is returned unchanged, so
+// each movie costs at most one successful lookup however often this is called.
+if ($method === 'POST' && $action === 'ml_poster') {
+    $b  = json_decode(file_get_contents('php://input'), true) ?: [];
+    $st = $pdo->prepare("SELECT * FROM ml_movies WHERE id = ?");
+    $st->execute([(int)($b['id'] ?? 0)]);
+    $row = $st->fetch();
+    if (!$row) { http_response_code(404); echo json_encode(['error' => 'Unknown movie.']); exit; }
+    if ($row['poster'] === null) {
+        $found = mlTmdbPoster((string)$row['title'], (int)$row['year']);
+        if ($found !== null) {
+            $pdo->prepare("UPDATE ml_movies SET poster = ? WHERE id = ? AND poster IS NULL")->execute([$found, $row['id']]);
+            $row['poster'] = $found;
+        }
+    }
+    echo json_encode(['success' => true, 'movie' => mlRow($row)]);
     exit;
 }
 
@@ -5596,6 +5683,162 @@ if ($method === 'POST' && $action === 'gf_idea_delete') {
     $st->execute([(int)($b['id'] ?? 0), $me['id']]);
     if (!$st->rowCount()) { http_response_code(404); echo json_encode(['error' => 'That idea is not on your list.']); exit; }
     echo json_encode(['success' => true]);
+    exit;
+}
+
+/**
+ * Cap on list photos: 20 per account per hour. Anyone can make a Toolshare
+ * account and each scan is a paid Claude call, so this is what bounds the bill.
+ */
+function gfScanLimit(PDO $pdo, int $uid): void {
+    $pdo->exec("DELETE FROM gf_scan_log WHERE created_at < NOW() - INTERVAL 1 DAY");
+    $st = $pdo->prepare("SELECT COUNT(*) FROM gf_scan_log WHERE user_id = ? AND created_at > NOW() - INTERVAL 1 HOUR");
+    $st->execute([$uid]);
+    if ((int)$st->fetchColumn() >= 20) {
+        http_response_code(429); echo json_encode(['error' => 'That is a lot of photos for one hour. Try again later.']); exit;
+    }
+    $pdo->prepare("INSERT INTO gf_scan_log (user_id) VALUES (?)")->execute([$uid]);
+}
+
+/**
+ * Ask Claude to read a photo or screenshot of a list of gift ideas. Returns
+ * ['result' => decoded object] or ['error' => message]. Same shape of call as
+ * cpReadSheet (one image, structured output), with server-side fallbacks so a
+ * declined read is retried instead of failing.
+ */
+function gfReadList(string $bytes, string $media_type, string $api_key): array {
+    $prompt = 'This is a photo or screenshot of a list of gift ideas. It might be handwritten, printed, a note on a phone, a wish list, a shopping cart or a store page.
+
+List every separate thing someone could buy as a gift, in the order they appear. For each one:
+- title: a short name for it as written, keeping useful detail such as brand, size or colour. Fix obvious misspellings, but do not invent detail that is not there.
+- price: the price shown beside it as a plain number such as "24.99", or "" if none is shown.
+- link: a web address only if one is written out in full beside it, starting with http:// or https://, or "".
+
+Leave out headings, crossed-out items, totals, shipping lines, and anything that is not a thing to buy. Do not merge separate items or split one item into several. If a word is unreadable, give your best reading and mention it in note. Set readable to false only if the image has no list of things to buy at all.';
+
+    $schema = [
+        'type'       => 'object',
+        'properties' => [
+            'readable' => ['type' => 'boolean'],
+            'note'     => ['type' => 'string', 'description' => 'Anything unclear, or "" if the read was clean.'],
+            'items'    => [
+                'type'  => 'array',
+                'items' => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'title' => ['type' => 'string'],
+                        'price' => ['type' => 'string'],
+                        'link'  => ['type' => 'string'],
+                    ],
+                    'required'             => ['title', 'price', 'link'],
+                    'additionalProperties' => false,
+                ],
+            ],
+        ],
+        'required'             => ['readable', 'note', 'items'],
+        'additionalProperties' => false,
+    ];
+
+    $payload = json_encode([
+        'model'         => 'claude-opus-5-5',
+        'max_tokens'    => 16000,
+        // A declined request is retried server-side on the model Anthropic
+        // recommends for that refusal category, instead of failing outright.
+        'fallbacks'     => 'default',
+        'output_config' => [
+            'effort' => 'medium',
+            'format' => ['type' => 'json_schema', 'schema' => $schema],
+        ],
+        'messages'      => [[
+            'role'    => 'user',
+            'content' => [
+                ['type' => 'image', 'source' => ['type' => 'base64', 'media_type' => $media_type, 'data' => base64_encode($bytes)]],
+                ['type' => 'text',  'text'   => $prompt],
+            ],
+        ]],
+    ]);
+
+    $ch = curl_init('https://api.anthropic.com/v1/messages');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => $payload,
+        CURLOPT_HTTPHEADER     => [
+            'x-api-key: ' . $api_key,
+            'anthropic-version: 2023-06-01',
+            'anthropic-beta: server-side-fallback-2026-07-01',
+            'content-type: application/json',
+        ],
+        CURLOPT_CONNECTTIMEOUT => 15,
+        CURLOPT_TIMEOUT        => 150,
+    ]);
+    $response  = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    $data = json_decode((string)$response, true);
+    if (!$response || $http_code !== 200) {
+        return ['error' => 'Could not read that photo' . (isset($data['error']['message']) ? ': ' . $data['error']['message'] : '.')];
+    }
+    anLogAi((string)($data['model'] ?? 'claude-opus-5-5'), (array)($data['usage'] ?? []));
+    if (($data['stop_reason'] ?? '') === 'refusal') return ['error' => 'Claude declined to read that photo. Type the list instead.'];
+
+    // The last text block is the answer; if a fallback took over, the
+    // declined model's text comes before it.
+    $text = '';
+    foreach ($data['content'] ?? [] as $blk) {
+        if (($blk['type'] ?? '') === 'text') $text = trim($blk['text']);
+    }
+    $result = json_decode($text, true);
+    return is_array($result) ? ['result' => $result] : ['error' => 'Could not read that photo.'];
+}
+
+// POST ?action=gf_scan  (multipart: photo)  header: X-Auth-Token
+// Reads a photo or screenshot of a gift list into items {title, price, link}.
+// Saves nothing: the page puts the items in the Add a list box as lines for
+// the person to check and edit, and only Add saves them, through
+// gf_idea_save. The photo is never written to disk, and is shrunk with
+// cpPrepareImage first. Rate-limited per account (gfScanLimit).
+if ($method === 'POST' && $action === 'gf_scan') {
+    $me = requireAuth($pdo);
+    $api_key = $_ENV['ANTHROPIC_API_KEY'] ?? '';
+    if (!$api_key) { http_response_code(500); echo json_encode(['error' => 'Photo reading is not configured on the server.']); exit; }
+
+    if (empty($_FILES['photo']['tmp_name'])) {
+        http_response_code(400); echo json_encode(['error' => 'No image provided.']); exit;
+    }
+    $ext      = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
+    $mime_map = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp', 'gif' => 'image/gif'];
+    if (!isset($mime_map[$ext])) { http_response_code(400); echo json_encode(['error' => 'Use a JPG, PNG, WebP or GIF image.']); exit; }
+    if ($_FILES['photo']['size'] > 10 * 1024 * 1024) { http_response_code(400); echo json_encode(['error' => 'The image must be under 10 MB.']); exit; }
+    gfScanLimit($pdo, (int)$me['id']);
+
+    @set_time_limit(180);
+    [$bytes, $media_type] = cpPrepareImage(file_get_contents($_FILES['photo']['tmp_name']), $mime_map[$ext]);
+    $r = gfReadList($bytes, $media_type, $api_key);
+    if (isset($r['error'])) { http_response_code(502); echo json_encode(['error' => $r['error']]); exit; }
+    $res = $r['result'];
+
+    $items = [];
+    foreach ((array)($res['items'] ?? []) as $it) {
+        if (!is_array($it)) continue;
+        $title = mb_substr(trim((string)($it['title'] ?? '')), 0, 200);
+        if ($title === '') continue;
+        $price = trim(str_replace(['$', ','], '', (string)($it['price'] ?? '')));
+        $link  = trim((string)($it['link'] ?? ''));
+        $items[] = [
+            'title' => $title,
+            'price' => is_numeric($price) && (float)$price >= 0 && (float)$price < 10000000 ? $price : '',
+            'link'  => preg_match('#^https?://[^\s"<>]{1,590}$#i', $link) ? $link : '',
+        ];
+        if (count($items) >= 100) break;
+    }
+    echo json_encode([
+        'success'  => true,
+        'readable' => !empty($res['readable']) && count($items) > 0,
+        'note'     => trim((string)($res['note'] ?? '')),
+        'items'    => $items,
+    ]);
     exit;
 }
 

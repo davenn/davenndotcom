@@ -637,13 +637,40 @@
             keepAdded();
             keepWatched();
             render();
+            backfillPosters();
         }).catch(function () {});
+    }
+
+    // Added movies whose poster has never been looked up (null) get one from
+    // TMDB through ml_poster, a few per visit, one at a time. A lookup that
+    // could not run (no TMDB key on the server, or TMDB down) comes back still
+    // null, and that ends this visit's round rather than asking again for each.
+    var backfilling = false;
+    function backfillPosters() {
+        if (backfilling) return;
+        var todo = added.filter(function (m) { return m.poster === null || m.poster === undefined; }).slice(0, 10);
+        if (!todo.length) return;
+        backfilling = true;
+        var changed = false, STOP = {};
+        todo.reduce(function (chain, m) {
+            return chain.then(function () {
+                return call('ml_poster', { id: m.rowId }).then(function (d) {
+                    if (d.movie.poster === null) throw STOP;
+                    m.poster = d.movie.poster;
+                    if (m.poster) changed = true;
+                });
+            });
+        }, Promise.resolve()).catch(function () {}).then(function () {
+            backfilling = false;
+            keepAdded();
+            if (changed) render();
+        });
     }
 
     // ── Adding a movie ──
     // One line above the list: just a title. Submit has Claude draft the rest
     // (ml_draft) and saves the draft as is (ml_add), so an added movie has no
-    // scores or poster.
+    // scores. Its poster is looked up on TMDB by ml_add, never drafted.
     var form = document.getElementById('add-form');
     function $(id) { return document.getElementById(id); }
     function say(text, bad) { var el = $('add-msg'); el.textContent = text || ''; el.classList.toggle('bad', !!bad); }

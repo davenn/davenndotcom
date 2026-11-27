@@ -66,7 +66,7 @@ Browser ──► /appname.html  (self-contained: HTML + CSS + JS)
 | Sign Spotter | `signspotter.html` | — | local only |
 | Cribbage | `cribbage.html` | — | local only |
 | Cali's Movie List | `movielist.html` | `ml_movies` `ml_watched` `ml_draft_log` | — (anyone can add, remove or check off; drafts rate-limited per IP) |
-| Gifts (unlisted) | `gifts.html` | `gf_people` `gf_ideas` | `X-Auth-Token` (Toolshare accounts); every row scoped to its owner |
+| Gifts (unlisted) | `gifts.html` | `gf_people` `gf_ideas` `gf_scan_log` | `X-Auth-Token` (Toolshare accounts); every row scoped to its owner |
 | Legal | `privacy.html`, `terms.html` | — | static |
 | Finance | `finance.html` | `fn_vault` | `X-Admin-Secret` (the Stats secret; the vault is also encrypted in the browser with a key derived from it) |
 | Stats | `stats.html`, plus the beacon on every page | `an_hits` `an_daily` `an_salt` `an_api` `an_ai` `an_fixed_costs` `an_cache` | `X-Admin-Secret` to read; beacon open |
@@ -261,7 +261,8 @@ must be made on the host** — pushing will not update it.
 `DB_HOST` `DB_NAME` `DB_USER` `DB_PASS` · `UPLOAD_DIR` `UPLOAD_URL` ·
 `MAIL_FROM` `MAIL_FROM_NAME` `MAIL_REPLY_TO` `APP_URL` ·
 `TWILIO_ACCOUNT_SID` `TWILIO_AUTH_TOKEN` `TWILIO_FROM_NUMBER` ·
-`ADMIN_SECRET` `BG_READ_TOKEN` `BG_TIMEZONE` · `TEST_PHONE` · `XC_PIN` · `GEOIP_DB`
+`ADMIN_SECRET` `BG_READ_TOKEN` `BG_TIMEZONE` · `TEST_PHONE` · `XC_PIN` · `GEOIP_DB` ·
+`TMDB_API_KEY`
 
 `TEST_PHONE` is the one number `?action=resetTestPhone` may delete from
 `subscribers`, in stored form (`+1` and ten digits). The repo is public, so it
@@ -269,6 +270,11 @@ lives only in the server `.env`. Unset, the endpoint does nothing.
 
 `XC_PIN` is the WildcatsXC team PIN, for the same reason only in the server
 `.env`. Unset, every WildcatsXC endpoint answers 503 — locked, not open.
+
+`TMDB_API_KEY` is optional: a free TMDB API key (v3 key or v4 read access
+token, either works) used to look up posters for movies added to Cali's Movie
+List. Unset, added movies show their emoji, as before, and are filled in by
+`ml_poster` once it is set. Server `.env` only.
 
 `GEOIP_DB` is optional: the path to MaxMind's `GeoLite2-City.mmdb`. Unset, it
 defaults to one level above the web root. The file is licensed, never
@@ -283,10 +289,18 @@ against a local env file.
 
 - **Anthropic API** — Toolshare's `tb_identify_tool` (photo → tool details),
   Confidence Pool's `cp_scan` (photo of a filled pick sheet → picks) and
-  WildcatsXC's `xc_scan` (results PDF → runners and times), and Cali's Movie
-  List's `ml_draft` (title → year, emoji, tissue rating, vibe, tags). Uses
-  `claude-opus-5`, `claude-opus-5-5` (WildcatsXC streamed, and Movie List, both
-  with server-side refusal fallbacks) and `claude-haiku-4-5-20251001`.
+  WildcatsXC's `xc_scan` (results PDF → runners and times), Cali's Movie
+  List's `ml_draft` (title → year, emoji, tissue rating, vibe, tags), and
+  Gifts' `gf_scan` (photo or screenshot of a list → items to check, built on
+  `cp_scan`'s pattern and its `cpPrepareImage`; capped at 20 per account per
+  hour by `gfScanLimit()` in `gf_scan_log`). Uses `claude-opus-5`,
+  `claude-opus-5-5` (WildcatsXC streamed, Movie List and Gifts, all with
+  server-side refusal fallbacks) and `claude-haiku-4-5-20251001`.
+- **TMDB** (`api.themoviedb.org`) — Cali's Movie List looks up the poster of
+  each added movie by title and year (`mlTmdbPoster()`, from `ml_add`, and
+  `ml_poster` for movies added before a key was set). Images are hotlinked
+  from `image.tmdb.org`, as the built-ins' are, and the page footer credits
+  TMDB as its terms require.
 - **Twilio** — outbound SMS for subscriber notifications; inbound webhook at
   `?action=cp_sms` for Confidence Pool pick submission by text.
 - **ESPN** (`site.api.espn.com`, `cdn.espn.com`) — unofficial, unauthenticated

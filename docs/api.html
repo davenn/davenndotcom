@@ -179,7 +179,7 @@
     <h1>API Reference</h1>
     <p class="lede">Every app on davenn.com is served by a single <code class="inline">api.php</code>. Endpoints are selected by an <code class="inline">action</code> query parameter and always return JSON.</p>
     <div class="base">https://davenn.com/api.php?action=&lt;action&gt;</div>
-    <p class="counts">95 endpoints · 45 tables</p>
+    <p class="counts">97 endpoints · 46 tables</p>
 
     <div class="filter-row">
         <input type="search" id="filter" placeholder="Filter endpoints…" aria-label="Filter endpoints">
@@ -1551,7 +1551,7 @@
                 <span class="caret">▶</span>
             </button>
             <div class="op-body" hidden>
-                <p class="op-desc">Saves a movie and returns it in the ml_movies shape. rt takes a full Rotten Tomatoes link or a bare slug and keeps only the slug. poster is an https image link, or a bare TMDB file name that the page expands. critics, audience, rt and poster may all be left empty.</p>
+                <p class="op-desc">Saves a movie and returns it in the ml_movies shape. rt takes a full Rotten Tomatoes link or a bare slug and keeps only the slug. poster is an https image link, or a bare TMDB file name that the page expands. critics, audience, rt and poster may all be left empty; an empty poster is looked up on TMDB by title and year (mlTmdbPoster), and stored as &quot;&quot; when TMDB has none, or left NULL for ml_poster to retry when the lookup could not run.</p>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
                 <h4>Takes</h4>
@@ -1599,6 +1599,21 @@
                 <p class="op-desc">Everything the page keeps on the server, in one request: every movie added from the page, oldest first, so the page can append them after its built-in list in the order they were added; and watched, keyed by the page's movie id, as {at: epoch ms, tissues: 0-5}.</p>
                 <h4>Authentication</h4>
                 <p class="op-desc">None</p>
+            </div>
+        </div>
+        <div class="op post" id="post-ml_poster" data-search="ml_poster post movie list looks up the tmdb poster for an added movie that has never had one looked">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=ml_poster</span>
+                <span class="op-sum">Looks up the TMDB poster for an added movie that has never had one looked</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">Looks up the TMDB poster for an added movie that has never had one looked up (poster NULL), stores it, and returns the movie. The page calls it for such movies after loading the list, which fills in movies added before lookups existed, or while TMDB was unreachable. A movie whose poster is already set, or already known to have none (&quot;&quot;), is returned unchanged, so each movie costs at most one successful lookup however often this is called.</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">None</p>
+                <h4>Takes</h4>
+                <p class="op-desc">{id}</p>
             </div>
         </div>
         <div class="op post" id="post-ml_watch" data-search="ml_watch post movie list checks a movie off (watched true) or un-checks it (false, which also drops">
@@ -1691,6 +1706,21 @@
                 <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
                 <h4>Takes</h4>
                 <p class="op-desc">{id?, name, note, birthday}  header: X-Auth-Token</p>
+            </div>
+        </div>
+        <div class="op post" id="post-gf_scan" data-search="gf_scan post gifts reads a photo or screenshot of a gift list into items {title, price, link}.">
+            <button class="op-head" type="button" aria-expanded="false">
+                <span class="method">POST</span>
+                <span class="op-path">?action=gf_scan</span>
+                <span class="op-sum">Reads a photo or screenshot of a gift list into items {title, price, link}.</span>
+                <span class="caret">▶</span>
+            </button>
+            <div class="op-body" hidden>
+                <p class="op-desc">Reads a photo or screenshot of a gift list into items {title, price, link}. Saves nothing: the page puts the items in the Add a list box as lines for the person to check and edit, and only Add saves them, through gf_idea_save. The photo is never written to disk, and is shrunk with cpPrepareImage first. Rate-limited per account (gfScanLimit).</p>
+                <h4>Authentication</h4>
+                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <h4>Takes</h4>
+                <p class="op-desc">(multipart: photo)  header: X-Auth-Token</p>
             </div>
         </div>
     </section>
@@ -2098,6 +2128,11 @@ created_at DATETIME      DEFAULT CURRENT_TIMESTAMP
 KEY idx_user (user_id)
 FOREIGN KEY (user_id)   REFERENCES tb_users(id)  ON DELETE CASCADE
 FOREIGN KEY (person_id) REFERENCES gf_people(id) ON DELETE CASCADE</code></pre>
+        <h3>gf_scan_log</h3>
+        <pre><code>id         INT AUTO_INCREMENT PRIMARY KEY
+user_id    INT      NOT NULL
+created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+KEY idx_user_time (user_id, created_at)</code></pre>
         <p class="group">Update Notifications</p>
         <h3>subscribers</h3>
         <pre><code>id            INT AUTO_INCREMENT PRIMARY KEY

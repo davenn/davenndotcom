@@ -115,6 +115,16 @@ the right. People are always in name order.
   then saves each line through `gf_idea_save` in order, so if one fails the
   lines not yet saved stay in the box to try again, now aimed at the person
   already created.
+- **A photo or screenshot of a list** can go in the same box: **Or pick a
+  photo or file** takes an image as well as a text file (on a phone that
+  includes taking a photo). The page shrinks it to a 1568px JPEG, which also
+  turns an iPhone HEIC into something the server takes, and sends it to
+  `gf_scan`. That reads it with Claude the way Confidence Pool's `cp_scan`
+  reads a pick sheet: one image, a JSON-schema answer, the photo never written
+  to disk, token use logged with `anLogAi()`. It saves nothing. The items come
+  back as lines in the box (`Fuzzy socks $12`, `Candle https://…`), followed
+  by a short note to check them, and only **Add** saves them. A photo with no
+  list says so. Each account can scan 20 photos an hour (`gf_scan_log`).
 - **No gift / Got one** filters on whether a person has an idea marked
   bought (and not yet given). Given gifts fold into "Given before" under each
   person, newest first.

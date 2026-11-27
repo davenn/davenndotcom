@@ -38,11 +38,12 @@ review step: the form is deliberately one line. When Claude does not recognize
 the title, `found` is false, the note is shown under the line, and nothing is
 added.
 
-So added movies have no Rotten Tomatoes scores and no poster. Neither is
-drafted, on purpose: a remembered score is often a few points off, and a
-remembered image URL is usually invented. `ml_add` still accepts `critics`,
-`audience`, `rt` and `poster`; the page just does not send them. A card with
-no scores leaves the scores row out, and one with no poster shows its emoji.
+So added movies have no Rotten Tomatoes scores. Neither scores nor the poster
+is drafted, on purpose: a remembered score is often a few points off, and a
+remembered image URL is usually invented. The poster is looked up instead (see
+Poster art). `ml_add` still accepts `critics`, `audience`, `rt` and `poster`;
+the page just does not send them. A card with no scores leaves the scores row
+out, and one with no poster shows its emoji.
 
 Added movies (not the built-ins) carry `Remove from list`, which asks to
 confirm and calls `ml_delete`.
@@ -64,6 +65,18 @@ otherwise, through `srcset`). The path comes from the film's page on
 themoviedb.org (its `og:image`); match the title and year there, since TMDB ids
 are easy to get wrong. Added movies may instead carry any https image link,
 used as is.
+
+Added movies get theirs from TMDB's search API, server-side, in
+`mlTmdbPoster()`: search by title with the year Claude drafted, then without
+the year if that finds nothing, and take an exact title match if there is one,
+else the first result with a poster. `ml_add` does this when it is sent no
+poster. The column then holds the TMDB file name, `""` when TMDB has no poster
+for it (the emoji shows), or `NULL` when the lookup could not run, because
+`TMDB_API_KEY` is not set on the server or TMDB did not answer. After loading
+the list, the page calls `ml_poster` for movies still at `NULL`, up to ten a
+visit and one at a time, stopping at the first lookup that still cannot run.
+So movies added before the key was set fill in on the next visit after it is,
+and each movie costs at most one successful lookup.
 
 The emoji sits under the image. If the image fails, which is normal offline
 because the service worker does not cache cross-origin images, `onerror`

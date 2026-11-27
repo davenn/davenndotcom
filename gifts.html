@@ -410,8 +410,11 @@
     .dl-items { display: block; resize: none; min-height: 150px; max-height: 45dvh; line-height: 1.45; touch-action: pan-y; }
     .dl-items::placeholder, .dl-for input::placeholder { color: var(--text-muted); }
     .dl-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0 10px; }
-    .dl-file { font-family: var(--font-mono); font-size: 11.5px; color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+    .dl-file { white-space: nowrap; font-family: var(--font-mono); font-size: 11.5px; color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
     .dl-count { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); text-align: right; }
+    .dl-note { font-family: var(--font-mono); font-size: 11px; line-height: 1.5; color: var(--text-secondary); margin-bottom: 10px; }
+    .dl-note:empty { display: none; }
+    .dl-items.busy { opacity: 0.55; }
     #dlg-list .dlg-actions { margin-top: 0; }
     /* ── TOAST ── */
     .toast {
@@ -520,12 +523,13 @@
             <input id="dl-name" maxlength="80" autocomplete="off" placeholder="New person's name" hidden>
         </div>
         <label class="sr-only" for="dl-items">Ideas, one per line</label>
-        <textarea id="dl-items" class="dl-items" maxlength="40000" placeholder="One idea per line.&#10;Links and $prices on a line are picked up."></textarea>
+        <textarea id="dl-items" class="dl-items" maxlength="40000" placeholder="One idea per line.&#10;Links and $prices on a line are picked up.&#10;Or pick a photo of a list below."></textarea>
         <div class="dl-meta">
-            <label class="dl-file" for="dl-file">Or pick a text file</label>
-            <input class="sr-only" id="dl-file" type="file" accept=".txt,.csv,.md,text/plain">
+            <label class="dl-file" for="dl-file">Or pick a photo or file</label>
+            <input class="sr-only" id="dl-file" type="file" accept="image/*,.txt,.csv,.md,text/plain">
             <span class="dl-count" id="dl-count" aria-live="polite"></span>
         </div>
+        <p class="dl-note" id="dl-note"></p>
         <p class="dlg-err" id="dl-err" role="alert"></p>
         <div class="dlg-actions">
             <button class="btn-primary" id="dl-save" type="submit" disabled>Add</button>
@@ -1073,35 +1077,96 @@
         $('dl-items').value = '';
         $('dl-file').value = '';
         $('dl-err').textContent = '';
+        $('dl-note').textContent = '';
         listChanged();
         $('dlg-list').showModal();
         $('dl-items').focus();
     }
     function listPid() { var v = $('dl-person').value; return v === 'new' ? 0 : +v; }
+    var scanning = false;
     function listChanged() {
         var isNew = $('dl-person').value === 'new';
         $('dl-name').hidden = !isNew;
         var r = parseList($('dl-items').value, listPid());
         var n = r.items.length;
-        $('dl-count').textContent = (n ? n + ' idea' + (n === 1 ? '' : 's') : '') +
+        $('dl-count').textContent = scanning ? 'Reading the photo…' : (n ? n + ' idea' + (n === 1 ? '' : 's') : '') +
             (r.skipped ? (n ? ', ' : '') + r.skipped + ' already listed' : '');
         $('dl-save').textContent = n > LIST_MAX ? 'Up to ' + LIST_MAX + ' at a time' : n ? 'Add ' + n : 'Add';
-        $('dl-save').disabled = !n || n > LIST_MAX || (isNew && !$('dl-name').value.trim());
+        $('dl-save').disabled = scanning || !n || n > LIST_MAX || (isNew && !$('dl-name').value.trim());
     }
     $('btn-add-list').addEventListener('click', openList);
     $('dl-person').addEventListener('change', function () { listChanged(); if (this.value === 'new') $('dl-name').focus(); });
     $('dl-name').addEventListener('input', listChanged);
     $('dl-items').addEventListener('input', listChanged);
+    function appendLines(t) {
+        var box = $('dl-items');
+        box.value = (box.value.trim() ? box.value.replace(/\s+$/, '') + '\n' : '') + t;
+        listChanged();
+    }
     $('dl-file').addEventListener('change', function () {
         var f = this.files && this.files[0]; if (!f) return;
+        this.value = '';   // so picking the same file again still fires change
+        $('dl-err').textContent = '';
+        if (/^image\//.test(f.type) || /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(f.name)) { scanList(f); return; }
         if (f.size > 200000) { $('dl-err').textContent = 'That file is too big for a list.'; return; }
-        f.text().then(function (t) {
-            var box = $('dl-items');
-            box.value = (box.value.trim() ? box.value.replace(/\s+$/, '') + '\n' : '') + t;
-            $('dl-err').textContent = '';
-            listChanged();
-        }).catch(function () { $('dl-err').textContent = 'Could not read that file.'; });
+        f.text().then(appendLines).catch(function () { $('dl-err').textContent = 'Could not read that file.'; });
     });
+
+    // A photo or screenshot of a list goes to gf_scan, which has Claude read it
+    // (the same pattern as Confidence Pool's sheet scan). The items come back
+    // as lines in the box, to check and edit before Add saves anything. The
+    // image is shrunk to a 1568px JPEG here first: it uploads faster, and it
+    // turns an iPhone HEIC photo into something the server accepts.
+    function shrinkImage(f) {
+        return new Promise(function (resolve, reject) {
+            var url = URL.createObjectURL(f), img = new Image();
+            img.onload = function () {
+                var w = img.naturalWidth, h = img.naturalHeight, k = Math.min(1, 1568 / Math.max(w, h));
+                var c = document.createElement('canvas');
+                c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+                c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                URL.revokeObjectURL(url);
+                c.toBlob(function (b) { b ? resolve(b) : reject(new Error('Could not open that image.')); }, 'image/jpeg', 0.9);
+            };
+            img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('Could not open that image.')); };
+            img.src = url;
+        });
+    }
+    function scanList(f) {
+        scanning = true;
+        $('dl-items').classList.add('busy');
+        $('dl-note').textContent = '';
+        listChanged();
+        shrinkImage(f).then(function (blob) {
+            var fd = new FormData();
+            fd.append('photo', blob, 'list.jpg');
+            return fetch(API + '?action=gf_scan', { method: 'POST', headers: { 'X-Auth-Token': token || '' }, body: fd })
+                .catch(function () { throw new Error('Could not reach davenn.com. Check your connection.'); });
+        }).then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (j) {
+                if (r.status === 401 && token) { signedOut(); throw new Error('Your sign-in has ended. Sign in again.'); }
+                if (!r.ok || !j.success) throw new Error(j.error || 'Could not read that photo.');
+                return j;
+            });
+        }).then(function (j) {
+            if (!j.readable) {
+                $('dl-err').textContent = 'No list found in that photo.' + (j.note ? ' ' + j.note : '');
+                return;
+            }
+            appendLines(j.items.map(function (it) {
+                return it.title + (it.price ? ' $' + it.price : '') + (it.link ? ' ' + it.link : '');
+            }).join('\n'));
+            var n = j.items.length;
+            $('dl-note').textContent = 'Read ' + n + ' item' + (n === 1 ? '' : 's') + ' from the photo. Check them before adding.' +
+                (j.note ? ' ' + j.note : '');
+        }).catch(function (err) {
+            $('dl-err').textContent = err.message;
+        }).then(function () {
+            scanning = false;
+            $('dl-items').classList.remove('busy');
+            listChanged();
+        });
+    }
 
     $('form-list').addEventListener('submit', function (e) {
         e.preventDefault();
