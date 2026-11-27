@@ -82,7 +82,8 @@ the right. People are always in name order.
   one, add it again under the other person and delete this one), and a save
   keeps both as they are. The 🗑 deletes after a confirm, Save saves, and
   a tap outside or a swipe down closes without saving (every dialog on the page
-  closes that way). ↗ opens the link.
+  closes that way). A link shows as an accent-coloured chip with an open-in-new icon at the
+  end of the row, sized for a thumb; tapping it opens the link in a new tab.
 - **Slide** an idea to the right to mark it bought, or a bought one to the
   left to put it back to an idea. Green with "Bought" (or "Idea") shows behind
   the row as it moves; past the threshold (40% of the row, at most 90px) it
@@ -92,6 +93,16 @@ the right. People are always in name order.
 - **Quick add** takes a line of text and adds it on Enter; there is no button. A pasted link becomes the idea's link and
   the rest of the line its name; a bare link is named after its site until
   edited.
+- **Add a list** (the list-with-plus icon beside **+ Person**) takes many ideas
+  at once: paste lines or pick a text file, and choose someone on the list or
+  **+ New person**. One idea per line; list markers (`- `, `* `, `1. `, `[ ] `)
+  are dropped, a link is picked up as in quick add, and a `$25` on the line
+  becomes the price. Blank lines, repeats, and names the person already has as
+  a current idea are skipped, and the count says how many. Up to 100 lines at
+  a time. There is no bulk endpoint: the page creates the person if needed,
+  then saves each line through `gf_idea_save` in order, so if one fails the
+  lines not yet saved stay in the box to try again, now aimed at the person
+  already created.
 - **Needs a gift / Got one** filters on whether a person has an idea marked
   bought (and not yet given). Given gifts fold into "Given before" under each
   person, newest first.

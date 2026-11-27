@@ -157,6 +157,12 @@
         border: 1px solid var(--border); background: var(--surface); color: var(--text-primary);
     }
     .btn-quiet:hover { border-color: var(--text-muted); }
+    .btn-icon {
+        flex: none; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; padding: 0;
+        border-radius: 8px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text-primary);
+    }
+    .btn-icon svg { width: 18px; height: 18px; }
+    .btn-icon:hover { border-color: var(--text-muted); }
     .btn-danger {
         font-family: var(--font-mono); font-size: 11.5px; padding: 0; cursor: pointer; margin-right: auto;
         background: none; border: none; color: var(--bad); text-decoration: underline; text-underline-offset: 3px;
@@ -228,8 +234,18 @@
     }
     .idea-title:hover { text-decoration: underline; text-decoration-color: var(--text-muted); text-underline-offset: 3px; }
     .idea-price { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); white-space: nowrap; }
-    .idea-link { flex: none; font-size: 12px; line-height: 1.35; color: var(--text-muted); text-decoration: none; padding: 0 2px; }
-    .idea-link:hover { color: var(--accent); }
+    /* The link is a button-sized chip pinned to the end of the row, in the
+       accent colour, so it is easy to see and to hit. The negative margins
+       spend the row's own padding, so a row with a link is no taller. */
+    .idea-link {
+        flex: none; display: flex; align-items: center; justify-content: center;
+        width: 30px; height: 22px; margin: -2px 0 -2px auto;
+        border-radius: 6px; border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent);
+        text-decoration: none;
+    }
+    .idea-link svg { width: 14px; height: 14px; }
+    .idea-link:active { background: var(--accent); color: #fff; }
+    @media (hover: hover) { .idea-link:hover { background: var(--accent); color: #fff; } }
 
     /* The status pill is a button: one tap moves an idea along idea → bought → given. */
     .pill {
@@ -277,7 +293,8 @@
         main { max-width: 1180px; padding: 36px 28px 80px; }
         .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 24px; align-items: start; }
         .side { position: sticky; top: calc(var(--nav-h) + 18px); margin-bottom: 0; }
-        #filter, #btn-add-person { flex: 1 1 100%; }
+        #filter { flex: 1 1 100%; }
+        #btn-add-person { flex: 1; }
         .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .stat { padding: 8px 10px; }
         .stat b { font-size: 1.3rem; }
@@ -349,6 +366,23 @@
     .di-price input { padding-left: 20px; }
     .di-note { display: block; resize: none; overflow: hidden; line-height: 1.4; margin-bottom: 10px; }
     #dlg-idea .dlg-actions { margin-top: 0; }
+
+    /* Add a list: who it is for, then the lines. */
+    #dlg-list { padding: 16px 14px 12px; }
+    #dlg-list h2 { font-size: 1.15rem; margin-bottom: 10px; }
+    .dl-for { display: grid; gap: 6px; margin-bottom: 8px; }
+    .dl-for select, .dl-for input, .dl-items {
+        width: 100%; font: inherit; font-size: 14.5px; color: var(--text-primary); background: var(--surface-2);
+        border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+    }
+    .dl-for select { font-family: var(--font-ui); }
+    .dl-for input[hidden] { display: none; }
+    .dl-items { display: block; resize: none; min-height: 150px; max-height: 45dvh; line-height: 1.45; touch-action: pan-y; }
+    .dl-items::placeholder, .dl-for input::placeholder { color: var(--text-muted); }
+    .dl-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0 10px; }
+    .dl-file { font-family: var(--font-mono); font-size: 11.5px; color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+    .dl-count { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); text-align: right; }
+    #dlg-list .dlg-actions { margin-top: 0; }
     /* ── TOAST ── */
     .toast {
         position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px);
@@ -363,7 +397,7 @@
         .nav-user { display: none; }
         /* 16px keeps iOS from zooming the page when a box is tapped. */
         .search, .quick input, .field input, .field textarea, .field select,
-        .di-row input, .di-note { font-size: 16px; }
+        .di-row input, .di-note, .dl-for select, .dl-for input, .dl-items { font-size: 16px; }
     }
 </style>
 </head>
@@ -418,6 +452,11 @@
                     <button type="button" data-f="got">Got one</button>
                 </div>
                 <button class="btn-primary" id="btn-add-person" type="button">+ Person</button>
+                <button class="btn-icon" id="btn-add-list" type="button" title="Add a list of ideas" aria-label="Add a list of ideas">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M4 6h12"/><path d="M4 12h12"/><path d="M4 18h7"/><path d="M18 14v7"/><path d="M14.5 17.5h7"/>
+                    </svg>
+                </button>
             </div>
         </aside>
         <div class="list" id="list"></div>
@@ -431,6 +470,31 @@
         <ol class="install-steps" id="install-steps"></ol>
         <div class="dlg-actions">
             <button class="btn-primary" type="button" data-close>Got it</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- Add a list: paste lines or pick a text file, one idea per line, for
+     someone on the list or a new person. -->
+<dialog id="dlg-list">
+    <form id="form-list" method="dialog">
+        <h2>Add a list</h2>
+        <div class="dl-for">
+            <label class="sr-only" for="dl-person">For</label>
+            <select id="dl-person"></select>
+            <label class="sr-only" for="dl-name">New person's name</label>
+            <input id="dl-name" maxlength="80" autocomplete="off" placeholder="New person's name" hidden>
+        </div>
+        <label class="sr-only" for="dl-items">Ideas, one per line</label>
+        <textarea id="dl-items" class="dl-items" maxlength="40000" placeholder="One idea per line.&#10;Links and $prices on a line are picked up."></textarea>
+        <div class="dl-meta">
+            <label class="dl-file" for="dl-file">Or pick a text file</label>
+            <input class="sr-only" id="dl-file" type="file" accept=".txt,.csv,.md,text/plain">
+            <span class="dl-count" id="dl-count" aria-live="polite"></span>
+        </div>
+        <p class="dlg-err" id="dl-err" role="alert"></p>
+        <div class="dlg-actions">
+            <button class="btn-primary" id="dl-save" type="submit" disabled>Add</button>
         </div>
     </form>
 </dialog>
@@ -707,6 +771,8 @@
 
     // One line per idea: the status pill (tap to move it along), the name
     // (tap to edit), the price, and an arrow that opens the link.
+    var LINK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>';
     function ideaHtml(i) {
         var next = STATUS_WORD[STATUS_NEXT[i.status]].toLowerCase();
         return '<li class="idea" data-id="' + i.id + '" data-status="' + i.status + '"><div class="idea-row">' +
@@ -715,7 +781,7 @@
                 (i.status === 'idea' ? '💡' : STATUS_WORD[i.status]) + '</button>' +
             '<button class="idea-title" type="button" data-act="edit-idea" data-id="' + i.id + '" title="Edit">' + esc(i.title) +
                 (i.price != null ? ' <span class="idea-price">' + money(i.price) + '</span>' : '') + '</button>' +
-            (i.link ? '<a class="idea-link" href="' + esc(i.link) + '" target="_blank" rel="noopener noreferrer" title="Open link" aria-label="Open link for ' + esc(i.title) + '">↗</a>' : '') +
+            (i.link ? '<a class="idea-link" href="' + esc(i.link) + '" target="_blank" rel="noopener noreferrer" title="Open link" aria-label="Open link for ' + esc(i.title) + '">' + LINK_ICON + '</a>' : '') +
         '</div></li>';
     }
 
@@ -903,15 +969,10 @@
         var input = f.querySelector('input');
         var text = input.value.trim();
         if (!text) { input.focus(); return; }
-        var link = '', m = text.match(/https?:\/\/\S+/i);
-        if (m) {
-            link = m[0];
-            text = (text.slice(0, m.index) + ' ' + text.slice(m.index + link.length)).replace(/\s+/g, ' ').trim();
-            if (!text) { try { text = 'Something from ' + new URL(link).hostname.replace(/^www\./, ''); } catch (err) { text = 'Saved link'; } }
-        }
+        var it = splitLink(text);
         var pid = +f.dataset.pid;
         input.disabled = true;
-        api('gf_idea_save', { person_id: pid, title: text, link: link, status: 'idea' }).then(function (res) {
+        api('gf_idea_save', { person_id: pid, title: it.title, link: it.link, status: 'idea' }).then(function (res) {
             ideas.push(res.idea);
             save();
             render();
@@ -920,6 +981,139 @@
         }).catch(function (err) {
             input.disabled = false;
             toast(err.message, true);
+        });
+    });
+
+    // A link in a line of text becomes the idea's link and the rest its name;
+    // a bare link is named after its site until edited.
+    function splitLink(text) {
+        var link = '', m = text.match(/https?:\/\/[^\s"<>]+/i);
+        if (m) {
+            link = m[0].replace(/[).,;]+$/, '');
+            text = (text.slice(0, m.index) + ' ' + text.slice(m.index + m[0].length)).replace(/\s+/g, ' ').trim();
+            text = text.replace(/^[\s\-\u2013\u2014:|,]+|[\s\-\u2013\u2014:|,(]+$/g, '');
+            if (!text) { try { text = 'Something from ' + new URL(link).hostname.replace(/^www\./, ''); } catch (err) { text = 'Saved link'; } }
+        }
+        return { title: text.slice(0, 200), link: link };
+    }
+
+    // ── Add a list ──
+    // One idea per line. List markers ("- ", "* ", "1. ", "[ ] ") are dropped,
+    // a link is picked up as above, and a "$25" anywhere on the line becomes
+    // the price. Blank lines, repeats within the list, and names the person
+    // already has as a current idea are skipped. Lines are saved one at a time
+    // through gf_idea_save, in order, so a failure part way leaves what is not
+    // yet saved in the box to try again.
+    var LIST_MAX = 100;
+    function parseList(text, pid) {
+        var have = {};
+        if (pid) ideas.forEach(function (i) { if (i.person_id === pid && i.status !== 'given') have[i.title.toLowerCase()] = true; });
+        var out = [], seen = {}, skipped = 0;
+        text.split(/\r?\n/).forEach(function (raw) {
+            var line = raw.replace(/^\s*(?:[-*\u2022\u00b7\u2013\u2014]+|\d{1,3}[.)]|\[[ xX]?\])\s*/, '').trim();
+            if (!line) return;
+            var price = '', pm = line.match(/(^|\s|\()\$\s?(\d{1,7}(?:,\d{3})*(?:\.\d{1,2})?)(?=$|[\s),;])/);
+            if (pm) {
+                price = pm[2].replace(/,/g, '');
+                line = (line.slice(0, pm.index) + pm[1] + line.slice(pm.index + pm[0].length)).replace(/\(\s*\)/g, '').replace(/\s+/g, ' ').trim();
+                line = line.replace(/^[\s\-\u2013\u2014:|,]+|[\s\-\u2013\u2014:|,]+$/g, '');
+            }
+            var it = splitLink(line);
+            if (!it.title) return;
+            var key = it.title.toLowerCase();
+            if (seen[key] || have[key]) { skipped++; return; }
+            seen[key] = true;
+            it.price = price;
+            out.push(it);
+        });
+        return { items: out, skipped: skipped };
+    }
+
+    function openList() {
+        var sorted = people.slice().sort(function (a, b) { return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }); });
+        $('dl-person').innerHTML = sorted.map(function (p) { return '<option value="' + p.id + '">' + esc(p.name) + '</option>'; }).join('') +
+            '<option value="new">+ New person</option>';
+        $('dl-person').value = sorted.length ? String(sorted[0].id) : 'new';
+        $('dl-name').value = '';
+        $('dl-items').value = '';
+        $('dl-file').value = '';
+        $('dl-err').textContent = '';
+        listChanged();
+        $('dlg-list').showModal();
+        $('dl-items').focus();
+    }
+    function listPid() { var v = $('dl-person').value; return v === 'new' ? 0 : +v; }
+    function listChanged() {
+        var isNew = $('dl-person').value === 'new';
+        $('dl-name').hidden = !isNew;
+        var r = parseList($('dl-items').value, listPid());
+        var n = r.items.length;
+        $('dl-count').textContent = (n ? n + ' idea' + (n === 1 ? '' : 's') : '') +
+            (r.skipped ? (n ? ', ' : '') + r.skipped + ' already listed' : '');
+        $('dl-save').textContent = n > LIST_MAX ? 'Up to ' + LIST_MAX + ' at a time' : n ? 'Add ' + n : 'Add';
+        $('dl-save').disabled = !n || n > LIST_MAX || (isNew && !$('dl-name').value.trim());
+    }
+    $('btn-add-list').addEventListener('click', openList);
+    $('dl-person').addEventListener('change', function () { listChanged(); if (this.value === 'new') $('dl-name').focus(); });
+    $('dl-name').addEventListener('input', listChanged);
+    $('dl-items').addEventListener('input', listChanged);
+    $('dl-file').addEventListener('change', function () {
+        var f = this.files && this.files[0]; if (!f) return;
+        if (f.size > 200000) { $('dl-err').textContent = 'That file is too big for a list.'; return; }
+        f.text().then(function (t) {
+            var box = $('dl-items');
+            box.value = (box.value.trim() ? box.value.replace(/\s+$/, '') + '\n' : '') + t;
+            $('dl-err').textContent = '';
+            listChanged();
+        }).catch(function () { $('dl-err').textContent = 'Could not read that file.'; });
+    });
+
+    $('form-list').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var btn = $('dl-save'), pid = listPid();
+        var items = parseList($('dl-items').value, pid).items;
+        if (!items.length || items.length > LIST_MAX) return;
+        btn.disabled = true;
+        $('dl-err').textContent = '';
+        var made = 0;
+        var personReady = pid ? Promise.resolve(personById(pid)) :
+            api('gf_person_save', { name: $('dl-name').value.trim() }).then(function (res) {
+                people.push(res.person);
+                save();
+                // Later lines go to this person even if a save below fails.
+                $('dl-person').insertAdjacentHTML('afterbegin', '<option value="' + res.person.id + '">' + esc(res.person.name) + '</option>');
+                $('dl-person').value = String(res.person.id);
+                $('dl-name').hidden = true;
+                return res.person;
+            });
+        personReady.then(function (person) {
+            pid = person.id;
+            return items.reduce(function (chain, it) {
+                return chain.then(function () {
+                    btn.textContent = 'Adding ' + (made + 1) + ' of ' + items.length + '…';
+                    return api('gf_idea_save', { person_id: pid, title: it.title, link: it.link, price: it.price, status: 'idea' })
+                        .then(function (res) { ideas.push(res.idea); made++; });
+                });
+            }, Promise.resolve()).then(function () { return person; });
+        }).then(function (person) {
+            save();
+            setOpen(person.id, true);
+            if (filter === 'got' && !hasBought(person.id)) { filter = 'all'; store(FILTER_KEY, filter); }
+            query = ''; $('search').value = '';
+            $('dlg-list').close();
+            render();
+            var card = $('person-' + person.id);
+            if (card) { card.scrollIntoView({ block: 'center', behavior: 'smooth' }); flash(person.id); }
+            toast('Added ' + made + ' idea' + (made === 1 ? '' : 's') + ' for ' + person.name + '.');
+        }).catch(function (err) {
+            save();
+            render();
+            // Leave only the lines not yet saved, so Add tries just those.
+            $('dl-items').value = items.slice(made).map(function (it) {
+                return it.title + (it.price ? ' $' + it.price : '') + (it.link ? ' ' + it.link : '');
+            }).join('\n');
+            $('dl-err').textContent = (made ? 'Added ' + made + ', then: ' : '') + err.message;
+            listChanged();
         });
     });
 
