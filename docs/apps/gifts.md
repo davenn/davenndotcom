@@ -95,7 +95,8 @@ the right. People are always in name order.
   one line and grow. Status and person are not in it: the slide and the pill
   set the status, an idea stays with the person it was added under (to move
   one, add it again under the other person and delete this one), and a save
-  keeps both as they are. The 🗑 deletes after a confirm, Save saves, and
+  keeps both as they are. The 🗑 deletes after a confirm, Save (at the end of the notes line, not on
+  a line of its own) saves, and
   a tap outside or a swipe down closes without saving (every dialog on the page
   closes that way). A link shows as an accent-coloured chip with an open-in-new icon at the
   end of the row, sized for a thumb; tapping it opens the link in a new tab.

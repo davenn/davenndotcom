@@ -423,8 +423,12 @@
     .di-price { position: relative; display: block; }
     .di-price::before { content: '$'; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
     .di-price input { padding-left: 20px; }
-    .di-note { display: block; resize: none; overflow: hidden; line-height: 1.4; margin-bottom: 10px; }
-    #dlg-idea .dlg-actions { margin-top: 0; }
+    .di-note { display: block; resize: none; overflow: hidden; line-height: 1.4; }
+    /* Save sits at the end of the notes line, not on a line of its own; as the
+       notes grow, it stays at the bottom. */
+    .di-foot { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: end; }
+    #di-save { height: 38px; }
+    #dlg-idea .dlg-err { margin: 8px 0 0; }
 
     /* Add a list: who it is for, then the lines. */
     #dlg-list { padding: 16px 14px 12px; }
@@ -605,12 +609,12 @@
             <label class="sr-only" for="di-price">Price in dollars</label>
             <span class="di-price"><input id="di-price" inputmode="decimal" placeholder="0"></span>
         </div>
-        <label class="sr-only" for="di-note">Notes</label>
-        <textarea id="di-note" class="di-note" rows="1" maxlength="600" placeholder="Notes"></textarea>
-        <p class="dlg-err" id="di-err" role="alert"></p>
-        <div class="dlg-actions">
+        <div class="di-foot">
+            <label class="sr-only" for="di-note">Notes</label>
+            <textarea id="di-note" class="di-note" rows="1" maxlength="600" placeholder="Notes"></textarea>
             <button class="btn-primary" id="di-save" type="submit">Save</button>
         </div>
+        <p class="dlg-err" id="di-err" role="alert"></p>
     </form>
 </dialog>
 
