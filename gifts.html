@@ -221,6 +221,9 @@
     }
     .btn-icon svg { width: 18px; height: 18px; }
     .btn-icon:hover { border-color: var(--text-muted); }
+    /* The main action keeps the accent fill it had as "+ Person". */
+    .btn-icon.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .btn-icon.primary:hover { opacity: 0.88; }
     .btn-danger {
         font-family: var(--font-mono); font-size: 11.5px; padding: 0; cursor: pointer; margin-right: auto;
         background: none; border: none; color: var(--bad); text-decoration: underline; text-underline-offset: 3px;
@@ -353,7 +356,6 @@
         .layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 24px; align-items: start; }
         .side { position: sticky; top: calc(var(--nav-h) + 18px); margin-bottom: 0; }
         #filter { flex: 1 1 100%; }
-        #btn-add-person { flex: 1; }
         .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .stat { padding: 8px 10px; }
         .stat b { font-size: 1.3rem; }
@@ -536,7 +538,11 @@
                     <button type="button" data-f="need">No gift</button>
                     <button type="button" data-f="got">Got one</button>
                 </div>
-                <button class="btn-primary" id="btn-add-person" type="button">+ Person</button>
+                <button class="btn-icon primary" id="btn-add-person" type="button" title="Add a person" aria-label="Add a person">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="9" cy="8" r="4"/><path d="M2 21v-1a6 6 0 0 1 6-6h2a6 6 0 0 1 6 6v1"/><path d="M19 8v6"/><path d="M16 11h6"/>
+                    </svg>
+                </button>
                 <button class="btn-icon" id="btn-add-list" type="button" title="Add a list of ideas" aria-label="Add a list of ideas">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M4 6h12"/><path d="M4 12h12"/><path d="M4 18h7"/><path d="M18 14v7"/><path d="M14.5 17.5h7"/>

@@ -70,8 +70,9 @@ the network; each returns the saved row and the page swaps it in.
 
 ## On the page
 
-**Layout.** On a phone: four stats in a row, then search, filter and
-**+ Person**, then the people as small cards, two to a row (three from 640px).
+**Layout.** On a phone: four stats in a row, then search, filter, the
+add-a-person icon (a person with a plus, in the accent colour) and the
+add-a-list icon, then the people as small cards, two to a row (three from 640px).
 From 1000px it follows the WildcatsXC meets view: stats and controls sit in a
 280px column on the left that stays in view while scrolling, and the cards fill
 the right. People are always in name order.
@@ -112,7 +113,7 @@ the right. People are always in name order.
 - **Quick add** takes a line of text and adds it on Enter; there is no button. A pasted link becomes the idea's link and
   the rest of the line its name; a bare link is named after its site until
   edited.
-- **Add a list** (the list-with-plus icon beside **+ Person**) takes many ideas
+- **Add a list** (the list-with-plus icon beside the add-a-person icon) takes many ideas
   at once: paste lines or pick a text file, and choose someone on the list or
   **+ New person**. One idea per line; list markers (`- `, `* `, `1. `, `[ ] `)
   are dropped, a link is picked up as in quick add, and a `$25` on the line
