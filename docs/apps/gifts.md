@@ -30,6 +30,17 @@ for all three. New accounts can be created from the page through `tb_register`.
 A 401 from any call means the shared session ended elsewhere; the page drops
 back to the sign-in form rather than showing an error.
 
+## Christmas dress
+
+From 15 November to 6 January the head script adds `xmas` to `<html>`, and the
+page dresses up: a candy-stripe under the nav, holly beside the title, a pine
+wash in the background, the eyebrow counting down ("28 days to Christmas · Just
+for you", "Christmas is tomorrow", "Merry Christmas"), and a light snowfall of
+small dots behind everything (about 22 on a phone, 40 wider). The snow is
+skipped for `prefers-reduced-motion`. It is decoration only: status colours,
+layout and behaviour do not change, and the rest of the year the page is plain,
+since the list is also used for birthdays.
+
 ## Installing
 
 The nav has an install icon whenever the page is open in a browser, and hides
@@ -63,8 +74,9 @@ From 1000px it follows the WildcatsXC meets view: stats and controls sit in a
 the right. People are always in name order.
 
 - **A card** is a drop-down with no arrow or buttons on it. Closed, it shows
-  only the person's name, whether they still need a gift, and how many open
-  ideas they have (💡 and a count); tap the name to open it to one line per
+  only the person's name, "✓ Got one" once a gift is bought (nothing while
+  they have none), and how many open
+  ideas they have (💡 and a count, right-aligned on the name's line); tap the name to open it to one line per
   idea and an add box at the bottom. **Hold** the card (500 ms, or right-click
   on a computer) to rename or remove the person; a hold on the card's own
   controls (status pills, idea names, links, the add box) does not count, and
@@ -103,7 +115,7 @@ the right. People are always in name order.
   then saves each line through `gf_idea_save` in order, so if one fails the
   lines not yet saved stay in the box to try again, now aimed at the person
   already created.
-- **Needs a gift / Got one** filters on whether a person has an idea marked
+- **No gift / Got one** filters on whether a person has an idea marked
   bought (and not yet given). Given gifts fold into "Given before" under each
   person, newest first.
 - **Spent in YEAR** adds the price of everything marked bought or given during

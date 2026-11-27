@@ -24,6 +24,10 @@
             t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         }
         document.documentElement.setAttribute('data-theme', t);
+        // Christmas dress, from mid November to Twelfth Night. The rest of the
+        // year (birthdays and the like) the page is plain.
+        var d = new Date(), m = d.getMonth(), day = d.getDate();
+        if ((m === 10 && day >= 15) || m === 11 || (m === 0 && day <= 6)) document.documentElement.classList.add('xmas');
     })();
 </script>
 <style>
@@ -65,6 +69,31 @@
             radial-gradient(50vmax 40vmax at 100% 70%, var(--wash), transparent 70%);
     }
     button { font: inherit; }
+
+    /* ── CHRISTMAS (html.xmas, mid Nov to 6 Jan) ──
+       A pine wash beside the red one, a candy-stripe under the nav, holly by
+       the title, a countdown in the eyebrow and a light snowfall that stops
+       for reduced motion. Decoration only: no status colour changes. */
+    :root { --pine: #2f7a46; --pine-wash: rgba(47,122,70,0.08); --snow: rgba(150,170,190,0.55); }
+    [data-theme="dark"] { --pine-wash: rgba(70,160,100,0.09); --snow: rgba(255,255,255,0.55); }
+    .xmas body::before {
+        background:
+            radial-gradient(55vmax 38vmax at 0% 0%, var(--wash), transparent 70%),
+            radial-gradient(50vmax 40vmax at 100% 70%, var(--pine-wash), transparent 70%);
+    }
+    .xmas nav::after {
+        content: ''; position: absolute; left: 0; right: 0; bottom: -4px; height: 4px; pointer-events: none;
+        background: repeating-linear-gradient(-45deg, #c4372f 0 7px, #f4efe6 7px 12px, var(--pine) 12px 19px, #f4efe6 19px 24px);
+    }
+    .holly { display: none; }
+    .xmas .holly { display: inline-block; width: 0.8em; height: 0.64em; margin-left: 0.1em; vertical-align: 0.3em; }
+    .snow { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+    .snow i {
+        position: absolute; top: -12px; border-radius: 50%; background: var(--snow);
+        animation: snowfall linear infinite;
+    }
+    @keyframes snowfall { to { transform: translate(var(--drift), calc(100vh + 24px)); } }
+    @media (prefers-reduced-motion: reduce) { .snow { display: none; } }
 
     /* ── NAV ── */
     nav {
@@ -197,16 +226,17 @@
     .p-head::-webkit-details-marker { display: none; }
     .p-head::marker { content: ''; }
     .p-head:hover .p-name { text-decoration: underline; text-decoration-color: var(--text-muted); text-underline-offset: 3px; }
+    /* Name on the left, the open-idea count on the right of the same line. */
+    .p-top { display: flex; align-items: baseline; gap: 6px; }
     .p-name {
-        display: block; font-family: var(--font-disp); font-size: 1rem; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere;
+        flex: 1; min-width: 0; display: block; font-family: var(--font-disp); font-size: 1rem; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere;
     }
     .person.holding { transform: scale(0.97); transition: transform 0.35s ease; }
     @media (prefers-reduced-motion: reduce) { .person.holding { transform: none; } }
     .p-flag { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; margin-top: 2px; }
-    .p-count { color: var(--text-muted); margin-left: 4px; letter-spacing: 0; }
+    .p-count { flex: none; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); white-space: nowrap; }
     .p-body { padding: 0 8px 7px; }
     .p-body > .ideas:first-child, .p-body > .no-ideas:first-child { margin-top: 0; }
-    .p-flag.need { color: var(--accent); }
     .p-flag.got { color: var(--bought); }
 
     .ideas { list-style: none; margin-top: 6px; }
@@ -419,8 +449,12 @@
 </nav>
 
 <main>
-    <p class="eyebrow">Only you can see this list</p>
-    <h1>Gifts</h1>
+    <p class="eyebrow"><span id="xmas-count"></span><span id="eyebrow-rest">Only you can see this list</span></p>
+    <h1>Gifts<svg class="holly" viewBox="0 0 40 32" aria-hidden="true">
+        <ellipse cx="13" cy="20" rx="12" ry="5.5" transform="rotate(-28 13 20)" fill="#2f7a46"/>
+        <ellipse cx="27" cy="20" rx="12" ry="5.5" transform="rotate(28 27 20)" fill="#256238"/>
+        <circle cx="20" cy="12.5" r="4" fill="#c4372f"/><circle cx="15" cy="9" r="3.4" fill="#d9483f"/><circle cx="25" cy="9" r="3.4" fill="#b02e27"/>
+    </svg></h1>
     <p class="sub">Who you are buying for, and your ideas for them. Tap a name to open it, hold it to rename. Slide an idea right once you have bought it.</p>
 
     <!-- Signed out -->
@@ -448,7 +482,7 @@
                 <input class="search" id="search" type="search" placeholder="Find a person or idea" aria-label="Find a person or idea">
                 <div class="seg" id="filter" role="group" aria-label="Show">
                     <button type="button" data-f="all">All</button>
-                    <button type="button" data-f="need">Needs a gift</button>
+                    <button type="button" data-f="need">No gift</button>
                     <button type="button" data-f="got">Got one</button>
                 </div>
                 <button class="btn-primary" id="btn-add-person" type="button">+ Person</button>
@@ -764,7 +798,7 @@
         };
         $('summary').innerHTML = !people.length ? '' :
             stat(people.length, people.length === 1 ? 'person' : 'people') +
-            stat(need, 'need a gift', need ? 'need' : '') +
+            stat(need, 'no gift', need ? 'need' : '') +
             stat(open, open === 1 ? 'idea' : 'ideas') +
             stat('$' + Math.round(spent).toLocaleString('en-US'), 'spent in ' + year);
     }
@@ -800,9 +834,10 @@
         return '<article class="person" id="person-' + p.id + '">' +
             '<details class="p-drop" data-pid="' + p.id + '"' + (open ? ' open' : '') + '>' +
             '<summary class="p-head" title="Tap to open. Hold to rename or remove.">' +
-                '<span class="p-name">' + esc(p.name) + '</span>' +
-                '<span class="p-flag ' + (got ? 'got' : 'need') + '">' + (got ? '✓ Got one' : 'Needs a gift') +
-                    (open_ideas ? ' <span class="p-count" title="' + open_ideas + ' idea' + (open_ideas === 1 ? '' : 's') + '">💡' + open_ideas + '</span>' : '') + '</span>' +
+                '<span class="p-top"><span class="p-name">' + esc(p.name) + '</span>' +
+                    (open_ideas ? '<span class="p-count" title="' + open_ideas + ' idea' + (open_ideas === 1 ? '' : 's') + '">💡' + open_ideas + '</span>' : '') + '</span>' +
+                // Only a bought gift gets a line; no line means no gift yet.
+                (got ? '<span class="p-flag got">✓ Got one</span>' : '') +
             '</summary>' +
             '<div class="p-body">' +
             (current.length
@@ -1284,6 +1319,38 @@
 
     // ── Start ──
     if (user) signedIn(); else signedOut();
+})();
+</script>
+<script>
+// Christmas extras: days to go in the eyebrow, and a light snowfall behind
+// the page. Both only while html.xmas is set; the snow is skipped for
+// reduced motion (and hidden by CSS as well).
+(function () {
+    var html = document.documentElement;
+    if (!html.classList.contains('xmas')) return;
+    var now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var xmas = new Date(now.getFullYear(), 11, 25);
+    var days = Math.round((xmas - today) / 86400000);
+    var el = document.getElementById('xmas-count');
+    if (days === 0) el.textContent = 'Merry Christmas · ';
+    else if (days === 1) el.textContent = 'Christmas is tomorrow · ';
+    else if (days > 1) el.textContent = days + ' days to Christmas · ';
+    // Short enough to stay on one line on a phone next to the countdown.
+    if (days >= 0) document.getElementById('eyebrow-rest').textContent = 'Just for you';
+
+    if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var snow = document.createElement('div');
+    snow.className = 'snow';
+    snow.setAttribute('aria-hidden', 'true');
+    var n = window.innerWidth < 600 ? 22 : 40, out = '';
+    for (var i = 0; i < n; i++) {
+        var size = (2 + Math.random() * 4).toFixed(1), dur = (9 + Math.random() * 12).toFixed(1);
+        out += '<i style="left:' + (Math.random() * 100).toFixed(1) + '%;width:' + size + 'px;height:' + size + 'px;' +
+            'opacity:' + (0.35 + Math.random() * 0.6).toFixed(2) + ';animation-duration:' + dur + 's;' +
+            'animation-delay:-' + (Math.random() * dur).toFixed(1) + 's;--drift:' + Math.round(Math.random() * 60 - 30) + 'px"></i>';
+    }
+    snow.innerHTML = out;
+    document.body.appendChild(snow);
 })();
 </script>
 <script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
