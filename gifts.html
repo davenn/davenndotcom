@@ -72,7 +72,7 @@
 
     /* ── CHRISTMAS (html.xmas, mid Nov to 6 Jan) ──
        A pine wash beside the red one, a candy-stripe under the nav, holly by
-       the title, a countdown in the eyebrow and a light snowfall that stops
+       the title, a flip-clock countdown beside it and a light snowfall that stops
        for reduced motion. Decoration only: no status colour changes. */
     :root { --pine: #2f7a46; --pine-wash: rgba(47,122,70,0.08); --snow: rgba(150,170,190,0.55); }
     [data-theme="dark"] { --pine-wash: rgba(70,160,100,0.09); --snow: rgba(255,255,255,0.55); }
@@ -165,6 +165,7 @@
     main { max-width: 760px; margin: 0 auto; padding: 28px 16px 80px; }
 
     /* ── HEADER ── */
+    .eyebrow[hidden] { display: none; }
     .eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
     h1 { font-family: var(--font-disp); font-size: clamp(2.2rem, 8vw, 3rem); font-weight: 800; letter-spacing: -0.03em; line-height: 1.02; }
     .sub { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-secondary); line-height: 1.7; margin-top: 10px; max-width: 540px; }
@@ -480,7 +481,7 @@
 </nav>
 
 <main>
-    <p class="eyebrow" id="eyebrow">Only you can see this list</p>
+    <p class="eyebrow" id="eyebrow" hidden></p>
     <div class="title-row">
         <h1>Gifts<svg class="holly" viewBox="0 0 40 32" aria-hidden="true">
             <ellipse cx="13" cy="20" rx="12" ry="5.5" transform="rotate(-28 13 20)" fill="#2f7a46"/>
@@ -1435,7 +1436,8 @@
         var now = new Date();
         var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         var days = now.getMonth() === 0 ? -1 : Math.round((new Date(now.getFullYear(), 11, 25) - today) / 86400000);
-        if (days === 0) document.getElementById('eyebrow').textContent = 'Merry Christmas · Just for you';
+        // The line above the title is empty the rest of the time.
+        if (days === 0) { var eb = document.getElementById('eyebrow'); eb.textContent = 'Merry Christmas'; eb.hidden = false; }
         clock.hidden = days < 1;
         if (days >= 1) {
             var text = (days < 10 ? '0' : '') + days;

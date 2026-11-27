@@ -37,8 +37,8 @@ page dresses up: a candy-stripe under the nav, holly beside the title, a pine
 wash in the background, a flip-clock countdown right-aligned on the title's
 line (two split-flap digit tiles and "days" under them, counting calendar days
 to the 25th, flipping in on load and again at midnight; hidden 26 Dec to 6
-Jan, and on Christmas Day the eyebrow says "Merry Christmas · Just for you"
-instead), and a light snowfall of
+Jan, and on Christmas Day a red "Merry Christmas" line shows above the title
+instead; there is no line above the title the rest of the time), and a light snowfall of
 small dots behind everything (about 22 on a phone, 40 wider). The snow is
 skipped for `prefers-reduced-motion`. It is decoration only: status colours,
 layout and behaviour do not change, and the rest of the year the page is plain,
