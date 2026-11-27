@@ -319,7 +319,45 @@
     dialog h2 { font-family: var(--font-disp); font-size: 1.25rem; font-weight: 700; margin-bottom: 16px; }
     .dlg-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 6px; }
     .dlg-actions .btn-danger[hidden] { display: none; }
+    /* Swiping a dialog down closes it, so it does not pan; nothing in one scrolls. */
+    dialog[open] { touch-action: none; }
+    dialog.drag { transition: none; }
+    dialog.settle { transition: transform 0.2s ease; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
+    #dlg-idea { padding: 14px 14px 12px; }
+    .di-head { display: flex; align-items: flex-start; gap: 6px; }
+    #di-title {
+        flex: 1; min-width: 0; font-family: var(--font-disp); font-size: 1.2rem; font-weight: 700; line-height: 1.25;
+        color: var(--text-primary); background: none; border: none; border-bottom: 1px solid transparent; border-radius: 0; padding: 2px 0;
+    }
+    #di-title:focus { outline: none; border-bottom-color: var(--accent); }
+    .di-trash {
+        flex: none; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; padding: 0;
+        background: none; border: 1px solid transparent; border-radius: 6px; color: var(--text-muted); cursor: pointer;
+    }
+    .di-trash svg { width: 17px; height: 17px; }
+    .di-trash:hover { color: var(--bad); border-color: var(--border); }
+    .di-for { display: flex; align-items: center; gap: 6px; margin: 4px 0 12px; }
+    .di-for label { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+    .di-chip { position: relative; display: inline-flex; }
+    .di-chip::after { content: '\25BE'; position: absolute; right: 9px; top: 50%; transform: translateY(-50%); font-size: 10px; color: var(--text-muted); pointer-events: none; }
+    .di-chip select {
+        -webkit-appearance: none; appearance: none; height: auto; cursor: pointer;
+        font-family: var(--font-mono); font-size: 12px; color: var(--text-primary);
+        background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 3px 24px 3px 10px;
+    }
+    .di-row { display: grid; grid-template-columns: minmax(0, 1fr) 84px; gap: 6px; margin-bottom: 6px; }
+    .di-row input, .di-note {
+        width: 100%; font: inherit; font-size: 14.5px; color: var(--text-primary); background: var(--surface-2);
+        border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+    }
+    .di-row input::placeholder, .di-note::placeholder { color: var(--text-muted); }
+    .di-price { position: relative; display: block; }
+    .di-price::before { content: '$'; position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
+    .di-price input { padding-left: 20px; }
+    .di-note { display: block; resize: none; overflow: hidden; line-height: 1.4; margin-bottom: 10px; }
+    #dlg-idea .dlg-actions { margin-top: 0; }
     /* ── TOAST ── */
     .toast {
         position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px);
@@ -333,7 +371,8 @@
     @media (max-width: 560px) {
         .nav-user { display: none; }
         /* 16px keeps iOS from zooming the page when a box is tapped. */
-        .search, .quick input, .field input, .field textarea, .field select { font-size: 16px; }
+        .search, .quick input, .field input, .field textarea, .field select,
+        .di-row input, .di-note, .di-chip select { font-size: 16px; }
     }
 </style>
 </head>
@@ -418,28 +457,34 @@
     </form>
 </dialog>
 
+<!-- Edit idea: the name is the top line, the rest go by placeholder. Status is
+     left to the slide and the pill on the card; "for" is a small chip because
+     moving an idea to someone else is rare. Tap outside or swipe down to close. -->
 <dialog id="dlg-idea">
     <form id="form-idea" method="dialog">
-        <h2>Edit idea</h2>
-        <div class="field"><label for="di-title">Idea</label><input id="di-title" maxlength="200" required></div>
-        <div class="field"><label for="di-link">Link</label><input id="di-link" type="text" maxlength="600" placeholder="https://" inputmode="url" autocapitalize="off" spellcheck="false"></div>
-        <div class="row2">
-            <div class="field"><label for="di-price">Price ($)</label><input id="di-price" inputmode="decimal" placeholder="0.00"></div>
-            <div class="field">
-                <label for="di-status">Status</label>
-                <select id="di-status">
-                    <option value="idea">Idea</option>
-                    <option value="bought">Bought</option>
-                    <option value="given">Given</option>
-                </select>
-            </div>
+        <div class="di-head">
+            <label class="sr-only" for="di-title">Idea</label>
+            <input id="di-title" maxlength="200" required autocomplete="off">
+            <button class="di-trash" id="di-delete" type="button" title="Delete idea" aria-label="Delete idea">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M6 7l1 13h10l1-13"/><path d="M9 7V4h6v3"/>
+                </svg>
+            </button>
         </div>
-        <div class="field"><label for="di-person">For</label><select id="di-person"></select></div>
-        <div class="field"><label for="di-note">Notes</label><textarea id="di-note" maxlength="600" placeholder="Size, colour, where you saw it"></textarea></div>
+        <div class="di-for">
+            <label for="di-person">for</label>
+            <span class="di-chip"><select id="di-person"></select></span>
+        </div>
+        <div class="di-row">
+            <label class="sr-only" for="di-link">Link</label>
+            <input id="di-link" type="text" maxlength="600" placeholder="Link" inputmode="url" autocapitalize="off" spellcheck="false">
+            <label class="sr-only" for="di-price">Price in dollars</label>
+            <span class="di-price"><input id="di-price" inputmode="decimal" placeholder="0"></span>
+        </div>
+        <label class="sr-only" for="di-note">Notes</label>
+        <textarea id="di-note" class="di-note" rows="1" maxlength="600" placeholder="Notes"></textarea>
         <p class="dlg-err" id="di-err" role="alert"></p>
         <div class="dlg-actions">
-            <button class="btn-danger" id="di-delete" type="button">Delete idea</button>
-            <button class="btn-quiet" type="button" data-close>Cancel</button>
             <button class="btn-primary" id="di-save" type="submit">Save</button>
         </div>
     </form>
@@ -907,6 +952,45 @@
     document.querySelectorAll('dialog [data-close]').forEach(function (b) {
         b.addEventListener('click', function () { b.closest('dialog').close(); });
     });
+    // Every dialog closes without saving on a tap outside it, or on a swipe
+    // down that starts anywhere but a box being typed in. A press that starts
+    // inside and is dragged out (selecting text) does not count as outside.
+    document.querySelectorAll('dialog').forEach(function (d) {
+        var downOutside = false, drag = null;
+        function outside(e) {
+            var r = d.getBoundingClientRect();
+            return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+        }
+        d.addEventListener('pointerdown', function (e) {
+            downOutside = e.target === d && outside(e);
+            drag = null;
+            if (!downOutside && !e.target.closest('input, textarea, select')) {
+                drag = { y0: e.clientY, dy: 0, id: e.pointerId };
+            }
+        });
+        d.addEventListener('pointermove', function (e) {
+            if (!drag || e.pointerId !== drag.id) return;
+            drag.dy = Math.max(0, e.clientY - drag.y0);
+            if (drag.dy > 6) { d.classList.add('drag'); d.style.transform = 'translateY(' + drag.dy + 'px)'; }
+        });
+        function endDrag(e) {
+            if (!drag || e.pointerId !== drag.id) return;
+            var dy = drag.dy; drag = null;
+            d.classList.remove('drag');
+            if (dy > 80) { d.close(); return; }
+            if (dy > 6) {
+                d.classList.add('settle'); d.style.transform = '';
+                setTimeout(function () { d.classList.remove('settle'); }, 220);
+            }
+        }
+        d.addEventListener('pointerup', endDrag);
+        d.addEventListener('pointercancel', endDrag);
+        d.addEventListener('click', function (e) {
+            if (downOutside && e.target === d && outside(e)) d.close();
+            downOutside = false;
+        });
+        d.addEventListener('close', function () { d.style.transform = ''; d.classList.remove('drag', 'settle'); });
+    });
 
     var editingPerson = null;
     function openPerson(p) {
@@ -968,14 +1052,22 @@
         $('di-title').value = i.title;
         $('di-link').value = i.link;
         $('di-price').value = i.price != null ? i.price : '';
-        $('di-status').value = i.status;
         $('di-note').value = i.note;
         $('di-person').innerHTML = people.slice().sort(function (a, b) { return a.name.localeCompare(b.name); })
             .map(function (p) { return '<option value="' + p.id + '">' + esc(p.name) + '</option>'; }).join('');
         $('di-person').value = i.person_id;
         $('di-err').textContent = '';
         $('dlg-idea').showModal();
+        growNote();
     }
+
+    // Notes start as one line and grow with what is typed.
+    function growNote() {
+        var t = $('di-note');
+        t.style.height = 'auto';
+        t.style.height = t.scrollHeight + 2 + 'px';
+    }
+    $('di-note').addEventListener('input', growNote);
 
     $('form-idea').addEventListener('submit', function (e) {
         e.preventDefault();
@@ -988,7 +1080,7 @@
             link: withScheme($('di-link').value.trim()),
             price: $('di-price').value.trim(),
             note: $('di-note').value.trim(),
-            status: $('di-status').value,
+            status: i.status,
         }).then(function (res) {
             replaceIdea(res.idea);
             setOpen(res.idea.person_id, true);
