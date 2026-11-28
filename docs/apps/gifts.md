@@ -78,9 +78,9 @@ From 1000px it follows the WildcatsXC meets view: stats and controls sit in a
 the right. People are always in name order.
 
 - **A card** is a drop-down with no arrow or buttons on it. Closed, it shows
-  only the person's name, "✓ Got one" once a gift is bought (nothing while
-  they have none), and how many open
-  ideas they have (💡 and a count, right-aligned on the name's line); tap the name to open it to one line per
+  only the person's name and, right-aligned on the same line, 💡 and the
+  number of open ideas, then a green ✓ and the number bought but not yet
+  given (each left out at zero); tap the name to open it to one line per
   idea and an add box at the bottom. **Hold** the card (500 ms, or right-click
   on a computer) to rename or remove the person; a hold on the card's own
   controls (status pills, idea names, links, the add box) does not count, and

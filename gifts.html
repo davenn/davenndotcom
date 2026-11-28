@@ -265,11 +265,11 @@
     }
     .person.holding { transform: scale(0.97); transition: transform 0.35s ease; }
     @media (prefers-reduced-motion: reduce) { .person.holding { transform: none; } }
-    .p-flag { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase; margin-top: 2px; }
-    .p-count { flex: none; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+    .p-counts { flex: none; display: flex; align-items: baseline; gap: 7px; }
+    .p-count { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+    .p-count.got { color: var(--bought); font-weight: 500; }
     .p-body { padding: 0 8px 7px; }
     .p-body > .ideas:first-child, .p-body > .no-ideas:first-child { margin-top: 0; }
-    .p-flag.got { color: var(--bought); }
 
     .ideas { list-style: none; margin-top: 6px; }
     /* Each idea is a row that can slide: right on an open idea marks it
@@ -884,18 +884,22 @@
             .sort(function (a, b) { return (a.status === 'bought' ? 0 : 1) - (b.status === 'bought' ? 0 : 1) || a.id - b.id; });
         var given = all.filter(function (i) { return i.status === 'given'; })
             .sort(function (a, b) { return b.status_at - a.status_at; });
-        var got = hasBought(p.id);
-
         var open = query || openIds[p.id];
         var open_ideas = current.filter(function (i) { return i.status === 'idea'; }).length;
+        var bought = current.length - open_ideas;
+        var plural = function (n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); };
 
         return '<article class="person" id="person-' + p.id + '">' +
             '<details class="p-drop" data-pid="' + p.id + '"' + (open ? ' open' : '') + '>' +
             '<summary class="p-head" title="Tap to open. Hold to rename or remove.">' +
+                // Name on the left; on the right, open ideas (💡) and gifts
+                // bought but not yet given (a green ✓, the mark itself carrying
+                // the meaning, not just its colour).
                 '<span class="p-top"><span class="p-name">' + esc(p.name) + '</span>' +
-                    (open_ideas ? '<span class="p-count" title="' + open_ideas + ' idea' + (open_ideas === 1 ? '' : 's') + '">💡' + open_ideas + '</span>' : '') + '</span>' +
-                // Only a bought gift gets a line; no line means no gift yet.
-                (got ? '<span class="p-flag got">✓ Got one</span>' : '') +
+                    (open_ideas || bought ? '<span class="p-counts">' +
+                        (open_ideas ? '<span class="p-count" title="' + plural(open_ideas, 'idea') + '" aria-label="' + plural(open_ideas, 'idea') + '">💡' + open_ideas + '</span>' : '') +
+                        (bought ? '<span class="p-count got" title="' + bought + ' bought" aria-label="' + bought + ' bought">✓' + bought + '</span>' : '') +
+                    '</span>' : '') + '</span>' +
             '</summary>' +
             '<div class="p-body">' +
             (current.length
