@@ -112,12 +112,12 @@ GET|POST|DELETE  /api.php?action=<action>
 | [`ml_watch`](#post-actionml_watch) | POST | Movie List | None |
 | [`fn_save`](#post-actionfn_save) | POST | Finance | Admin — `X-Admin-Secret` |
 | [`fn_vault`](#get-actionfn_vault) | GET | Finance | Admin — `X-Admin-Secret` |
-| [`gf_idea_delete`](#post-actiongf_idea_delete) | POST | Gifts | Toolshare account — `X-Auth-Token` |
-| [`gf_idea_save`](#post-actiongf_idea_save) | POST | Gifts | Toolshare account — `X-Auth-Token` |
-| [`gf_list`](#get-actiongf_list) | GET | Gifts | Toolshare account — `X-Auth-Token` |
-| [`gf_person_delete`](#post-actiongf_person_delete) | POST | Gifts | Toolshare account — `X-Auth-Token` |
-| [`gf_person_save`](#post-actiongf_person_save) | POST | Gifts | Toolshare account — `X-Auth-Token` |
-| [`gf_scan`](#post-actiongf_scan) | POST | Gifts | Toolshare account — `X-Auth-Token` |
+| [`gf_idea_delete`](#post-actiongf_idea_delete) | POST | Gifts | None |
+| [`gf_idea_save`](#post-actiongf_idea_save) | POST | Gifts | None |
+| [`gf_list`](#get-actiongf_list) | GET | Gifts | None |
+| [`gf_person_delete`](#post-actiongf_person_delete) | POST | Gifts | None |
+| [`gf_person_save`](#post-actiongf_person_save) | POST | Gifts | None |
+| [`gf_scan`](#post-actiongf_scan) | POST | Gifts | None |
 | [`delete_subscriber`](#post-actiondelete_subscriber) | POST | Update Notifications | Admin — `X-Admin-Secret` |
 | [`notify_subscribers`](#post-actionnotify_subscribers) | POST | Update Notifications | Admin — `X-Admin-Secret` |
 | [`resetTestPhone`](#get-actionresettestphone) | GET | Update Notifications | None |
@@ -140,7 +140,7 @@ week from a week_key that matched nothing.
 - **Auth:** None
 - **Takes:** &week_key=YYYY-MM-DD — drop one week's meetings.
 - **Query parameters:** `week_key`
-- **Source:** [`api.php:782`](../api.php#L782)
+- **Source:** [`api.php:783`](../api.php#L783)
 
 ### POST `?action=save`
 
@@ -150,7 +150,7 @@ to the week.
 
 - **Auth:** None
 - **Takes:** body: { title, cost, seconds, week_key }
-- **Source:** [`api.php:765`](../api.php#L765)
+- **Source:** [`api.php:766`](../api.php#L766)
 
 ### GET `?action=week`
 
@@ -159,7 +159,7 @@ Cost is the entire point of the app, so the ranking leads with it.
 - **Auth:** None
 - **Takes:** &week_key=YYYY-MM-DD — one week's meetings, dearest first.
 - **Query parameters:** `week_key`
-- **Source:** [`api.php:751`](../api.php#L751)
+- **Source:** [`api.php:752`](../api.php#L752)
 
 ## Track Timer
 
@@ -169,14 +169,14 @@ Not scoped to a week or a user: it empties the table.
 
 - **Auth:** None
 - **Takes:** remove every saved session.
-- **Source:** [`api.php:832`](../api.php#L832)
+- **Source:** [`api.php:833`](../api.php#L833)
 
 ### DELETE `?action=delete_track_session`
 
 - **Auth:** None
 - **Takes:** &id=X — remove a single session.
 - **Query parameters:** `id`
-- **Source:** [`api.php:822`](../api.php#L822)
+- **Source:** [`api.php:823`](../api.php#L823)
 
 ### POST `?action=save_track_session`
 
@@ -184,7 +184,7 @@ Athletes are stored as given — the app owns their shape, not the database.
 
 - **Auth:** None
 - **Takes:** body: { name, duration, athletes[] }
-- **Source:** [`api.php:808`](../api.php#L808)
+- **Source:** [`api.php:809`](../api.php#L809)
 
 ### GET `?action=track_sessions`
 
@@ -193,7 +193,7 @@ roster changes every session, so there is nothing stable to make columns of.
 
 - **Auth:** None
 - **Takes:** every saved session, newest first.
-- **Source:** [`api.php:799`](../api.php#L799)
+- **Source:** [`api.php:800`](../api.php#L800)
 
 ## Toolshare
 
@@ -201,20 +201,20 @@ roster changes every session, so there is nothing stable to make columns of.
 
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** body: { invite_code }
-- **Source:** [`api.php:1305`](../api.php#L1305)
+- **Source:** [`api.php:1306`](../api.php#L1306)
 
 ### POST `?action=tb_add_tool`
 
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** (multipart for photo upload OR JSON)
-- **Source:** [`api.php:941`](../api.php#L941)
+- **Source:** [`api.php:942`](../api.php#L942)
 
 ### DELETE `?action=tb_delete_tool`
 
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** &id=X
 - **Query parameters:** `id`
-- **Source:** [`api.php:1080`](../api.php#L1080)
+- **Source:** [`api.php:1081`](../api.php#L1081)
 
 ### POST `?action=tb_edit_tool`
 
@@ -224,7 +224,7 @@ deleted; sending no photo keeps the current one.
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** &id=X
 - **Query parameters:** `id`
-- **Source:** [`api.php:967`](../api.php#L967)
+- **Source:** [`api.php:968`](../api.php#L968)
 
 ### GET `?action=tb_friends`
 
@@ -233,32 +233,32 @@ columns and takes whichever side is not you.
 
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** everyone this user shares with, and how many tools
-- **Source:** [`api.php:1325`](../api.php#L1325)
+- **Source:** [`api.php:1326`](../api.php#L1326)
 
 ### POST `?action=tb_identify_tool`
 
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** vision-based auto-fill via Claude
-- **Source:** [`api.php:997`](../api.php#L997)
+- **Source:** [`api.php:998`](../api.php#L998)
 
 ### GET `?action=tb_invite_preview`
 
 - **Auth:** None
 - **Takes:** &code=xxx  (no auth required)
 - **Query parameters:** `code`
-- **Source:** [`api.php:1294`](../api.php#L1294)
+- **Source:** [`api.php:1295`](../api.php#L1295)
 
 ### POST `?action=tb_login`
 
 - **Auth:** None
 - **Takes:** body: { username, password }
-- **Source:** [`api.php:878`](../api.php#L878)
+- **Source:** [`api.php:879`](../api.php#L879)
 
 ### POST `?action=tb_logout`
 
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** ends only this device's session, other devices stay signed in
-- **Source:** [`api.php:896`](../api.php#L896)
+- **Source:** [`api.php:897`](../api.php#L897)
 
 ### GET `?action=tb_my_invite`
 
@@ -267,13 +267,13 @@ carries one.
 
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** this user's invite code, minted on first request.
-- **Source:** [`api.php:1287`](../api.php#L1287)
+- **Source:** [`api.php:1288`](../api.php#L1288)
 
 ### GET `?action=tb_my_tools`
 
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** current user's tools only
-- **Source:** [`api.php:923`](../api.php#L923)
+- **Source:** [`api.php:924`](../api.php#L924)
 
 ### POST `?action=tb_register`
 
@@ -283,14 +283,14 @@ only way the insert can fail, so that is what the conflict reports.
 
 - **Auth:** None
 - **Takes:** body: { username, display_name, email, password }
-- **Source:** [`api.php:845`](../api.php#L845)
+- **Source:** [`api.php:846`](../api.php#L846)
 
 ### DELETE `?action=tb_remove_friend`
 
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** &id=X
 - **Query parameters:** `id`
-- **Source:** [`api.php:1340`](../api.php#L1340)
+- **Source:** [`api.php:1341`](../api.php#L1341)
 
 ### POST `?action=tb_request`
 
@@ -299,45 +299,45 @@ missing one, so sequential ids cannot be walked to email every owner.
 
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** create borrow request + email owner
-- **Source:** [`api.php:1103`](../api.php#L1103)
+- **Source:** [`api.php:1104`](../api.php#L1104)
 
 ### GET `?action=tb_request_count`
 
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** badge count of pending incoming requests
-- **Source:** [`api.php:1166`](../api.php#L1166)
+- **Source:** [`api.php:1167`](../api.php#L1167)
 
 ### GET `?action=tb_requests`
 
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** inbox (owner) + outbox (requester) for current user
-- **Source:** [`api.php:1138`](../api.php#L1138)
+- **Source:** [`api.php:1139`](../api.php#L1139)
 
 ### POST `?action=tb_respond_request`
 
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** &id=X  body: { status: "approved"\|"declined" }
 - **Query parameters:** `id`
-- **Source:** [`api.php:1174`](../api.php#L1174)
+- **Source:** [`api.php:1175`](../api.php#L1175)
 
 ### POST `?action=tb_return_tool`
 
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** &id=X  (request id) — mark tool as returned
 - **Query parameters:** `id`
-- **Source:** [`api.php:1216`](../api.php#L1216)
+- **Source:** [`api.php:1217`](../api.php#L1217)
 
 ### GET `?action=tb_tag_suggestions`
 
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** unique tags from visible tools
-- **Source:** [`api.php:1264`](../api.php#L1264)
+- **Source:** [`api.php:1265`](../api.php#L1265)
 
 ### GET `?action=tb_tools`
 
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** friends-gated community view
-- **Source:** [`api.php:1350`](../api.php#L1350)
+- **Source:** [`api.php:1351`](../api.php#L1351)
 
 ## Flight Tracker
 
@@ -349,7 +349,7 @@ Airport codes are upper-cased on the way in, and a flight that lands where it
 started is refused rather than stored as a curiosity.
 
 - **Auth:** Flight Tracker account — `X-Auth-Token`
-- **Source:** [`api.php:1570`](../api.php#L1570)
+- **Source:** [`api.php:1571`](../api.php#L1571)
 
 ### POST `?action=ft_add_flights`
 
@@ -359,7 +359,7 @@ when two lines are malformed, and the caller can see the shortfall.
 
 - **Auth:** Flight Tracker account — `X-Auth-Token`
 - **Takes:** body: { flights: [ … ] } — bulk import.
-- **Source:** [`api.php:1596`](../api.php#L1596)
+- **Source:** [`api.php:1597`](../api.php#L1597)
 
 ### DELETE `?action=ft_delete_flight`
 
@@ -369,13 +369,13 @@ else matches nothing and answers 404 rather than deleting their row.
 - **Auth:** Flight Tracker account — `X-Auth-Token`
 - **Takes:** &id=X — remove one of this user's flights.
 - **Query parameters:** `id`
-- **Source:** [`api.php:1625`](../api.php#L1625)
+- **Source:** [`api.php:1626`](../api.php#L1626)
 
 ### GET `?action=ft_flights`
 
 - **Auth:** Flight Tracker account — `X-Auth-Token`
 - **Takes:** this user's flights, most recent first.
-- **Source:** [`api.php:1558`](../api.php#L1558)
+- **Source:** [`api.php:1559`](../api.php#L1559)
 
 ### POST `?action=ft_login`
 
@@ -384,13 +384,13 @@ out whichever device was signed in before.
 
 - **Auth:** None
 - **Takes:** body: { username, password }
-- **Source:** [`api.php:1534`](../api.php#L1534)
+- **Source:** [`api.php:1535`](../api.php#L1535)
 
 ### POST `?action=ft_logout`
 
 - **Auth:** Flight Tracker account — `X-Auth-Token`
 - **Takes:** clears the stored token.
-- **Source:** [`api.php:1551`](../api.php#L1551)
+- **Source:** [`api.php:1552`](../api.php#L1552)
 
 ### POST `?action=ft_register`
 
@@ -399,7 +399,7 @@ Toolshare — one signed-in device at a time is all this app has needed.
 
 - **Auth:** None
 - **Takes:** body: { username, display_name, password }
-- **Source:** [`api.php:1507`](../api.php#L1507)
+- **Source:** [`api.php:1508`](../api.php#L1508)
 
 ## Glucose
 
@@ -411,7 +411,7 @@ aggregation happens in SQL so a year of history stays a small response.
 - **Auth:** Glucose read token — `X-BG-Token` or `?token=`
 - **Takes:** &token=…&days=30&low=70&high=180 → one row per local day.
 - **Query parameters:** `days`, `low`, `high`
-- **Source:** [`api.php:2521`](../api.php#L2521)
+- **Source:** [`api.php:2522`](../api.php#L2522)
 
 ### GET `?action=bg_embed`
 
@@ -421,14 +421,14 @@ device can index an arrow glyph straight off it:
 
 - **Auth:** Glucose read token — `X-BG-Token` or `?token=`
 - **Query parameters:** `low`, `high`, `spark`
-- **Source:** [`api.php:2431`](../api.php#L2431)
+- **Source:** [`api.php:2432`](../api.php#L2432)
 
 ### DELETE `?action=bg_event_delete`
 
 - **Auth:** Glucose read token — `X-BG-Token` or `?token=`
 - **Takes:** &id=…&token=…
 - **Query parameters:** `id`
-- **Source:** [`api.php:2897`](../api.php#L2897)
+- **Source:** [`api.php:2898`](../api.php#L2898)
 
 ### POST `?action=bg_event_save`
 
@@ -437,7 +437,7 @@ Creates, or updates when id is given. Returns the stored row.
 
 - **Auth:** Glucose read token — `X-BG-Token` or `?token=`
 - **Takes:** &token=…
-- **Source:** [`api.php:2822`](../api.php#L2822)
+- **Source:** [`api.php:2823`](../api.php#L2823)
 
 ### GET `?action=bg_events`
 
@@ -446,7 +446,7 @@ Read token: anything that may read the readings may read what explains them.
 - **Auth:** Glucose read token — `X-BG-Token` or `?token=`
 - **Takes:** &token=…&hours=24 → annotations overlapping the window.
 - **Query parameters:** `hours`
-- **Source:** [`api.php:2787`](../api.php#L2787)
+- **Source:** [`api.php:2788`](../api.php#L2788)
 
 ### GET `?action=bg_export`
 
@@ -456,14 +456,14 @@ rather than collected, keeping PHP's memory flat on shared hosting.
 
 - **Auth:** Glucose read token — `X-BG-Token` or `?token=`
 - **Query parameters:** `days`
-- **Source:** [`api.php:2586`](../api.php#L2586)
+- **Source:** [`api.php:2587`](../api.php#L2587)
 
 ### GET `?action=bg_history`
 
 - **Auth:** Glucose read token — `X-BG-Token` or `?token=`
 - **Takes:** &token=…&hours=24&low=70&high=180 → raw readings + summary.
 - **Query parameters:** `hours`, `low`, `high`
-- **Source:** [`api.php:2474`](../api.php#L2474)
+- **Source:** [`api.php:2475`](../api.php#L2475)
 
 ### POST `?action=bg_ingest`
 
@@ -473,7 +473,7 @@ replaying it just refreshes rows already stored.
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** header: X-Admin-Secret
-- **Source:** [`api.php:2299`](../api.php#L2299)
+- **Source:** [`api.php:2300`](../api.php#L2300)
 
 ### GET `?action=bg_latest`
 
@@ -482,7 +482,7 @@ the age, and never present an old number as though it were current.
 
 - **Auth:** Glucose read token — `X-BG-Token` or `?token=`
 - **Takes:** &token=…  → the newest stored reading.
-- **Source:** [`api.php:2406`](../api.php#L2406)
+- **Source:** [`api.php:2407`](../api.php#L2407)
 
 ### GET `?action=bg_pump`
 
@@ -495,7 +495,7 @@ by up to about an hour.
 - **Auth:** Glucose read token — `X-BG-Token` or `?token=`
 - **Takes:** &token=…&hours=24
 - **Query parameters:** `hours`
-- **Source:** [`api.php:2720`](../api.php#L2720)
+- **Source:** [`api.php:2721`](../api.php#L2721)
 
 ### POST `?action=bg_pump_ingest`
 
@@ -512,7 +512,7 @@ restarted poller finds its place.
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** header: X-Admin-Secret
-- **Source:** [`api.php:2622`](../api.php#L2622)
+- **Source:** [`api.php:2623`](../api.php#L2623)
 
 ### POST `?action=bg_refresh`
 
@@ -523,7 +523,7 @@ proxy rather than the browser calling the poller directly.
 
 - **Auth:** Glucose read token — `X-BG-Token` or `?token=`
 - **Takes:** &token=…
-- **Source:** [`api.php:2354`](../api.php#L2354)
+- **Source:** [`api.php:2355`](../api.php#L2355)
 
 ## Confidence Pool
 
@@ -536,28 +536,28 @@ to anyone else. Nothing in the site calls this — it is run by hand.
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Query parameters:** `season`, `week`
-- **Source:** [`api.php:4234`](../api.php#L4234)
+- **Source:** [`api.php:4235`](../api.php#L4235)
 
 ### DELETE `?action=cp_entry`
 
 - **Auth:** None
 - **Takes:** &id=X
 - **Query parameters:** `id`
-- **Source:** [`api.php:4294`](../api.php#L4294)
+- **Source:** [`api.php:4295`](../api.php#L4295)
 
 ### DELETE `?action=cp_pending`
 
 - **Auth:** Single-use link token — `?token=`
 - **Takes:** &token=… — drop a staged sheet once it is saved.
 - **Query parameters:** `token`
-- **Source:** [`api.php:4157`](../api.php#L4157)
+- **Source:** [`api.php:4158`](../api.php#L4158)
 
 ### GET `?action=cp_pending`
 
 - **Auth:** Single-use link token — `?token=`
 - **Takes:** &token=… — collect a staged sheet for review.
 - **Query parameters:** `token`
-- **Source:** [`api.php:4135`](../api.php#L4135)
+- **Source:** [`api.php:4136`](../api.php#L4136)
 
 ### POST `?action=cp_purge_photos`
 
@@ -567,14 +567,14 @@ run after the first.
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** header: X-Admin-Secret
-- **Source:** [`api.php:4201`](../api.php#L4201)
+- **Source:** [`api.php:4202`](../api.php#L4202)
 
 ### DELETE `?action=cp_roster`
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** &id=…  header: X-Admin-Secret — unlink a number.
 - **Query parameters:** `id`
-- **Source:** [`api.php:4186`](../api.php#L4186)
+- **Source:** [`api.php:4187`](../api.php#L4187)
 
 ### GET `?action=cp_roster`
 
@@ -583,7 +583,7 @@ number, which is the most sensitive thing the pool holds.
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** header: X-Admin-Secret — who is linked to what number.
-- **Source:** [`api.php:4169`](../api.php#L4169)
+- **Source:** [`api.php:4170`](../api.php#L4170)
 
 ### POST `?action=cp_save_entry`
 
@@ -596,7 +596,7 @@ silently replacing theirs.
 
 - **Auth:** None
 - **Takes:** {season, week, player_name, picks:[{game_id,pick,confidence}], entry_id?}
-- **Source:** [`api.php:3723`](../api.php#L3723)
+- **Source:** [`api.php:3724`](../api.php#L3724)
 
 ### POST `?action=cp_save_week`
 
@@ -604,7 +604,7 @@ Creates the week, or updates the spreads on one that already has entries.
 
 - **Auth:** None
 - **Takes:** {season, week, push_rule, games:[{away,home,favorite,spread}]}
-- **Source:** [`api.php:3626`](../api.php#L3626)
+- **Source:** [`api.php:3627`](../api.php#L3627)
 
 ### POST `?action=cp_scan`
 
@@ -615,33 +615,33 @@ misread team name and both happen.
 - **Auth:** None
 - **Takes:** (multipart: photo, optional season + week)
 - **Query parameters:** `season`, `week`
-- **Source:** [`api.php:3573`](../api.php#L3573)
+- **Source:** [`api.php:3574`](../api.php#L3574)
 
 ### POST `?action=cp_sms`
 
 - **Auth:** None
 - **Takes:** Twilio inbound webhook.
-- **Source:** [`api.php:3991`](../api.php#L3991)
+- **Source:** [`api.php:3992`](../api.php#L3992)
 
 ### DELETE `?action=cp_week`
 
 - **Auth:** None
 - **Takes:** &season=&week=
 - **Query parameters:** `season`, `week`
-- **Source:** [`api.php:4303`](../api.php#L4303)
+- **Source:** [`api.php:4304`](../api.php#L4304)
 
 ### GET `?action=cp_week`
 
 - **Auth:** None
 - **Takes:** &season=&week=
 - **Query parameters:** `season`, `week`, `force`
-- **Source:** [`api.php:3816`](../api.php#L3816)
+- **Source:** [`api.php:3817`](../api.php#L3817)
 
 ### GET `?action=cp_weeks`
 
 - **Auth:** None
 - **Takes:** every week that has been set up, newest first.
-- **Source:** [`api.php:4279`](../api.php#L4279)
+- **Source:** [`api.php:4280`](../api.php#L4280)
 
 ## WildcatsXC
 
@@ -655,7 +655,7 @@ that a model read would only add cost and minutes.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** {rows:[{race, distance_m, place, name, grade, school, time}]}
-- **Source:** [`api.php:4758`](../api.php#L4758)
+- **Source:** [`api.php:4759`](../api.php#L4759)
 
 ### DELETE `?action=xc_meet`
 
@@ -664,7 +664,7 @@ results anywhere go with it.
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** &id=X — the meet and its results; runners left with no
 - **Query parameters:** `id`
-- **Source:** [`api.php:5124`](../api.php#L5124)
+- **Source:** [`api.php:5125`](../api.php#L5125)
 
 ### GET `?action=xc_meet`
 
@@ -673,7 +673,7 @@ xc_scan returns, so the app edits a saved meet with the grid it checks a scan in
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** &id=X — one meet with every result, in the same row shape
 - **Query parameters:** `id`
-- **Source:** [`api.php:5094`](../api.php#L5094)
+- **Source:** [`api.php:5095`](../api.php#L5095)
 
 ### GET `?action=xc_meets`
 
@@ -683,7 +683,7 @@ calls to check a PIN when it is first entered.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** every meet, newest first, with how many runners each
-- **Source:** [`api.php:5013`](../api.php#L5013)
+- **Source:** [`api.php:5014`](../api.php#L5014)
 
 ### POST `?action=xc_milesplit`
 
@@ -698,7 +698,7 @@ in xc_scan's shape for checking.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** {url}
-- **Source:** [`api.php:4817`](../api.php#L4817)
+- **Source:** [`api.php:4818`](../api.php#L4818)
 
 ### GET `?action=xc_results`
 
@@ -711,7 +711,7 @@ view choice that belongs in the browser.
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** &school=X — every result for one school, flat and in
 - **Query parameters:** `school`
-- **Source:** [`api.php:5061`](../api.php#L5061)
+- **Source:** [`api.php:5062`](../api.php#L5062)
 
 ### POST `?action=xc_save_meet`
 
@@ -726,7 +726,7 @@ typo (3 for 3000) rather than turned into an absurd 5K time.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** {meet_id?, name, date, location, rows:[{race, distance_m, place, name, grade, school, time}]}
-- **Source:** [`api.php:4921`](../api.php#L4921)
+- **Source:** [`api.php:4922`](../api.php#L4922)
 
 ### POST `?action=xc_scan`
 
@@ -743,7 +743,7 @@ host to kill it. Every reply carries page_count.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** (multipart: files[] — PDFs; optional schools, page)
-- **Source:** [`api.php:4647`](../api.php#L4647)
+- **Source:** [`api.php:4648`](../api.php#L4648)
 
 ### GET `?action=xc_schools`
 
@@ -751,7 +751,7 @@ counts, most results first. Feeds the team picker on the Team tab.
 
 - **Auth:** WildcatsXC team PIN — `X-XC-PIN`
 - **Takes:** every school on record with its runner and result
-- **Source:** [`api.php:5042`](../api.php#L5042)
+- **Source:** [`api.php:5043`](../api.php#L5043)
 
 ## Daily Tasks
 
@@ -760,19 +760,19 @@ counts, most results first. Feeds the team picker on the Team tab.
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** &date=YYYY-MM-DD — load this user's task list for a given day
 - **Query parameters:** `date`
-- **Source:** [`api.php:1672`](../api.php#L1672)
+- **Source:** [`api.php:1673`](../api.php#L1673)
 
 ### POST `?action=dt_save`
 
 - **Auth:** None
 - **Takes:** body: { name, task_count, total_seconds, week_key }
-- **Source:** [`api.php:1653`](../api.php#L1653)
+- **Source:** [`api.php:1654`](../api.php#L1654)
 
 ### POST `?action=dt_save_tasks`
 
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** body: { date, tasks, next_id } — upsert this user's task list for a given day
-- **Source:** [`api.php:1692`](../api.php#L1692)
+- **Source:** [`api.php:1693`](../api.php#L1693)
 
 ### GET `?action=dt_week`
 
@@ -782,7 +782,7 @@ same amount faster settles the tie.
 - **Auth:** None
 - **Takes:** &week_key=YYYY-MM-DD — the week's leaderboard.
 - **Query parameters:** `week_key`
-- **Source:** [`api.php:1642`](../api.php#L1642)
+- **Source:** [`api.php:1643`](../api.php#L1643)
 
 ## DIY Projects
 
@@ -793,7 +793,7 @@ otherwise, and with no start date: it has not started yet.
 
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** body: { title, category?, status?, start_date?, end_date?, notes? }
-- **Source:** [`api.php:1852`](../api.php#L1852)
+- **Source:** [`api.php:1853`](../api.php#L1853)
 
 ### DELETE `?action=diy_delete_photo`
 
@@ -802,7 +802,7 @@ cover, the project's oldest remaining photo takes over, or none is left.
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** &id=X — the photo and its files. If it was the
 - **Query parameters:** `id`
-- **Source:** [`api.php:1989`](../api.php#L1989)
+- **Source:** [`api.php:1990`](../api.php#L1990)
 
 ### DELETE `?action=diy_delete_project`
 
@@ -812,7 +812,7 @@ failed unlink is harmless, a row pointing at a missing file is not.
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** &id=X — the project, its photo rows (by
 - **Query parameters:** `id`
-- **Source:** [`api.php:1888`](../api.php#L1888)
+- **Source:** [`api.php:1889`](../api.php#L1889)
 
 ### POST `?action=diy_edit_project`
 
@@ -822,7 +822,7 @@ freely in either direction; nothing here enforces an order.
 
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** body: { id, and any of title, category, status, start_date, end_date, notes }
-- **Source:** [`api.php:1870`](../api.php#L1870)
+- **Source:** [`api.php:1871`](../api.php#L1871)
 
 ### GET `?action=diy_photo`
 
@@ -833,7 +833,7 @@ may keep it for a year: privately, and keyed to the token that fetched it.
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** &id=X&size=thumb\|full — the image itself, to its owner
 - **Query parameters:** `id`, `size`
-- **Source:** [`api.php:1957`](../api.php#L1957)
+- **Source:** [`api.php:1958`](../api.php#L1958)
 
 ### GET `?action=diy_project`
 
@@ -842,7 +842,7 @@ for the detail view.
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** &id=X — one project and its photos, oldest first,
 - **Query parameters:** `id`
-- **Source:** [`api.php:1838`](../api.php#L1838)
+- **Source:** [`api.php:1839`](../api.php#L1839)
 
 ### GET `?action=diy_projects`
 
@@ -850,7 +850,7 @@ canvas and the board, most recently changed first. The page lays them out.
 
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** every project of the signed-in user, for the
-- **Source:** [`api.php:1823`](../api.php#L1823)
+- **Source:** [`api.php:1824`](../api.php#L1824)
 
 ### POST `?action=diy_set_cover`
 
@@ -858,7 +858,7 @@ belong to that project.
 
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** body: { project_id, photo_id } — the photo must
-- **Source:** [`api.php:1974`](../api.php#L1974)
+- **Source:** [`api.php:1975`](../api.php#L1975)
 
 ### POST `?action=diy_upload_photo`
 
@@ -869,7 +869,7 @@ they are kept, under random names. A project's first photo becomes its cover.
 
 - **Auth:** Toolshare account — `X-Auth-Token`
 - **Takes:** multipart: project_id, photo, thumb
-- **Source:** [`api.php:1904`](../api.php#L1904)
+- **Source:** [`api.php:1905`](../api.php#L1905)
 
 ## Face Breaker
 
@@ -877,13 +877,13 @@ they are kept, under random names. A project's first photo becomes its cover.
 
 - **Auth:** None
 - **Takes:** top 10 for the current ISO week (no auth)
-- **Source:** [`api.php:1380`](../api.php#L1380)
+- **Source:** [`api.php:1381`](../api.php#L1381)
 
 ### POST `?action=fb_save_score`
 
 - **Auth:** None
 - **Takes:** body: { name, score } — no auth required
-- **Source:** [`api.php:1390`](../api.php#L1390)
+- **Source:** [`api.php:1391`](../api.php#L1391)
 
 ## Reaction Test
 
@@ -892,14 +892,14 @@ they are kept, under random names. A project's first photo becomes its cover.
 - **Auth:** None
 - **Takes:** &week_key=YYYY-MM-DD — reset one week.
 - **Query parameters:** `week_key`
-- **Source:** [`api.php:1452`](../api.php#L1452)
+- **Source:** [`api.php:1453`](../api.php#L1453)
 
 ### GET `?action=reaction_week`
 
 - **Auth:** None
 - **Takes:** &week_key=YYYY-MM-DD — the week's ten fastest.
 - **Query parameters:** `week_key`
-- **Source:** [`api.php:1417`](../api.php#L1417)
+- **Source:** [`api.php:1418`](../api.php#L1418)
 
 ### POST `?action=save_reaction`
 
@@ -909,7 +909,7 @@ the app should be able to say so without dressing it up as a failure.
 
 - **Auth:** None
 - **Takes:** body: { name, avg_ms, week_key }
-- **Source:** [`api.php:1431`](../api.php#L1431)
+- **Source:** [`api.php:1432`](../api.php#L1432)
 
 ## Movie List
 
@@ -924,7 +924,7 @@ none, or left NULL for ml_poster to retry when the lookup could not run.
 
 - **Auth:** None
 - **Takes:** {title, year, emoji, tissues, vibe, tags, critics, audience, rt, poster}
-- **Source:** [`api.php:5403`](../api.php#L5403)
+- **Source:** [`api.php:5404`](../api.php#L5404)
 
 ### POST `?action=ml_delete`
 
@@ -934,7 +934,7 @@ the file.
 
 - **Auth:** None
 - **Takes:** {id}
-- **Source:** [`api.php:5475`](../api.php#L5475)
+- **Source:** [`api.php:5476`](../api.php#L5476)
 
 ### POST `?action=ml_draft`
 
@@ -946,7 +946,7 @@ drafted. Open to anyone, so it is rate-limited per address (mlDraftLimit).
 
 - **Auth:** None
 - **Takes:** {title}
-- **Source:** [`api.php:5366`](../api.php#L5366)
+- **Source:** [`api.php:5367`](../api.php#L5367)
 
 ### GET `?action=ml_movies`
 
@@ -956,7 +956,7 @@ list in the order they were added; and watched, keyed by the page's movie
 id, as {at: epoch ms, tissues: 0-5}.
 
 - **Auth:** None
-- **Source:** [`api.php:5330`](../api.php#L5330)
+- **Source:** [`api.php:5331`](../api.php#L5331)
 
 ### POST `?action=ml_poster`
 
@@ -969,7 +969,7 @@ each movie costs at most one successful lookup however often this is called.
 
 - **Auth:** None
 - **Takes:** {id}
-- **Source:** [`api.php:5454`](../api.php#L5454)
+- **Source:** [`api.php:5455`](../api.php#L5455)
 
 ### POST `?action=ml_watch`
 
@@ -981,7 +981,7 @@ which only the page knows, so it is held to the shape of a page id.
 
 - **Auth:** None
 - **Takes:** {id, watched, tissues}
-- **Source:** [`api.php:5346`](../api.php#L5346)
+- **Source:** [`api.php:5347`](../api.php#L5347)
 
 ## Finance
 
@@ -994,7 +994,7 @@ blob is opaque ciphertext, held to a plain-text shape and 1 MB.
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** {blob, version}
-- **Source:** [`api.php:5515`](../api.php#L5515)
+- **Source:** [`api.php:5516`](../api.php#L5516)
 
 ### GET `?action=fn_vault`
 
@@ -1004,15 +1004,15 @@ derives its AES key from that secret (PBKDF2, in the browser), so the
 database only ever holds and returns ciphertext.
 
 - **Auth:** Admin — `X-Admin-Secret`
-- **Source:** [`api.php:5495`](../api.php#L5495)
+- **Source:** [`api.php:5496`](../api.php#L5496)
 
 ## Gifts
 
 ### POST `?action=gf_idea_delete`
 
-- **Auth:** Toolshare account — `X-Auth-Token`
-- **Takes:** {id}  header: X-Auth-Token
-- **Source:** [`api.php:5679`](../api.php#L5679)
+- **Auth:** None
+- **Takes:** {id}
+- **Source:** [`api.php:5708`](../api.php#L5708)
 
 ### POST `?action=gf_idea_save`
 
@@ -1021,35 +1021,35 @@ person. link must be http(s) so it is safe to render as a link; price is
 optional. status_at moves only when status actually changes, so re-saving a
 given gift's note keeps the date it was given.
 
-- **Auth:** Toolshare account — `X-Auth-Token`
-- **Takes:** {id?, person_id, title, link, price, note, status}  header: X-Auth-Token
-- **Source:** [`api.php:5637`](../api.php#L5637)
+- **Auth:** None
+- **Takes:** {id?, person_id, title, link, price, note, status}
+- **Source:** [`api.php:5666`](../api.php#L5666)
 
 ### GET `?action=gf_list`
 
-The signed-in user's whole list in one request: people by name, and ideas
-oldest first. The page groups ideas under people itself.
+The whole shared list in one request: people by name, and ideas oldest
+first. The page groups ideas under people itself. Open, like every Gifts
+endpoint: the list belongs to the owner's account (gfOwner).
 
-- **Auth:** Toolshare account — `X-Auth-Token`
-- **Takes:** header: X-Auth-Token
-- **Source:** [`api.php:5582`](../api.php#L5582)
+- **Auth:** None
+- **Source:** [`api.php:5611`](../api.php#L5611)
 
 ### POST `?action=gf_person_delete`
 
 Removes a person and, through the foreign key, every idea filed under them.
 
-- **Auth:** Toolshare account — `X-Auth-Token`
-- **Takes:** {id}  header: X-Auth-Token
-- **Source:** [`api.php:5622`](../api.php#L5622)
+- **Auth:** None
+- **Takes:** {id}
+- **Source:** [`api.php:5651`](../api.php#L5651)
 
 ### POST `?action=gf_person_save`
 
 Adds a person (no id) or replaces one's details (id). birthday is 'MM-DD',
 or empty to leave it unknown; Feb 29 is allowed.
 
-- **Auth:** Toolshare account — `X-Auth-Token`
-- **Takes:** {id?, name, note, birthday}  header: X-Auth-Token
-- **Source:** [`api.php:5596`](../api.php#L5596)
+- **Auth:** None
+- **Takes:** {id?, name, note, birthday}
+- **Source:** [`api.php:5625`](../api.php#L5625)
 
 ### POST `?action=gf_scan`
 
@@ -1057,11 +1057,11 @@ Reads a photo or screenshot of a gift list into items {title, price, link}.
 Saves nothing: the page puts the items in the Add a list box as lines for
 the person to check and edit, and only Add saves them, through
 gf_idea_save. The photo is never written to disk, and is shrunk with
-cpPrepareImage first. Rate-limited per account (gfScanLimit).
+cpPrepareImage first. Rate-limited for the whole list (gfScanLimit).
 
-- **Auth:** Toolshare account — `X-Auth-Token`
-- **Takes:** (multipart: photo)  header: X-Auth-Token
-- **Source:** [`api.php:5802`](../api.php#L5802)
+- **Auth:** None
+- **Takes:** (multipart: photo)
+- **Source:** [`api.php:5834`](../api.php#L5834)
 
 ## Update Notifications
 
@@ -1074,7 +1074,7 @@ someone else's consent record and confirms whether a contact is on the list.
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** header: X-Admin-Secret  body: { contact_value }
-- **Source:** [`api.php:2204`](../api.php#L2204)
+- **Source:** [`api.php:2205`](../api.php#L2205)
 
 ### POST `?action=notify_subscribers`
 
@@ -1082,7 +1082,7 @@ Called by the GitHub Actions deploy workflow when CHANGELOG.md changes.
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** header: X-Admin-Secret  body: { message }
-- **Source:** [`api.php:2158`](../api.php#L2158)
+- **Source:** [`api.php:2159`](../api.php#L2159)
 
 ### GET `?action=resetTestPhone`
 
@@ -1094,7 +1094,7 @@ from the request, and the repo is public so it is not written here. With no
 test phone configured it does nothing.
 
 - **Auth:** None
-- **Source:** [`api.php:2238`](../api.php#L2238)
+- **Source:** [`api.php:2239`](../api.php#L2239)
 
 ### GET `?action=sms_diag`
 
@@ -1106,7 +1106,7 @@ host's configuration.
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** &to=…  header: X-Admin-Secret
 - **Query parameters:** `to`
-- **Source:** [`api.php:2113`](../api.php#L2113)
+- **Source:** [`api.php:2114`](../api.php#L2114)
 
 ### POST `?action=sms_diag`
 
@@ -1117,7 +1117,7 @@ a send failed without reading the host's error log. Costs one message.
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** &to=…  header: X-Admin-Secret
 - **Query parameters:** `to`
-- **Source:** [`api.php:2145`](../api.php#L2145)
+- **Source:** [`api.php:2146`](../api.php#L2146)
 
 ### POST `?action=subscribe`
 
@@ -1125,14 +1125,14 @@ a send failed without reading the host's error log. Costs one message.
 
 - **Auth:** None
 - **Takes:** body: { contact_type: 'email'\|'phone', contact_value, website? }
-- **Source:** [`api.php:2013`](../api.php#L2013)
+- **Source:** [`api.php:2014`](../api.php#L2014)
 
 ### GET `?action=unsubscribe`
 
 - **Auth:** Single-use link token — `?token=`
 - **Takes:** &token=xxx — clicked from an email/SMS, so it renders HTML, not JSON
 - **Query parameters:** `token`
-- **Source:** [`api.php:2094`](../api.php#L2094)
+- **Source:** [`api.php:2095`](../api.php#L2095)
 
 ## Analytics
 
@@ -1141,7 +1141,7 @@ a send failed without reading the host's error log. Costs one message.
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** &id=X  header: X-Admin-Secret
 - **Query parameters:** `id`
-- **Source:** [`api.php:6317`](../api.php#L6317)
+- **Source:** [`api.php:6349`](../api.php#L6349)
 
 ### POST `?action=an_fixed_cost`
 
@@ -1150,7 +1150,7 @@ is 'month' or 'year'.
 
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** header: X-Admin-Secret  body: { id?, label, amount, period }
-- **Source:** [`api.php:6294`](../api.php#L6294)
+- **Source:** [`api.php:6326`](../api.php#L6326)
 
 ### POST `?action=an_hit`
 
@@ -1162,7 +1162,7 @@ itself is never stored.
 
 - **Auth:** None
 - **Takes:** body: { p, r, d, i, t, l }
-- **Source:** [`api.php:6147`](../api.php#L6147)
+- **Source:** [`api.php:6179`](../api.php#L6179)
 
 ### GET `?action=an_stats`
 
@@ -1176,7 +1176,7 @@ rolled up out of an_hits.
 - **Auth:** Admin — `X-Admin-Secret`
 - **Takes:** &days=30&tz=-300  header: X-Admin-Secret
 - **Query parameters:** `days`, `tz`
-- **Source:** [`api.php:6196`](../api.php#L6196)
+- **Source:** [`api.php:6228`](../api.php#L6228)
 
 ## Schema
 

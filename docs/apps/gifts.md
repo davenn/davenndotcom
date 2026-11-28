@@ -1,34 +1,43 @@
 # Gifts
 
-A private list of the people you buy for and the gift ideas you have for each
+A list of the people you buy for and the gift ideas you have for each
 of them. Every idea moves from **idea** to **bought** to **given**, and given
 gifts are kept, so next year's list can avoid repeats. It is meant to stay
 simple: a person is just a name, and each card shows only that person's ideas.
 
 **File:** [`gifts.html`](../../gifts.html)
-**Tables:** `gf_people`, `gf_ideas`
-**Auth:** Toolshare account (`X-Auth-Token` via `requireAuth()`) on every endpoint
+**Tables:** `gf_people`, `gf_ideas`, `gf_scan_log`
+**Auth:** none. One shared list, open to anyone with the link (`gfOwner()`)
 
-## Unlisted
+## Unlisted, and open
 
 Like `stats.html`, it is deliberately not on the home grid, and it carries
-`noindex, nofollow`. Unlisted is not the privacy boundary, though: the list is.
-Every row carries the owning `user_id` and every query is scoped to it, so a
-signed-in account only ever sees its own people and ideas. The page is still
-counted by the analytics beacon, and its endpoints appear in the public
-`docs/api.html` like any other signed-in endpoint.
+`noindex, nofollow`. That is now the only thing keeping it out of view: by the
+owner's choice there is no sign-in, so anyone who has the link can see and
+change the list, including the people the gifts are for. The page is counted
+by the analytics beacon, and its endpoints appear in the public
+`docs/api.html`.
 
-## Accounts
+## Whose list it is
 
-There is no Gifts account. The page signs in with a Toolshare account and
-stores the token under the same `localStorage` keys (`tb_token`, `tb_user`),
-so being signed in to Toolshare or Daily Tasks on a device means being signed
-in here. The page has no Sign out button, by the owner's choice: to sign a
-device out, sign out of Toolshare or Daily Tasks, which ends the shared session
-for all three. New accounts can be created from the page through `tb_register`.
+Gifts used to sign in with a Toolshare account and keep a list per account,
+and the tables still have a `user_id` on every row. Now every endpoint works on
+one list, the one kept under the owner's account, which `gfOwner()` in
+`api.php` finds: `GIFTS_USER_ID` from the server `.env` if set, else the only
+account that has ever had Gifts data. So the list the owner built while signed
+in became the shared list with no setup. If a second account ever had a Gifts
+list, or on a fresh database, `gfOwner()` cannot tell and every call answers
+503 until `GIFTS_USER_ID` is set. Any other account's old list stays in the
+tables, unreachable from the page.
 
-A 401 from any call means the shared session ended elsewhere; the page drops
-back to the sign-in form rather than showing an error.
+The page keeps the last list it loaded in `localStorage` (`gifts_cache`) so it
+opens instantly and offline; a copy saved while it still had accounts is shown
+too, since it is the same list. Toolshare and Daily Tasks sign-ins
+(`tb_token`) are left alone: the page no longer reads them.
+
+Photo reading (`gf_scan`) is the one paid call, so `gfScanLimit()` caps it at
+30 an hour for the whole list rather than per address, which cannot be dodged
+by changing address.
 
 ## Christmas dress
 
@@ -132,7 +141,7 @@ the right. People are always in name order.
   to disk, token use logged with `anLogAi()`. It saves nothing. The items come
   back as lines in the box (`Fuzzy socks $12`, `Candle https://…`), followed
   by a short note to check them, and only **Add** saves them. A photo with no
-  list says so. Each account can scan 20 photos an hour (`gf_scan_log`).
+  list says so. The list can scan 30 photos an hour (`gf_scan_log`; see above).
 - **No gift / Got one** filters on whether a person has an idea marked
   bought (and not yet given). Given gifts fold into "Given before" under each
   person, newest first.

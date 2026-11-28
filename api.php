@@ -426,6 +426,7 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS gf_ideas (
 )");
 
 // One row per gf_scan (photo of a list read by Claude), for gfScanLimit().
+// user_id is the list owner's (gfOwner), so the cap covers the whole list.
 // Rows older than a day are pruned on the next scan.
 $pdo->exec("CREATE TABLE IF NOT EXISTS gf_scan_log (
     id         INT AUTO_INCREMENT PRIMARY KEY,
@@ -5538,7 +5539,7 @@ if ($method === 'POST' && $action === 'fn_save') {
 }
 
 // ══════════════════════════════════════════════════════════════
-// GIFTS (unlisted; Toolshare accounts, each list private to its owner)
+// GIFTS (unlisted; one shared list, open to anyone with the link)
 // ══════════════════════════════════════════════════════════════
 
 // The shapes the page works with. Ids and prices come back as numbers, and a
@@ -5565,9 +5566,9 @@ function gfIdea(array $r): array {
 }
 const GF_IDEA_COLS = "id, person_id, title, link, price, note, status, UNIX_TIMESTAMP(status_at) AS status_ts";
 
-// The person with this id if the signed-in user owns it, else a 404 that ends
-// the request. Every write that names a person goes through here, so one
-// account can never reach another account's list by guessing ids.
+// The person with this id if it is on the owner's list, else a 404 that ends
+// the request. Every write that names a person goes through here, so a page
+// can never reach a list another account kept from before Gifts went open.
 function gfOwnedPerson(PDO $pdo, int $uid, int $id): array {
     $st = $pdo->prepare("SELECT * FROM gf_people WHERE id = ? AND user_id = ?");
     $st->execute([$id, $uid]);
@@ -5576,11 +5577,39 @@ function gfOwnedPerson(PDO $pdo, int $uid, int $id): array {
     return $p;
 }
 
-// GET ?action=gf_list  header: X-Auth-Token
-// The signed-in user's whole list in one request: people by name, and ideas
-// oldest first. The page groups ideas under people itself.
+/**
+ * The account that owns the one shared Gifts list, as ['id' => int]. Gifts
+ * used to sign in with a Toolshare account and keep a list per account; by
+ * the owner's choice it now has no sign-in, and every request works on the
+ * owner's list. The owner is GIFTS_USER_ID from .env, or, when that is unset
+ * and exactly one account has ever used Gifts, that account, so the existing
+ * list carries over with no setup. Anything else (a fresh install, or two
+ * accounts with Gifts data) is a 503 until GIFTS_USER_ID is set. Lists other
+ * accounts may have kept stay in the tables, unreachable from the page.
+ */
+function gfOwner(PDO $pdo): array {
+    static $owner = null;
+    if ($owner !== null) return $owner;
+    $id = (int)($_ENV['GIFTS_USER_ID'] ?? 0);
+    if (!$id) {
+        $ids = $pdo->query("SELECT user_id FROM gf_people UNION SELECT user_id FROM gf_ideas LIMIT 2")->fetchAll(PDO::FETCH_COLUMN);
+        if (count($ids) === 1) $id = (int)$ids[0];
+    }
+    if ($id) {
+        $st = $pdo->prepare("SELECT id FROM tb_users WHERE id = ?");
+        $st->execute([$id]);
+        if (!$st->fetch()) $id = 0;
+    }
+    if (!$id) { http_response_code(503); echo json_encode(['error' => 'Gifts is not set up on the server yet.']); exit; }
+    return $owner = ['id' => $id];
+}
+
+// GET ?action=gf_list
+// The whole shared list in one request: people by name, and ideas oldest
+// first. The page groups ideas under people itself. Open, like every Gifts
+// endpoint: the list belongs to the owner's account (gfOwner).
 if ($method === 'GET' && $action === 'gf_list') {
-    $me = requireAuth($pdo);
+    $me = gfOwner($pdo);
     $st = $pdo->prepare("SELECT * FROM gf_people WHERE user_id = ? ORDER BY name");
     $st->execute([$me['id']]);
     $people = array_map('gfPerson', $st->fetchAll());
@@ -5590,11 +5619,11 @@ if ($method === 'GET' && $action === 'gf_list') {
     exit;
 }
 
-// POST ?action=gf_person_save  {id?, name, note, birthday}  header: X-Auth-Token
+// POST ?action=gf_person_save  {id?, name, note, birthday}
 // Adds a person (no id) or replaces one's details (id). birthday is 'MM-DD',
 // or empty to leave it unknown; Feb 29 is allowed.
 if ($method === 'POST' && $action === 'gf_person_save') {
-    $me = requireAuth($pdo);
+    $me = gfOwner($pdo);
     $b  = json_decode(file_get_contents('php://input'), true) ?: [];
     $name = mb_substr(trim((string)($b['name'] ?? '')), 0, 80);
     if ($name === '') { http_response_code(400); echo json_encode(['error' => 'A person needs a name.']); exit; }
@@ -5617,10 +5646,10 @@ if ($method === 'POST' && $action === 'gf_person_save') {
     exit;
 }
 
-// POST ?action=gf_person_delete  {id}  header: X-Auth-Token
+// POST ?action=gf_person_delete  {id}
 // Removes a person and, through the foreign key, every idea filed under them.
 if ($method === 'POST' && $action === 'gf_person_delete') {
-    $me = requireAuth($pdo);
+    $me = gfOwner($pdo);
     $b  = json_decode(file_get_contents('php://input'), true) ?: [];
     $st = $pdo->prepare("DELETE FROM gf_people WHERE id = ? AND user_id = ?");
     $st->execute([(int)($b['id'] ?? 0), $me['id']]);
@@ -5629,13 +5658,13 @@ if ($method === 'POST' && $action === 'gf_person_delete') {
     exit;
 }
 
-// POST ?action=gf_idea_save  {id?, person_id, title, link, price, note, status}  header: X-Auth-Token
+// POST ?action=gf_idea_save  {id?, person_id, title, link, price, note, status}
 // Adds an idea (no id) or replaces one (id), which can also move it to another
 // person. link must be http(s) so it is safe to render as a link; price is
 // optional. status_at moves only when status actually changes, so re-saving a
 // given gift's note keeps the date it was given.
 if ($method === 'POST' && $action === 'gf_idea_save') {
-    $me  = requireAuth($pdo);
+    $me  = gfOwner($pdo);
     $uid = (int)$me['id'];
     $b   = json_decode(file_get_contents('php://input'), true) ?: [];
     $pid = (int)gfOwnedPerson($pdo, $uid, (int)($b['person_id'] ?? 0))['id'];
@@ -5675,9 +5704,9 @@ if ($method === 'POST' && $action === 'gf_idea_save') {
     exit;
 }
 
-// POST ?action=gf_idea_delete  {id}  header: X-Auth-Token
+// POST ?action=gf_idea_delete  {id}
 if ($method === 'POST' && $action === 'gf_idea_delete') {
-    $me = requireAuth($pdo);
+    $me = gfOwner($pdo);
     $b  = json_decode(file_get_contents('php://input'), true) ?: [];
     $st = $pdo->prepare("DELETE FROM gf_ideas WHERE id = ? AND user_id = ?");
     $st->execute([(int)($b['id'] ?? 0), $me['id']]);
@@ -5687,14 +5716,17 @@ if ($method === 'POST' && $action === 'gf_idea_delete') {
 }
 
 /**
- * Cap on list photos: 20 per account per hour. Anyone can make a Toolshare
- * account and each scan is a paid Claude call, so this is what bounds the bill.
+ * Cap on list photos: 30 an hour for the whole list. Gifts is open to anyone
+ * with the link and each scan is a paid Claude call, so this is what bounds
+ * the bill. One cap for everyone, not per address, so it cannot be dodged by
+ * changing address; the cost is that a burst from someone else can make the
+ * owner wait out the hour.
  */
 function gfScanLimit(PDO $pdo, int $uid): void {
     $pdo->exec("DELETE FROM gf_scan_log WHERE created_at < NOW() - INTERVAL 1 DAY");
     $st = $pdo->prepare("SELECT COUNT(*) FROM gf_scan_log WHERE user_id = ? AND created_at > NOW() - INTERVAL 1 HOUR");
     $st->execute([$uid]);
-    if ((int)$st->fetchColumn() >= 20) {
+    if ((int)$st->fetchColumn() >= 30) {
         http_response_code(429); echo json_encode(['error' => 'That is a lot of photos for one hour. Try again later.']); exit;
     }
     $pdo->prepare("INSERT INTO gf_scan_log (user_id) VALUES (?)")->execute([$uid]);
@@ -5793,14 +5825,14 @@ Leave out headings, crossed-out items, totals, shipping lines, and anything that
     return is_array($result) ? ['result' => $result] : ['error' => 'Could not read that photo.'];
 }
 
-// POST ?action=gf_scan  (multipart: photo)  header: X-Auth-Token
+// POST ?action=gf_scan  (multipart: photo)
 // Reads a photo or screenshot of a gift list into items {title, price, link}.
 // Saves nothing: the page puts the items in the Add a list box as lines for
 // the person to check and edit, and only Add saves them, through
 // gf_idea_save. The photo is never written to disk, and is shrunk with
-// cpPrepareImage first. Rate-limited per account (gfScanLimit).
+// cpPrepareImage first. Rate-limited for the whole list (gfScanLimit).
 if ($method === 'POST' && $action === 'gf_scan') {
-    $me = requireAuth($pdo);
+    $me = gfOwner($pdo);
     $api_key = $_ENV['ANTHROPIC_API_KEY'] ?? '';
     if (!$api_key) { http_response_code(500); echo json_encode(['error' => 'Photo reading is not configured on the server.']); exit; }
 

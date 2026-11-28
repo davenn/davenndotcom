@@ -134,13 +134,12 @@
     .nav-logo { font-family: var(--font-mono); font-size: 13px; color: rgba(255,255,255,0.4); text-decoration: none; }
     .nav-logo strong { color: #fff; }
     .nav-right { display: flex; align-items: center; gap: 1rem; }
-    .nav-user { font-family: var(--font-mono); font-size: 11.5px; color: rgba(255,255,255,0.55); max-width: 30vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .nav-link {
         font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;
         color: rgba(255,255,255,0.5); background: none; border: none; cursor: pointer; padding: 4px 0;
     }
     .nav-link:hover { color: #fff; }
-    .nav-link[hidden], .nav-user[hidden] { display: none; }
+    .nav-link[hidden] { display: none; }
     /* Install is an icon, shown in the browser and hidden once the page is
        running as the installed app. */
     .btn-install {
@@ -368,10 +367,6 @@
     }
 
     /* ── SIGN IN ── */
-    .auth { max-width: 380px; margin: 28px 0 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
-    .auth[hidden] { display: none; }
-    .auth p { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); line-height: 1.65; margin-bottom: 16px; }
-    .auth .seg { margin-bottom: 16px; }
     .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
     .field[hidden] { display: none; }
     .field label { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
@@ -383,9 +378,8 @@
     .field textarea { resize: vertical; min-height: 70px; line-height: 1.5; }
     .field .hint { font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); }
     .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .auth-err, .dlg-err { font-family: var(--font-mono); font-size: 11.5px; color: var(--bad); margin-bottom: 12px; line-height: 1.5; }
-    .auth-err:empty, .dlg-err:empty { display: none; }
-    .auth .btn-primary { width: 100%; }
+    .dlg-err { font-family: var(--font-mono); font-size: 11.5px; color: var(--bad); margin-bottom: 12px; line-height: 1.5; }
+    .dlg-err:empty { display: none; }
 
     /* ── DIALOGS ── */
     /* A dialog is centred in the part of the screen that is actually visible:
@@ -471,7 +465,6 @@
     .toast.bad { background: var(--bad); color: #fff; }
 
     @media (max-width: 560px) {
-        .nav-user { display: none; }
         /* 16px keeps iOS from zooming the page when a box is tapped. */
         .search, .quick input, .field input, .field textarea, .field select,
         .di-row input, .di-note, .dl-for select, .dl-for input, .dl-items { font-size: 16px; }
@@ -483,7 +476,6 @@
 <nav>
     <a class="nav-logo" href="index.html"><strong>davenn</strong>dotcom</a>
     <div class="nav-right">
-        <span class="nav-user" id="nav-user" hidden></span>
         <button class="theme-toggle" id="theme-toggle" type="button" title="Toggle theme" aria-label="Toggle theme">
             <div class="theme-toggle-track"><div class="theme-toggle-thumb" id="toggle-icon">🌙</div></div>
         </button>
@@ -510,25 +502,7 @@
     </div>
     <p class="sub">Who you are buying for, and your ideas for them. Tap a name to open it, hold it to rename. Slide an idea right once you have bought it.</p>
 
-    <!-- Signed out -->
-    <section class="auth" id="auth" hidden>
-        <p>Sign in with your davenn.com account, the same one Toolshare and Daily Tasks use. Your list is tied to it, so it follows you to every device and nobody else can see it.</p>
-        <div class="seg" role="group" aria-label="Account">
-            <button type="button" id="tab-login" aria-pressed="true">Sign in</button>
-            <button type="button" id="tab-register" aria-pressed="false">Create account</button>
-        </div>
-        <form id="auth-form" autocomplete="on">
-            <div class="field"><label for="a-user">Username</label><input id="a-user" autocomplete="username" autocapitalize="off" required></div>
-            <div class="field reg" hidden><label for="a-name">Display name</label><input id="a-name" autocomplete="name"></div>
-            <div class="field reg" hidden><label for="a-email">Email</label><input id="a-email" type="email" autocomplete="email"></div>
-            <div class="field"><label for="a-pass">Password</label><input id="a-pass" type="password" autocomplete="current-password" required></div>
-            <p class="auth-err" id="auth-err" role="alert"></p>
-            <button class="btn-primary" id="auth-submit" type="submit">Sign in</button>
-        </form>
-    </section>
-
-    <!-- Signed in -->
-    <section id="app" class="layout" hidden>
+    <section id="app" class="layout">
         <aside class="side">
             <div class="summary" id="summary"></div>
             <div class="toolbar">
@@ -639,9 +613,9 @@
 (function () {
     'use strict';
 
+    // No sign-in: one shared list, open to anyone with the link (gfOwner in
+    // api.php decides whose account it is kept under).
     var API = '/api.php';
-    // Shared with Toolshare and Daily Tasks: one sign-in covers all three.
-    var TOKEN_KEY = 'tb_token', USER_KEY = 'tb_user';
     // The last list loaded, so the page opens instantly and can still be read offline.
     var CACHE_KEY = 'gifts_cache';
     var FILTER_KEY = 'gifts_filter';
@@ -684,11 +658,6 @@
     }
 
     // ── State ──
-    var token = load(TOKEN_KEY);
-    var user = null;
-    try { user = JSON.parse(load(USER_KEY)); } catch (e) {}
-    if (!token || !user) { token = null; user = null; }
-
     var people = [], ideas = [];
     var loaded = false; // true once the server's list (or a cached copy) is in hand
     var filter = load(FILTER_KEY) || 'all';
@@ -705,11 +674,9 @@
 
     // ── API ──
     // Resolves with the JSON body on success; rejects with an Error whose
-    // message is fit to show. A 401 means the shared session ended (for
-    // example, signed out from Toolshare), so it drops back to the sign-in form.
+    // message is fit to show.
     function api(action, body) {
         var opts = { headers: {} };
-        if (token) opts.headers['X-Auth-Token'] = token;
         if (body !== undefined) {
             opts.method = 'POST';
             opts.headers['Content-Type'] = 'application/json';
@@ -717,10 +684,6 @@
         }
         return fetch(API + '?action=' + action, opts).then(function (r) {
             return r.json().catch(function () { return {}; }).then(function (j) {
-                if (r.status === 401 && token && action !== 'tb_login') {
-                    signedOut();
-                    throw new Error('Your sign-in has ended. Sign in again.');
-                }
                 if (!r.ok || !j.success) throw new Error(j.error || 'Something went wrong. Try again.');
                 return j;
             });
@@ -729,57 +692,14 @@
         });
     }
 
-    // ── Sign in ──
-    var mode = 'login';
-    function setMode(m) {
-        mode = m;
-        $('tab-login').setAttribute('aria-pressed', m === 'login');
-        $('tab-register').setAttribute('aria-pressed', m === 'register');
-        document.querySelectorAll('.field.reg').forEach(function (f) { f.hidden = m !== 'register'; });
-        $('a-name').required = $('a-email').required = m === 'register';
-        $('a-pass').setAttribute('autocomplete', m === 'register' ? 'new-password' : 'current-password');
-        $('auth-submit').textContent = m === 'register' ? 'Create account' : 'Sign in';
-        $('auth-err').textContent = '';
-    }
-    $('tab-login').addEventListener('click', function () { setMode('login'); });
-    $('tab-register').addEventListener('click', function () { setMode('register'); });
-
-    $('auth-form').addEventListener('submit', function (e) {
-        e.preventDefault();
-        var btn = $('auth-submit');
-        var body = { username: $('a-user').value.trim(), password: $('a-pass').value };
-        if (mode === 'register') { body.display_name = $('a-name').value.trim(); body.email = $('a-email').value.trim(); }
-        btn.disabled = true;
-        $('auth-err').textContent = '';
-        api(mode === 'register' ? 'tb_register' : 'tb_login', body).then(function (res) {
-            token = res.token; user = res.user;
-            store(TOKEN_KEY, token);
-            store(USER_KEY, JSON.stringify(user));
-            $('a-pass').value = '';
-            signedIn();
-        }).catch(function (err) {
-            $('auth-err').textContent = err.message;
-        }).then(function () { btn.disabled = false; });
-    });
-
-    function signedOut() {
-        token = null; user = null;
-        people = []; ideas = [];
-        store(CACHE_KEY, null);
-        $('app').hidden = true;
-        $('auth').hidden = false;
-        $('nav-user').hidden = true;
-    }
-
-    function signedIn() {
-        $('auth').hidden = true;
-        $('app').hidden = false;
-        $('nav-user').textContent = user.display_name || user.username;
-        $('nav-user').hidden = false;
+    // ── Start ──
+    // The last copy kept on this device shows at once (and offline); the
+    // server's list replaces it when it arrives. A copy saved while Gifts
+    // still had accounts is used too: it is the same list.
+    function start() {
         var cached = null;
         try { cached = JSON.parse(load(CACHE_KEY)); } catch (e) {}
-        loaded = false;
-        if (cached && cached.uid === user.id) { people = cached.people; ideas = cached.ideas; loaded = true; }
+        if (cached && cached.people) { people = cached.people; ideas = cached.ideas; loaded = true; }
         render();
         refresh();
     }
@@ -790,14 +710,13 @@
             save();
             render();
         }).catch(function (err) {
-            if (!token) return;
             toast(err.message, true);
             if (!loaded) $('list').innerHTML = '<div class="empty">Could not load your list.<br>' + esc(err.message) + '</div>';
         });
     }
 
     function save() {
-        store(CACHE_KEY, JSON.stringify({ uid: user.id, people: people, ideas: ideas }));
+        store(CACHE_KEY, JSON.stringify({ people: people, ideas: ideas }));
     }
 
     // ── Derived ──
@@ -1198,11 +1117,10 @@
         shrinkImage(f).then(function (blob) {
             var fd = new FormData();
             fd.append('photo', blob, 'list.jpg');
-            return fetch(API + '?action=gf_scan', { method: 'POST', headers: { 'X-Auth-Token': token || '' }, body: fd })
+            return fetch(API + '?action=gf_scan', { method: 'POST', body: fd })
                 .catch(function () { throw new Error('Could not reach davenn.com. Check your connection.'); });
         }).then(function (r) {
             return r.json().catch(function () { return {}; }).then(function (j) {
-                if (r.status === 401 && token) { signedOut(); throw new Error('Your sign-in has ended. Sign in again.'); }
                 if (!r.ok || !j.success) throw new Error(j.error || 'Could not read that photo.');
                 return j;
             });
@@ -1460,7 +1378,7 @@
     });
 
     // ── Start ──
-    if (user) signedIn(); else signedOut();
+    start();
 })();
 </script>
 <script>

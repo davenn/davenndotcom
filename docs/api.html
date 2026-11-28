@@ -1643,9 +1643,9 @@
             </button>
             <div class="op-body" hidden>
                 <h4>Authentication</h4>
-                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <p class="op-desc">None</p>
                 <h4>Takes</h4>
-                <p class="op-desc">{id}  header: X-Auth-Token</p>
+                <p class="op-desc">{id}</p>
             </div>
         </div>
         <div class="op post" id="post-gf_idea_save" data-search="gf_idea_save post gifts adds an idea (no id) or replaces one (id), which can also move it to another">
@@ -1658,24 +1658,22 @@
             <div class="op-body" hidden>
                 <p class="op-desc">Adds an idea (no id) or replaces one (id), which can also move it to another person. link must be http(s) so it is safe to render as a link; price is optional. status_at moves only when status actually changes, so re-saving a given gift's note keeps the date it was given.</p>
                 <h4>Authentication</h4>
-                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <p class="op-desc">None</p>
                 <h4>Takes</h4>
-                <p class="op-desc">{id?, person_id, title, link, price, note, status}  header: X-Auth-Token</p>
+                <p class="op-desc">{id?, person_id, title, link, price, note, status}</p>
             </div>
         </div>
-        <div class="op get" id="get-gf_list" data-search="gf_list get gifts the signed-in user's whole list in one request: people by name, and ideas">
+        <div class="op get" id="get-gf_list" data-search="gf_list get gifts the whole shared list in one request: people by name, and ideas oldest">
             <button class="op-head" type="button" aria-expanded="false">
                 <span class="method">GET</span>
                 <span class="op-path">?action=gf_list</span>
-                <span class="op-sum">The signed-in user's whole list in one request: people by name, and ideas</span>
+                <span class="op-sum">The whole shared list in one request: people by name, and ideas oldest</span>
                 <span class="caret">▶</span>
             </button>
             <div class="op-body" hidden>
-                <p class="op-desc">The signed-in user's whole list in one request: people by name, and ideas oldest first. The page groups ideas under people itself.</p>
+                <p class="op-desc">The whole shared list in one request: people by name, and ideas oldest first. The page groups ideas under people itself. Open, like every Gifts endpoint: the list belongs to the owner's account (gfOwner).</p>
                 <h4>Authentication</h4>
-                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
-                <h4>Takes</h4>
-                <p class="op-desc">header: X-Auth-Token</p>
+                <p class="op-desc">None</p>
             </div>
         </div>
         <div class="op post" id="post-gf_person_delete" data-search="gf_person_delete post gifts removes a person and, through the foreign key, every idea filed under them.">
@@ -1688,9 +1686,9 @@
             <div class="op-body" hidden>
                 <p class="op-desc">Removes a person and, through the foreign key, every idea filed under them.</p>
                 <h4>Authentication</h4>
-                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <p class="op-desc">None</p>
                 <h4>Takes</h4>
-                <p class="op-desc">{id}  header: X-Auth-Token</p>
+                <p class="op-desc">{id}</p>
             </div>
         </div>
         <div class="op post" id="post-gf_person_save" data-search="gf_person_save post gifts adds a person (no id) or replaces one's details (id). birthday is 'mm-dd',">
@@ -1703,9 +1701,9 @@
             <div class="op-body" hidden>
                 <p class="op-desc">Adds a person (no id) or replaces one's details (id). birthday is 'MM-DD', or empty to leave it unknown; Feb 29 is allowed.</p>
                 <h4>Authentication</h4>
-                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <p class="op-desc">None</p>
                 <h4>Takes</h4>
-                <p class="op-desc">{id?, name, note, birthday}  header: X-Auth-Token</p>
+                <p class="op-desc">{id?, name, note, birthday}</p>
             </div>
         </div>
         <div class="op post" id="post-gf_scan" data-search="gf_scan post gifts reads a photo or screenshot of a gift list into items {title, price, link}.">
@@ -1716,11 +1714,11 @@
                 <span class="caret">▶</span>
             </button>
             <div class="op-body" hidden>
-                <p class="op-desc">Reads a photo or screenshot of a gift list into items {title, price, link}. Saves nothing: the page puts the items in the Add a list box as lines for the person to check and edit, and only Add saves them, through gf_idea_save. The photo is never written to disk, and is shrunk with cpPrepareImage first. Rate-limited per account (gfScanLimit).</p>
+                <p class="op-desc">Reads a photo or screenshot of a gift list into items {title, price, link}. Saves nothing: the page puts the items in the Add a list box as lines for the person to check and edit, and only Add saves them, through gf_idea_save. The photo is never written to disk, and is shrunk with cpPrepareImage first. Rate-limited for the whole list (gfScanLimit).</p>
                 <h4>Authentication</h4>
-                <p class="op-desc">Toolshare account — <code class="inline">X-Auth-Token</code></p>
+                <p class="op-desc">None</p>
                 <h4>Takes</h4>
-                <p class="op-desc">(multipart: photo)  header: X-Auth-Token</p>
+                <p class="op-desc">(multipart: photo)</p>
             </div>
         </div>
     </section>

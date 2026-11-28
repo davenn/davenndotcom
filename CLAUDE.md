@@ -32,7 +32,7 @@ Browser ──► /appname.html  (self-contained: HTML + CSS + JS)
 | `<app>.html` | One file per app; see the inventory below |
 | `stats.html` | Analytics dashboard. **Unlisted** — deliberately not on the home grid |
 | `finance.html` | Owner's private finance tracker. **Unlisted**, like Stats |
-| `gifts.html` | Private gift-idea list. **Unlisted** — not on the home grid, `noindex` |
+| `gifts.html` | Gift-idea list. **Unlisted** — not on the home grid, `noindex` — but open to anyone with the link, with no sign-in |
 | `api.php` | The entire backend. Every app, every endpoint |
 | `manifest-<app>.json` | PWA manifest, one per installable app |
 | `sw.js` | Single service worker shared by all apps |
@@ -66,7 +66,7 @@ Browser ──► /appname.html  (self-contained: HTML + CSS + JS)
 | Sign Spotter | `signspotter.html` | — | local only |
 | Cribbage | `cribbage.html` | — | local only |
 | Cali's Movie List | `movielist.html` | `ml_movies` `ml_watched` `ml_draft_log` | — (anyone can add, remove or check off; drafts rate-limited per IP) |
-| Gifts (unlisted) | `gifts.html` | `gf_people` `gf_ideas` `gf_scan_log` | `X-Auth-Token` (Toolshare accounts); every row scoped to its owner |
+| Gifts (unlisted) | `gifts.html` | `gf_people` `gf_ideas` `gf_scan_log` | — (one shared list, open to anyone with the link, kept under the owner's Toolshare account by `gfOwner()`) |
 | Legal | `privacy.html`, `terms.html` | — | static |
 | Finance | `finance.html` | `fn_vault` | `X-Admin-Secret` (the Stats secret; the vault is also encrypted in the browser with a key derived from it) |
 | Stats | `stats.html`, plus the beacon on every page | `an_hits` `an_daily` `an_salt` `an_api` `an_ai` `an_fixed_costs` `an_cache` | `X-Admin-Secret` to read; beacon open |
@@ -98,8 +98,8 @@ before deploying for exactly this reason. Never push PHP you have not linted.
     token is meaningless to Flight Tracker and vice versa. Daily Tasks'
     cross-device sync (`dt_get_tasks`, `dt_save_tasks`) reuses Toolshare
     accounts via `requireAuth()` — its leaderboard endpoints stay open.
-    Gifts (`gf_*`) and DIY Projects (`diy_*`) use Toolshare accounts the same
-    way, for every endpoint. `diy_photo` serves photo files only to their owner
+    DIY Projects (`diy_*`) uses Toolshare accounts the same way, for every
+    endpoint. `diy_photo` serves photo files only to their owner
   - `X-BG-Token` → `bgRequireRead()`, a single shared read token for glucose
   - `X-XC-PIN` → `xcRequirePin()`, one shared team PIN for every WildcatsXC
     endpoint, checked against `XC_PIN` in `.env` and rate-limited per IP in
@@ -107,9 +107,12 @@ before deploying for exactly this reason. Never push PHP you have not linted.
   - `X-Admin-Secret` → operator-only endpoints (ingest, notify, roster, purge),
     plus Stats and Finance, the owner's two unlisted apps
   - none → the leaderboard and timer apps write unauthenticated, and so do
-    the page-view beacon `an_hit` and Cali's Movie List (by the owner's
-    choice). `ml_draft` is a paid Claude call, so `mlDraftLimit()` caps it at
-    30 per IP per hour in `ml_draft_log` instead
+    the page-view beacon `an_hit`, Cali's Movie List and Gifts (both by the
+    owner's choice). `ml_draft` is a paid Claude call, so `mlDraftLimit()`
+    caps it at 30 per IP per hour in `ml_draft_log` instead. Gifts' `gf_scan`
+    is too, so `gfScanLimit()` caps it at 30 an hour for the whole list.
+    Gifts was signed in with Toolshare accounts until the owner opened it;
+    its rows still carry a `user_id`, which `gfOwner()` fills with the owner's
 - **Endpoint comments already exist** above the non-obvious branches and explain
   intent, not mechanics. Read them before changing a branch, and keep the habit.
 
@@ -262,7 +265,7 @@ must be made on the host** — pushing will not update it.
 `MAIL_FROM` `MAIL_FROM_NAME` `MAIL_REPLY_TO` `APP_URL` ·
 `TWILIO_ACCOUNT_SID` `TWILIO_AUTH_TOKEN` `TWILIO_FROM_NUMBER` ·
 `ADMIN_SECRET` `BG_READ_TOKEN` `BG_TIMEZONE` · `TEST_PHONE` · `XC_PIN` · `GEOIP_DB` ·
-`TMDB_API_KEY`
+`TMDB_API_KEY` · `GIFTS_USER_ID`
 
 `TEST_PHONE` is the one number `?action=resetTestPhone` may delete from
 `subscribers`, in stored form (`+1` and ten digits). The repo is public, so it
@@ -270,6 +273,12 @@ lives only in the server `.env`. Unset, the endpoint does nothing.
 
 `XC_PIN` is the WildcatsXC team PIN, for the same reason only in the server
 `.env`. Unset, every WildcatsXC endpoint answers 503 — locked, not open.
+
+`GIFTS_USER_ID` is optional: the Toolshare account id whose Gifts list is the
+one shared list. Unset, `gfOwner()` uses the only account that has Gifts data,
+which covers the owner's existing list; it must be set if a second account
+ever had a Gifts list, or on a fresh database, or every Gifts call answers
+503.
 
 `TMDB_API_KEY` is optional: a free TMDB API key (v3 key or v4 read access
 token, either works) used to look up posters for movies added to Cali's Movie
@@ -292,8 +301,8 @@ against a local env file.
   WildcatsXC's `xc_scan` (results PDF → runners and times), Cali's Movie
   List's `ml_draft` (title → year, emoji, tissue rating, vibe, tags), and
   Gifts' `gf_scan` (photo or screenshot of a list → items to check, built on
-  `cp_scan`'s pattern and its `cpPrepareImage`; capped at 20 per account per
-  hour by `gfScanLimit()` in `gf_scan_log`). Uses `claude-opus-5`,
+  `cp_scan`'s pattern and its `cpPrepareImage`; capped at 30 an hour for the
+  whole list by `gfScanLimit()` in `gf_scan_log`). Uses `claude-opus-5`,
   `claude-opus-5-5` (WildcatsXC streamed, Movie List and Gifts, all with
   server-side refusal fallbacks) and `claude-haiku-4-5-20251001`.
 - **TMDB** (`api.themoviedb.org`) — Cali's Movie List looks up the poster of
